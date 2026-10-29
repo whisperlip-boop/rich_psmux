@@ -1,4 +1,4 @@
-// 히스토리 항목 메뉴(F2-1)의 앱 저장소: 표시 이름 override와 보관 목록. <앱 데이터>/history-meta.json. ~/.claude 는 바꾸지 않는다.
+// 히스토리 항목 메뉴의 앱 저장소: 표시 이름 override와 보관 목록. <앱 데이터>/history-meta.json. ~/.claude 는 바꾸지 않는다.
 // 키는 인덱서 keyOf와 같은 `<프로젝트 폴더>/<파일>`(예: D--github-x/1234….jsonl).
 
 import { readFileSync } from 'node:fs';

@@ -1,4 +1,4 @@
-// Agents 설정 대화상자(F8-1): 팀 기능 상태, 에이전트 정의 목록(전역·프로젝트), 리더 선택(리드 명령 저장), 팀원 대조, 안내.
+// Agents 설정 대화상자: 팀 기능 상태, 에이전트 정의 목록(전역·프로젝트), 리더 선택(리드 명령 저장), 팀원 대조, 안내.
 // 읽기 전용 조사 결과만 보여 주고, 저장하는 것은 앱 설정의 리드 명령뿐이다(~/.claude 는 쓰지 않음).
 
 import { useEffect, useState } from 'preact/hooks';
@@ -36,7 +36,7 @@ export function findAgent(list: AgentEntryDto[], name: string): AgentEntryDto | 
 }
 
 /**
- * 드롭다운 처음 선택값(TC-203): 리드 명령의 이름을 대소문자 무시로 찾은 정의 이름에 맞춘다.
+ * 드롭다운 처음 선택값: 리드 명령의 이름을 대소문자 무시로 찾은 정의 이름에 맞춘다.
  * 정의가 없으면 그 이름 그대로("(정의 없음)" 항목), 직접 지정 명령이면 null.
  */
 export function initialSelection(list: AgentEntryDto[], leadName: string | null): string | null {
@@ -45,7 +45,7 @@ export function initialSelection(list: AgentEntryDto[], leadName: string | null)
 }
 
 /**
- * 판정(F8-1): 리더 있음 + 참조 팀원 전부 있음 + 팀 기능 켜짐 → 빈 배열("사용 가능"), 아니면 항목별 안내.
+ * 판정: 리더 있음 + 참조 팀원 전부 있음 + 팀 기능 켜짐 → 빈 배열("사용 가능"), 아니면 항목별 안내.
  *
  * Args:
  *   data: 조사 결과.
@@ -59,7 +59,7 @@ export function agentIssues(data: AgentsDto, selected: string | null): string[] 
   if (selected === null) issues.push(t('agents.customLead'));
   else {
     const leader = findAgent(list, selected);
-    // 상한(200)에 걸려 읽지 못한 정의가 있으면 "없음"이라고 단정하지 않는다(TC-200)
+    // 상한(200)에 걸려 읽지 못한 정의가 있으면 "없음"이라고 단정하지 않는다
     if (!leader) issues.push(t(data.truncated ? 'agents.leaderTrunc' : 'agents.leaderMissing', { name: selected }));
     else if (leader.missing.length) {
       // 이름 목록은 파일 이름이라 언어와 무관하게 ', '로 잇는다

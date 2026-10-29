@@ -1,4 +1,4 @@
-// 좌측 사이드바: [+ 새 세션](최근 폴더), 검색, 탭 없는 세션 그룹(있을 때만 맨 위), 폴더 그룹(접기 상태 저장) 안 최신순 대화, 상태 점, 활성 대화 강조, 계정 영역(M4).
+// 좌측 사이드바: [+ 새 세션](최근 폴더), 검색, 탭 없는 세션 그룹(있을 때만 맨 위), 폴더 그룹(접기 상태 저장) 안 최신순 대화, 상태 점, 활성 대화 강조, 계정 영역.
 
 import type { ComponentChildren, RefObject } from 'preact';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
@@ -27,25 +27,25 @@ interface SidebarProps {
   onRetry: () => void;
   recent: string[];
   busy: boolean;
-  /** 하단 계정 영역(F7). */
+  /** 하단 계정 영역. */
   footer: ComponentChildren;
-  /** 항목 메뉴(F2-1). */
+  /** 항목 메뉴. */
   onRename: (item: HistoryItemDto) => void;
   onArchive: (item: HistoryItemDto, archived: boolean) => void;
   onTrash: (item: HistoryItemDto) => void;
-  /** 세션 끊기 확인 열기(F2-1): 실행 중이고 탭이 없는 대화. */
+  /** 세션 끊기 확인 열기: 실행 중이고 탭이 없는 대화. */
   onStop: (item: HistoryItemDto) => void;
   /** 끊는 중인 대상 키(psmux 세션 이름 또는 `pid:<n>`). */
   stopping: ReadonlySet<string>;
   /** 접힘(F: 사이드바 접기). 접혀 있으면 화면에서 빼되 상태(검색어 등)는 유지한다. */
   hidden: boolean;
   onCollapse: () => void;
-  /** 새 세션 메뉴에 보일 현재 리더(F8-1, "claude --agent X"면 X, 아니면 리드 명령). 모르면 null. */
+  /** 새 세션 메뉴에 보일 현재 리더("claude --agent X"면 X, 아니면 리드 명령). 모르면 null. */
   leadLabel: string | null;
-  /** 히스토리 필터(F2-2, ui-state.json에 저장). */
+  /** 히스토리 필터(ui-state.json에 저장). */
   filter: HistoryFilter;
   onFilter: (f: HistoryFilter) => void;
-  /** 탭 없는 앱 세션(F2-1 보완): 있을 때만 맨 위 그룹. */
+  /** 탭 없는 앱 세션: 있을 때만 맨 위 그룹. */
   detached: DetachedSessionDto[];
   /** 탭 없는 세션 다시 연결(새 탭). */
   onAttachDetached: (d: DetachedSessionDto) => void;
@@ -121,7 +121,7 @@ function menuStyle(pos: { left: number; top: number } | null): Record<string, st
 
 /**
  * 행 메뉴 항목 클릭 처리기 만들기: 메뉴 항목은 닫히면서 사라지므로 행에 먼저 포커스를 둔다.
- * 대화상자가 닫힌 뒤 이 행으로 돌아온다(계정 메뉴 m-6과 같은 방식).
+ * 대화상자가 닫힌 뒤 이 행으로 돌아온다(계정 메뉴와 같은 방식).
  */
 function menuPick(onMenu: (open: boolean) => void, rowRef: RefObject<HTMLButtonElement | null>): (fn: () => void) => () => void {
   return (fn) => () => {
@@ -136,7 +136,7 @@ function MoreIcon() {
   return <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="8" cy="3" r="1.4" /><circle cx="8" cy="8" r="1.4" /><circle cx="8" cy="13" r="1.4" /></svg>;
 }
 
-/** 대화 한 줄 + hover·포커스 때 보이는 ⋮ 메뉴(F2-1). 행 버튼 안에 버튼을 넣을 수 없어 형제로 둔다. */
+/** 대화 한 줄 + hover·포커스 때 보이는 ⋮ 메뉴. 행 버튼 안에 버튼을 넣을 수 없어 형제로 둔다. */
 function HistRow(p: HistRowProps) {
   const rowRef = useRef<HTMLButtonElement>(null);
   const moreRef = useRef<HTMLButtonElement>(null);
@@ -195,7 +195,7 @@ interface DetachedRowProps {
   onStop: () => void;
 }
 
-/** 탭 없는 앱 세션 한 줄(F2-1 보완): 클릭 = 다시 연결, ⋮ 메뉴 = 세션 끊기…만. HistRow와 같은 구조. */
+/** 탭 없는 앱 세션 한 줄: 클릭 = 다시 연결, ⋮ 메뉴 = 세션 끊기…만. HistRow와 같은 구조. */
 function DetachedRow(p: DetachedRowProps) {
   const rowRef = useRef<HTMLButtonElement>(null);
   const moreRef = useRef<HTMLButtonElement>(null);
@@ -240,7 +240,7 @@ export function Sidebar(props: SidebarProps) {
   const [query, setQuery] = useState('');
   const [now, setNow] = useState(() => new Date());
   const [newOpen, setNewOpen] = useState(false);
-  /** 메뉴가 열린 항목 키(F2-1). */
+  /** 메뉴가 열린 항목 키. */
   const [menuKey, setMenuKey] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const newRef = useRef<HTMLDivElement>(null);
@@ -351,7 +351,7 @@ export function Sidebar(props: SidebarProps) {
       <span class="hist-group__count">{count}</span>
     </button>
   );
-  // 탭 없는 앱 세션(F2-1 보완): 있을 때만, 히스토리 상태(로딩·오류·비어 있음)와 무관하게 보인다. 검색 중에는 대화 결과만 보이게 숨긴다
+  // 탭 없는 앱 세션: 있을 때만, 히스토리 상태(로딩·오류·비어 있음)와 무관하게 보인다. 검색 중에는 대화 결과만 보이게 숨긴다
   let detachedGroup = null;
   if (props.detached.length > 0 && !searching) {
     const open = !collapsed.has(DETACHED_GROUP_KEY);
@@ -408,7 +408,7 @@ export function Sidebar(props: SidebarProps) {
           onRename={() => props.onRename(it)} onArchive={() => props.onArchive(it, !it.archived)} onTrash={() => props.onTrash(it)} onStop={() => props.onStop(it)} />
       );
     };
-    // 검색 중에는 결과가 보이게 접힌 그룹도 펼쳐 보인다(저장된 접기 상태는 그대로). 그룹 없음(F2-2)은 머리 없이 평면 목록
+    // 검색 중에는 결과가 보이게 접힌 그룹도 펼쳐 보인다(저장된 접기 상태는 그대로). 그룹 없음은 머리 없이 평면 목록
     body = (
       <div class="hist" role="tree" aria-label={t('common.history')} ref={listRef} onKeyDown={onListKey}>
         {detachedGroup}

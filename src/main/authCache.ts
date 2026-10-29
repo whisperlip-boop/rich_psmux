@@ -1,4 +1,4 @@
-// 로그인 상태 확인(where claude + claude auth status) 캐시(F7-2). 실행 순서만 다루는 순수 로직이라 electron에 의존하지 않는다(단위 테스트 대상).
+// 로그인 상태 확인(where claude + claude auth status) 캐시. 실행 순서만 다루는 순수 로직이라 electron에 의존하지 않는다(단위 테스트 대상).
 
 /** 확인 한 번의 결과. */
 export interface AuthCheckResult {
@@ -17,8 +17,8 @@ export interface AuthCacheValue extends AuthCheckResult {
 /**
  * 확인 실행 관리:
  * - 보통(force 아님)은 진행 중인 확인을 공유한다.
- * - force(로그아웃·로그인 직후)는 진행 중인 확인이 끝난 뒤 새로 한 번 실행한다(그 확인은 이전 상태를 읽었을 수 있음, 리뷰 m-1).
- *   force가 겹치면 대기 중인 force 실행 1개를 공유한다(리뷰 Minor: status 중복 실행 방지).
+ * - force(로그아웃·로그인 직후)는 진행 중인 확인이 끝난 뒤 새로 한 번 실행한다(그 확인은 이전 상태를 읽었을 수 있음).
+ *   force가 겹치면 대기 중인 force 실행 1개를 공유한다(status 중복 실행 방지).
  * - 확인이 예외로 끝나면 캐시를 "모름"(cli·status null)으로 둔다.
  */
 export class AuthCache {

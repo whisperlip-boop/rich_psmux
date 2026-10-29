@@ -1,5 +1,5 @@
 // 실행 중인 Claude Code 대화 판정: ~/.claude/sessions/<pid>.json(tmux 필드) + 프로세스 생존 확인. 순수 로직 + pid 확인.
-// 같은 대화를 두 프로세스가 이어 쓰지 않게(F2) 대화 클릭 전에 이 결과로 전환·재연결·거부를 정한다.
+// 같은 대화를 두 프로세스가 이어 쓰지 않게 대화 클릭 전에 이 결과로 전환·재연결·거부를 정한다.
 
 import { tr, type MsgKey } from '../../shared/i18n';
 import type { RunningSessionFile } from '../claudeHome';
@@ -187,7 +187,7 @@ export function stopFailMessage(code: StopFailCode): string {
 }
 
 /**
- * 히스토리 "세션 끊기…"(F2-1) 대상을 정한다. 렌더러 표시 조건(실행 중 + 탭 없음)을 main이 실행 직전에 다시 확인한다.
+ * 히스토리 "세션 끊기…" 대상을 정한다. 렌더러 표시 조건(실행 중 + 탭 없음)을 main이 실행 직전에 다시 확인한다.
  *
  * Args:
  *   sessionId: 대화 ID(이어간 원래 ID여도 됨).

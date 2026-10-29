@@ -1,5 +1,5 @@
-// 사이드바 하단 계정 영역(F7): 이니셜 원 + 이메일/조직(읽기 전용) + ⋯ 메뉴(설정·언어·Agents·열린 psmux 세션·앱 정보·로그아웃).
-// 로그아웃 상태(F7-2)면 이메일 자리에 [로그인] 버튼.
+// 사이드바 하단 계정 영역: 이니셜 원 + 이메일/조직(읽기 전용) + ⋯ 메뉴(설정·언어·Agents·열린 psmux 세션·앱 정보·로그아웃).
+// 로그아웃 상태면 이메일 자리에 [로그인] 버튼.
 
 import { useEffect, useRef, useState } from 'preact/hooks';
 
@@ -11,13 +11,13 @@ interface AccountAreaProps {
   onSettings: () => void;
   /** 언어 선택 대화상자. */
   onLanguage: () => void;
-  /** Agents 설정 대화상자(F8-1). */
+  /** Agents 설정 대화상자. */
   onAgents: () => void;
   onSessions: () => void;
   onAbout: () => void;
-  /** 로그아웃 확인 대화상자 열기(F7-2). */
+  /** 로그아웃 확인 대화상자 열기. */
   onLogout: () => void;
-  /** 로그인 탭 열기(F7-2). */
+  /** 로그인 탭 열기. */
   onLogin: () => void;
   /** 로그인 탭을 여는 중. */
   loginBusy: boolean;
@@ -69,7 +69,7 @@ export function AccountArea({ account, onSettings, onLanguage, onAgents, onSessi
   // 계정 정보를 받기 전에는 로그인 버튼을 띄우지 않는다(시작 직후 깜빡임 방지)
   const loggedOut = account !== null && !account.loggedIn;
   const cli = account?.cliAvailable ?? false;
-  // 메뉴 항목은 닫히면서 사라지므로 ⋯ 버튼에 먼저 포커스를 둔다: 대화상자가 닫힌 뒤 이 버튼으로 돌아온다(리뷰 m-6)
+  // 메뉴 항목은 닫히면서 사라지므로 ⋯ 버튼에 먼저 포커스를 둔다: 대화상자가 닫힌 뒤 이 버튼으로 돌아온다
   const pick = (fn: () => void) => () => {
     setOpen(false);
     btnRef.current?.focus();

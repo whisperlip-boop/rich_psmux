@@ -1,4 +1,4 @@
-// 카드 배치(F4): tmux 표준 레이아웃 5종 선택기. 순수 로직(단위 테스트 대상).
+// 카드 배치: tmux 표준 레이아웃 5종 선택기. 순수 로직(단위 테스트 대상).
 
 /** 레이아웃 번호(선택기 1~5). */
 export type LayoutId = 1 | 2 | 3 | 4 | 5;
@@ -27,7 +27,7 @@ export const MAIN_RATIO_STEP = 2;
 /** 경계선 드래그가 끝났음을 카드에 알리는 window 이벤트(detail = 탭 ID). 카드는 이때 칸 크기를 다시 맞춘다. */
 export const SPLIT_END_EVENT = 'ctd:split-end';
 
-/** 탭별 화면 상태(D6: 탭 단위로 기억). */
+/** 탭별 화면 상태(탭 단위로 기억). */
 export interface TabUi {
   layout: LayoutId;
   /** 활성 카드(마지막으로 클릭·입력한 카드). */

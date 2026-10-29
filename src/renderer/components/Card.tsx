@@ -1,5 +1,5 @@
 // 카드 = 칸 1개: [헤더 40: @라벨·상태·⋮][본문 xterm][툴바 52: 첨부·입력창·Send].
-// 입력창은 위쪽으로 커져 터미널 영역 크기는 바뀌지 않는다. 레이아웃 버튼·최대화는 v0.4에서 제거(탭 바 선택기로 이동).
+// 입력창은 위쪽으로 커져 터미널 영역 크기는 바뀌지 않는다. 레이아웃 선택은 탭 바 선택기가 맡는다(카드에는 레이아웃 버튼·최대화 없음).
 
 import { useEffect, useRef, useState } from 'preact/hooks';
 
@@ -22,7 +22,7 @@ interface CardProps {
   onActivate: () => void;
   onInfo: (pane: string) => void;
   onReconnect: () => void;
-  /** 리드 카드 배너 문구(없으면 null): 이어가기 안내(-r 로 시작했고 팀원 카드가 아직 없을 때), 로그인 실패 안내(F7-2). */
+  /** 리드 카드 배너 문구(없으면 null): 이어가기 안내(-r 로 시작했고 팀원 카드가 아직 없을 때), 로그인 실패 안내. */
   banner: string | null;
   onDismissBanner: () => void;
   /** 파일 드래그 중 이 카드가 놓을 대상(드롭 표시). */
@@ -56,7 +56,7 @@ export function Card(props: CardProps) {
   const propsRef = useRef(props);
   propsRef.current = props;
 
-  /** 입력창 커서(선택) 위치에 글을 넣고 그 뒤로 커서를 옮긴다(F6, 전송은 사용자가). */
+  /** 입력창 커서(선택) 위치에 글을 넣고 그 뒤로 커서를 옮긴다(전송은 사용자가). */
   const insertSnippet = (snippet: string): void => {
     if (!snippet) return;
     const ta = inputRef.current;
@@ -111,7 +111,7 @@ export function Card(props: CardProps) {
   const onPaste = (e: ClipboardEvent): void => {
     const dt = e.clipboardData;
     if (!dt || dt.getData('text/plain')) return;
-    // Chromium은 비트맵이 있을 때만 image 파일 항목을 만든다. 항목이 없어도(JFIF만 등) main에 묻고, 이미지가 없으면 조용히 무시(O-4).
+    // Chromium은 비트맵이 있을 때만 image 파일 항목을 만든다. 항목이 없어도(JFIF만 등) main에 묻고, 이미지가 없으면 조용히 무시.
     // 글이 없으면 textarea 기본 붙여넣기는 아무것도 넣지 않으므로 기본 동작은 그대로 둬도 된다
     const hasImage = [...dt.items].some((i) => i.kind === 'file' && i.type.startsWith('image/'));
     if (hasImage) e.preventDefault();
@@ -132,14 +132,14 @@ export function Card(props: CardProps) {
     if (!el) return;
     // 재동기화는 터미널을 새로 만들 때만(기존 터미널은 화면을 이미 갖고 있음). 터미널은 칸의 현재 크기로 만들고,
     // 보이는 카드면 먼저 카드 크기에 맞춘(fit → resize-window) 뒤 캡처를 요청한다. 같은 control mode 큐라
-    // resize-window가 capture-pane보다 먼저 실행돼 캡처 줄 수 = 터미널 행 수(QA M2-1). 숨겨진 탭은 칸 크기 그대로 캡처
+    // resize-window가 capture-pane보다 먼저 실행돼 캡처 줄 수 = 터미널 행 수. 숨겨진 탭은 칸 크기 그대로 캡처
     const created = !getTerminal(tabId, paneId);
     const pt = attachTerminal(tabId, paneId, el, pane.cols, pane.rows);
     let timer: number | undefined;
     const sync = (): void => {
       // 분할 경계선 드래그 중에는 CSS만 바뀐다. 칸 크기는 드래그가 끝난 뒤(SPLIT_END_EVENT) 한 번에 맞춘다
       if (el.closest('[data-splitting]')) return;
-      if (el.clientWidth < 50 || el.clientHeight < 50) return; // 숨겨진 탭의 카드는 마지막 크기 유지(D7)
+      if (el.clientWidth < 50 || el.clientHeight < 50) return; // 숨겨진 탭의 카드는 마지막 크기 유지
       const d = pt.fit.proposeDimensions();
       if (!d || !Number.isFinite(d.cols) || !Number.isFinite(d.rows)) return;
       const cols = Math.max(20, d.cols);
@@ -222,7 +222,7 @@ export function Card(props: CardProps) {
   const tagStyle = label.isLead ? { color: label.color } : temp ? undefined : { '--tag-bg': label.color, '--tag-fg': label.textColor };
   const status = pane.waiting ? 'approval' : pane.working ? 'working' : null;
   const menuItem = (text: string, onClick: () => void, disabled = false) => (
-    // 메뉴 항목은 닫히면서 사라지므로 ⋮ 버튼에 먼저 포커스를 둔다: 칸 정보 창이 닫힌 뒤 이 버튼으로 돌아온다(QA M4-4, 계정 메뉴 m-6과 같은 방식)
+    // 메뉴 항목은 닫히면서 사라지므로 ⋮ 버튼에 먼저 포커스를 둔다: 칸 정보 창이 닫힌 뒤 이 버튼으로 돌아온다(계정 메뉴와 같은 방식)
     <button role="menuitem" disabled={disabled} onClick={() => { setMenuOpen(false); menuBtnRef.current?.focus(); onClick(); }}>{text}</button>
   );
 
@@ -255,7 +255,7 @@ export function Card(props: CardProps) {
             <button class="icon-btn icon-btn--32" title={t('card.attachFile')} aria-label={t('card.attachFile')} disabled={noInput} onClick={() => void attach('any')}><Icon d="M20 11.5l-7.8 7.8a5 5 0 01-7-7l8.5-8.5a3.3 3.3 0 014.7 4.7l-8.5 8.5a1.7 1.7 0 01-2.4-2.4l7.8-7.8" /></button>
             <textarea ref={inputRef} rows={1} placeholder="Use Shift+Enter to add new line" value={text} disabled={noInput}
               onFocus={props.onActivate} onInput={(e) => setText((e.target as HTMLTextAreaElement).value)} onKeyDown={onKeyDown} onPaste={onPaste} />
-            {/* F4-1 이름표: 입력 박스 윗선 위로 솟은 탭(오른쪽 끝에서 20 안쪽, psmux 칸 라벨처럼). 입력 박스가 위로 커지면 함께 올라간다.
+            {/* 이름표: 입력 박스 윗선 위로 솟은 탭(오른쪽 끝에서 20 안쪽, psmux 칸 라벨처럼). 입력 박스가 위로 커지면 함께 올라간다.
                 클릭은 아래 터미널로 통과(pointer-events: none), 터미널 hover 중엔 반투명 */}
             <div class={`card__tag${label.isLead ? ' card__tag--lead' : temp ? ' card__tag--temp' : ' card__tag--mate'}`} style={tagStyle} aria-hidden="true">
               {status && <StatusDot kind={status} />}

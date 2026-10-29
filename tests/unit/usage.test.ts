@@ -153,7 +153,7 @@ describe('statusline 스크립트(번들 실행, 가짜 stdin)', () => {
     expect(parseUsageRecord(readFileSync(f, 'utf8'))?.fiveHour?.pct).toBe(50);
   });
 
-  it('입력이 1MB를 넘으면 기록하지 않고 바로 0으로 끝난다(리뷰 m-5)', () => {
+  it('입력이 1MB를 넘으면 기록하지 않고 바로 0으로 끝난다', () => {
     const d = dir();
     const f = join(d, 'usage.json');
     const big = statusInput({ five_hour: { used_percentage: 5 } }).replace('"cwd"', `"pad":"${'x'.repeat(1_100_000)}","cwd"`);
@@ -323,7 +323,7 @@ describe('UsageTracker', () => {
     t.stop();
   });
 
-  it('받은 시각이 미래면 지금으로 잘라 반영하고, 그 뒤 정상 기록도 받는다(QA O-14)', async () => {
+  it('받은 시각이 미래면 지금으로 잘라 반영하고, 그 뒤 정상 기록도 받는다', async () => {
     const f = join(dir(), 'usage.json');
     const t = new UsageTracker(f, async () => ({ ok: false, error: 'x', reason: 'x' }));
     await t.start();
@@ -341,7 +341,7 @@ describe('UsageTracker', () => {
     t.stop();
   });
 
-  it('↻ 실패 안내는 그 뒤 statusline 새 값이 오면 지운다(QA O-15)', async () => {
+  it('↻ 실패 안내는 그 뒤 statusline 새 값이 오면 지운다', async () => {
     const f = join(dir(), 'usage.json');
     writeUsageAtomicSync(f, rec(1000, 30));
     const t = new UsageTracker(f, async () => ({ ok: false, error: '인증 실패(401) — …', reason: 'http 401' }));
@@ -569,7 +569,7 @@ describe('표시 형식', () => {
     expect(formatAgo(now - 50 * 3600_000, now)).toBe('2일 전');
   });
 
-  it('경고 색 판정은 표시값(반올림) 기준(QA O-13)', () => {
+  it('경고 색 판정은 표시값(반올림) 기준', () => {
     expect(usageWarn(null)).toBe(false);
     expect(usageWarn({ pct: 69.4, resetsAt: null })).toBe(false);
     expect(usageWarn({ pct: 69.5, resetsAt: null })).toBe(true);

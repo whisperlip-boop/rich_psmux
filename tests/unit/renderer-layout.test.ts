@@ -5,7 +5,7 @@ import {
   normalizeLayout, ratioFromKey, ratioFromPointer, splitLead, tabTitles, tiledGrid, withMainRatio, type TabUi,
 } from '../../src/renderer/layout';
 
-describe('layout selector 1~5 (F4)', () => {
+describe('layout selector 1~5', () => {
   it('defines tmux layouts in order with main-horizontal default', () => {
     expect(LAYOUTS.map((l) => l.name)).toEqual(['even-horizontal', 'even-vertical', 'main-horizontal', 'main-vertical', 'tiled']);
     expect(DEFAULT_LAYOUT).toBe(3);

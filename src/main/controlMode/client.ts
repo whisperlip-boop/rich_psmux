@@ -22,7 +22,7 @@ export interface CommandResult {
  */
 export type ResolveOutcome = 'matched' | 'skipped' | 'realigned' | 'nonce-mismatch' | 'drift' | 'empty';
 
-/** 성공 시 출력 줄이 없는 명령(QA NEW-3). 이 자리에 줄이 있는 성공 응답이 오면 다음 명령의 응답으로 본다. */
+/** 성공 시 출력 줄이 없는 명령. 이 자리에 줄이 있는 성공 응답이 오면 다음 명령의 응답으로 본다. */
 const SILENT_CMD_RE = /^send-keys\b/;
 
 interface QueueItem {
@@ -76,7 +76,7 @@ export class CommandQueue {
       return tokenIdx === 0 ? 'matched' : 'realigned';
     }
     if (head.expect !== undefined) {
-      // 번호는 표지 자리와 같은데 내용만 다름(QA NEW-4 "got #22, expected #22"): 큐는 어긋나지 않았으므로 표지만 실패로 끝낸다
+      // 번호는 표지 자리와 같은데 내용만 다름(예: "got #22, expected #22"): 큐는 어긋나지 않았으므로 표지만 실패로 끝낸다
       if (this.offset !== null && block.num - this.offset === head.num) {
         this.items.shift();
         head.settle?.({ ok: false, lines: ['nonce mismatch', ...block.lines], seq: block.seq });
@@ -89,7 +89,7 @@ export class CommandQueue {
     let idx = this.items.findIndex((it) => it.num === want);
     if (idx < 0) return 'drift';
     // send-keys는 성공하면 줄을 내지 않는다. 그 자리에 줄 있는 성공 응답이 오면 send-keys가 응답(번호)을 안 낸 것이므로
-    // send-keys는 응답 없음으로 끝내고 다음 명령에 매칭한 뒤 번호 차이를 다시 맞춘다(QA NEW-3)
+    // send-keys는 응답 없음으로 끝내고 다음 명령에 매칭한 뒤 번호 차이를 다시 맞춘다
     if (block.ok && nonEmpty.length > 0 && SILENT_CMD_RE.test(this.items[idx].cmd) && idx + 1 < this.items.length) {
       idx += 1;
       this.offset = block.num - this.items[idx].num;

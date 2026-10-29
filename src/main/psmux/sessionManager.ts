@@ -25,7 +25,7 @@ import { makeSessionName } from './sessionName';
 /** 탭 연결 상태. */
 export type TabStatus = 'starting' | 'connected' | 'reconnecting' | 'ended' | 'error';
 
-/** 탭 용도: 일반 대화 / 로그인 전용(F7-2). */
+/** 탭 용도: 일반 대화 / 로그인 전용. */
 export type SessionPurpose = 'conversation' | 'login';
 
 /** 렌더러로 보내는 칸 상태. */
@@ -56,12 +56,12 @@ export interface TabState {
   leadSessionId: string | null;
   /** -r 로 이어간 원래 대화 ID(새 대화면 null). */
   resumeSessionId: string | null;
-  /** 리드 칸이 종료됨(세션은 살아 있음). 연결 끊김과 구분해 표시(M1 이월 M7). */
+  /** 리드 칸이 종료됨(세션은 살아 있음). 연결 끊김과 구분해 표시. */
   leadGone: boolean;
   /** 종료 요청 처리 중. */
   terminating: boolean;
   createdAt: number;
-  /** 탭 용도(F7-2 로그인 전용 탭이면 'login'). */
+  /** 탭 용도(로그인 전용 탭이면 'login'). */
   purpose: SessionPurpose;
   /** 로그인 탭: 로그인 프로세스가 끝났는데 로그인이 확인되지 않음. */
   loginFailed: boolean;
@@ -75,13 +75,13 @@ export interface SessionOptions {
   dataDir: string;
   /** hook 실행 명령 앞부분(예: "C:/node.exe" "C:/app/hookRecorder.js"). null이면 hook 미사용. */
   hookCommand: string | null;
-  /** 사용량 statusLine 전체 명령(F7-1, 예: "C:/node.exe" "C:/app/statusLine.js" "C:/data/usage.json"). 없으면 statusLine 미지정. */
+  /** 사용량 statusLine 전체 명령(예: "C:/node.exe" "C:/app/statusLine.js" "C:/data/usage.json"). 없으면 statusLine 미지정. */
   statusLineCommand?: string | null;
   /** 기존 세션에 붙을 때 이름(없으면 새로 만듦). 이때 folder·leadCommand는 메타 값을 넘긴다. */
   attachName?: string;
   /** 새 세션에서 이어갈 대화 ID(리드 명령 뒤에 -r <id>). */
   resumeSessionId?: string;
-  /** 새 세션의 셸 실행 파일(설정 F8 pwsh 경로). 없으면 psmux 기본 셸. 세션 default-shell로 지정한다(applyShell). 리드 명령은 pwsh 문법으로 입력된다. */
+  /** 새 세션의 셸 실행 파일(설정의 pwsh 경로). 없으면 psmux 기본 셸. 세션 default-shell로 지정한다(applyShell). 리드 명령은 pwsh 문법으로 입력된다. */
   shell?: string | null;
   /** 탭 용도. 'login'이면 리드 명령이 claude auth login(hook·statusLine 없음). 기본 'conversation'. */
   purpose?: SessionPurpose;
@@ -89,12 +89,12 @@ export interface SessionOptions {
 
 /** 종료 요청 후 팀원 칸이 사라질 때까지 기다리는 최대 시간. */
 const TERMINATE_WAIT_MS = 30000;
-/** 카드 입력의 텍스트와 마지막 Enter(·End) 사이 간격: 작업 중인 Claude Code가 둘을 한 덩어리(붙여넣기)로 읽어 제출하지 않는 것 방지(2026-10-26 실기). */
+/** 카드 입력의 텍스트와 마지막 Enter(·End) 사이 간격: 작업 중인 Claude Code가 둘을 한 덩어리(붙여넣기)로 읽어 제출하지 않는 것 방지(실측). */
 const SUBMIT_DELAY_MS = 150;
 
 const WORKING_WINDOW_MS = 2500;
 const QUIET_AFTER_RESIZE_MS = 1500;
-/** 재연결 뒤 재동기화 전 무출력 대기(이 시간 동안 출력이 없으면 캡처) / 최대 대기 / 두 번째 재동기화까지 시간(QA NEW-2). */
+/** 재연결 뒤 재동기화 전 무출력 대기(이 시간 동안 출력이 없으면 캡처) / 최대 대기 / 두 번째 재동기화까지 시간. */
 const RESYNC_QUIET_MS = 300;
 const RESYNC_QUIET_MAX_MS = 2000;
 const RESYNC_AGAIN_MS = 1500;
@@ -104,7 +104,7 @@ const TEAM_POLL_MS = 1500;
 const TEAM_POLL_SETTLED_MS = 10000;
 /** 창 분리 실패 시 재시도 상한. */
 const MAX_PANE_OP_ATTEMPTS = 3;
-/** dead 칸 정리 실패 시 재시도 간격(QA BUG-2: 매 2초 무한 반복 방지). */
+/** dead 칸 정리 실패 시 재시도 간격(매 2초 무한 반복 방지). */
 const DEAD_RETRY_MS = 30000;
 const HOOK_POLL_MS = 700;
 
@@ -240,7 +240,7 @@ export class TabSession extends EventEmitter {
     };
   }
 
-  /** 로그인 탭 결과 표시(F7-2). 바뀌었을 때만 상태를 낸다. */
+  /** 로그인 탭 결과 표시. 바뀌었을 때만 상태를 낸다. */
   setLoginFailed(v: boolean): void {
     if (this.loginFailed === v) return;
     this.loginFailed = v;
@@ -266,7 +266,7 @@ export class TabSession extends EventEmitter {
   async start(): Promise<void> {
     const fresh = !this.opts.attachName;
     if (fresh) {
-      // 끊긴 네트워크 폴더가 main을 멈추지 않게 비동기 + 시간 제한(QA M4-1)
+      // 끊긴 네트워크 폴더가 main을 멈추지 않게 비동기 + 시간 제한
       const dir = await probeDir(this.opts.folder);
       const why = unreachableMsg(dir);
       if (why) throw new Error(tr('sess.folderUnreachable', { why, folder: this.opts.folder }));
@@ -299,8 +299,8 @@ export class TabSession extends EventEmitter {
   }
 
   /**
-   * 설정한 셸(F8 pwsh 경로)을 이 세션에만 적용한다: set-option -t <세션> default-shell → 첫 칸 respawn-pane -k → pane_current_command 확인.
-   * SHELL 환경변수 주입은 psmux 서버가 이미 떠 있으면 무시되므로 쓰지 않는다(M4 리뷰 M-1). 이후 분할 칸(팀원)도 이 default-shell로 뜬다.
+   * 설정한 셸(설정의 pwsh 경로)을 이 세션에만 적용한다: set-option -t <세션> default-shell → 첫 칸 respawn-pane -k → pane_current_command 확인.
+   * SHELL 환경변수 주입은 psmux 서버가 이미 떠 있으면 무시되므로 쓰지 않는다. 이후 분할 칸(팀원)도 이 default-shell로 뜬다.
    *
    * Returns:
    *   적용됐으면 null, 아니면 사용자 안내(번역 전 문구). 실패해도 세션은 psmux 기본 셸로 계속 쓴다.
@@ -355,7 +355,7 @@ export class TabSession extends EventEmitter {
     log('info', `[${this.session}] lead launched on ${this.leadPaneId} (hooks=${this.opts.hookCommand !== null}, statusline=${statusLine !== null})`);
   }
 
-  /** 리드 --settings 파일: hook(승인 대기 감지)과 statusLine(사용량, F7-1) 중 있는 것만 넣는다. */
+  /** 리드 --settings 파일: hook(승인 대기 감지)과 statusLine(사용량) 중 있는 것만 넣는다. */
   private writeLeadSettings(statusLine: string | null): void {
     mkdirSync(join(this.opts.dataDir, 'hooks'), { recursive: true });
     const out: Record<string, unknown> = {};
@@ -449,7 +449,7 @@ export class TabSession extends EventEmitter {
     }
   }
 
-  /** 끊긴 동안 버려진 리사이즈 요청을 다시 적용한다(QA NEW-1). 이미 맞으면 실제 크기만 렌더러에 다시 알린다. */
+  /** 끊긴 동안 버려진 리사이즈 요청을 다시 적용한다. 이미 맞으면 실제 크기만 렌더러에 다시 알린다. */
   private async reapplySizes(): Promise<void> {
     for (const [pane, want] of this.desired) {
       const p = this.panes.get(pane);
@@ -460,7 +460,7 @@ export class TabSession extends EventEmitter {
   }
 
   /**
-   * 재연결 직후 재동기화(QA NEW-2). psmux가 캡처 전에 만들어진 출력을 캡처 응답 뒤에 늦게 보내 같은 줄이 두 번 그려질 수 있어,
+   * 재연결 직후 재동기화. psmux가 캡처 전에 만들어진 출력을 캡처 응답 뒤에 늦게 보내 같은 줄이 두 번 그려질 수 있어,
    * 연결 후·마지막 출력 후 둘 다 잠잠할 때까지(최대 2초) 기다린 뒤 캡처하고, 첫 캡처 1.5초 뒤에 무조건 한 번 더 캡처해
    * 중복이 남아도 그 안에 화면을 바로잡는다.
    */
@@ -496,7 +496,7 @@ export class TabSession extends EventEmitter {
   }
 
   private async runCommands(cmds: string[]): Promise<boolean> {
-    // stdin 쓰기 순서 = 실행 순서이므로 한꺼번에 보내고 결과만 모은다. 끝에 표지를 붙여 응답 큐 어긋남을 바로 잡는다(QA BUG-1)
+    // stdin 쓰기 순서 = 실행 순서이므로 한꺼번에 보내고 결과만 모은다. 끝에 표지를 붙여 응답 큐 어긋남을 바로 잡는다
     const client = this.client;
     if (!client) return false;
     const [rs, aligned] = await Promise.all([Promise.all(cmds.map((c) => this.cmd(c))), client.barrier()]);
@@ -560,7 +560,7 @@ export class TabSession extends EventEmitter {
     const client = this.client;
     if (!client) return;
     // 응답 밀림 감지: 표지 응답으로 큐를 맞추고, 그래도 안 맞으면 재연결(client.ts 주석)
-    // 표지 한 번 실패(내용 불일치 등, QA NEW-4)는 한 번 더 확인하고 그래도 안 맞을 때만 다시 연결
+    // 표지 한 번 실패(내용 불일치 등)는 한 번 더 확인하고 그래도 안 맞을 때만 다시 연결
     if (!(await client.barrier()) && (this.client !== client || !(await client.barrier()))) {
       if (this.client !== client) return;
       log('warn', `[${this.session}] protocol drift: nonce barrier failed twice in refresh`);
@@ -627,7 +627,7 @@ export class TabSession extends EventEmitter {
   }
 
   /**
-   * dead 칸 정리(QA BUG-2). control mode kill-pane은 ok를 돌려줘도 칸이 남으므로, 칸 = 창 구조를 이용해 창을 지운다.
+   * dead 칸 정리. control mode kill-pane은 ok를 돌려줘도 칸이 남으므로, 칸 = 창 구조를 이용해 창을 지운다.
    * 순서: control mode kill-window → list-panes로 확인 → 남으면 CLI kill-window(세션 범위 지정) → 확인.
    * 다른 칸과 창을 같이 쓰는 dead 칸·리드 칸은 창을 지우지 않는다(살아 있는 칸·세션까지 닫히지 않게).
    * 실패하면 로그는 1회만 남기고 30초 뒤 다시 시도한다.
@@ -735,10 +735,10 @@ export class TabSession extends EventEmitter {
   /** 텍스트 전송 본체: 본문 → (End) → Enter를 SUBMIT_DELAY_MS 간격으로. */
   private async deliverNow(pane: string, text: string, clearWaiting: boolean): Promise<boolean> {
     if (!this.panes.has(pane)) return false;
-    // pwsh 칸은 여러 줄을 C-j로(붙여넣기 안 CR을 줄마다 실행), Claude Code 칸은 bracketed paste(QA FAIL 19)
+    // pwsh 칸은 여러 줄을 C-j로(붙여넣기 안 CR을 줄마다 실행), Claude Code 칸은 bracketed paste
     let command = this.panes.get(pane)?.command;
     if (/[\r\n]/.test(text)) {
-      // 폴링 값은 최대 2초 늦어 방금 종료·시작한 프로그램을 놓칠 수 있으므로 여러 줄일 때만 직전에 다시 확인(QA NEW-5)
+      // 폴링 값은 최대 2초 늦어 방금 종료·시작한 프로그램을 놓칠 수 있으므로 여러 줄일 때만 직전에 다시 확인
       const r = await this.cmd(`display-message -p -t ${pane} '#{pane_current_command}'`);
       const fresh = r.ok ? (r.lines[0] ?? '').trim() : '';
       const cur = this.panes.get(pane);
@@ -751,7 +751,7 @@ export class TabSession extends EventEmitter {
     const cmds = inputToCommands(pane, text, multilineModeFor(command));
     if (!cmds.length) return false;
     log('info', `[${this.session}] input -> ${pane} (${text.length} chars, ${cmds.length} cmds)`);
-    // M3: @ 참조가 있어 Enter 앞에 End를 넣은 경우(QA 실호출 검증용 추적)
+    // @ 참조가 있어 Enter 앞에 End를 넣은 경우(실호출 검증용 추적)
     if (cmds.some((c) => c.endsWith(' End'))) log('info', `[${this.session}] input -> ${pane}: End before Enter (@ reference)`);
     if (clearWaiting && this.hook.waiting[pane] !== undefined) {
       delete this.hook.waiting[pane];
@@ -787,7 +787,7 @@ export class TabSession extends EventEmitter {
     const cap = await capP;
     if (!cap.ok) return;
     // 캡처 응답 직후 동기 구간에서 처리: 캡처보다 먼저 도착한 출력은 지금(캡처 전에) 내보내고, 뒤에 온 출력은 캡처 다음에 그린다.
-    // 커서 응답까지 기다리면 그 사이 배처 타이머가 캡처 뒤 출력을 먼저 내보내 화면 지우기에 덮인다(리뷰 Major 2·2차 M1)
+    // 커서 응답까지 기다리면 그 사이 배처 타이머가 캡처 뒤 출력을 먼저 내보내 화면 지우기에 덮인다
     if (cap.seq !== undefined) this.out.flushBefore(pane, cap.seq);
     this.emit('resync', pane, '\x1b[0m\x1b[H\x1b[2J' + cap.lines.join('\r\n') + '\x1b[0m', cap.seq);
     // 커서 위치는 응답 시점의 스트림 순번으로 배처에 넣어 앞뒤 출력과 순서를 맞춘다
@@ -884,7 +884,7 @@ export class TabSession extends EventEmitter {
       if (!rec) continue;
       const pane = applyHookRecord(this.hook, rec, this.leadPaneId, this.leadName);
       if (pane) touched = true;
-      // 리드의 새 대화 시작(/clear·재개 등) → sessionId가 바뀌었을 수 있어 바로 다시 확인(M2-07)
+      // 리드의 새 대화 시작(/clear·재개 등) → sessionId가 바뀌었을 수 있어 바로 다시 확인
       if (rec.event === 'SessionStart' && pane !== null && pane === this.leadPaneId) {
         this.lastTeamPoll = 0;
         void this.pollTeam();
@@ -959,7 +959,7 @@ export class TabSession extends EventEmitter {
   }
 
   /**
-   * 탭 종료(F9 종료): 리드에서 Claude Code가 돌고 있으면 팀 종료를 요청하고, 팀원 칸이 사라지거나 제한 시간이 지나면 세션을 끝낸다.
+   * 탭 종료: 리드에서 Claude Code가 돌고 있으면 팀 종료를 요청하고, 팀원 칸이 사라지거나 제한 시간이 지나면 세션을 끝낸다.
    *
    * Returns:
    *   종료 요청 메시지를 보냈는지.
@@ -968,7 +968,7 @@ export class TabSession extends EventEmitter {
     if (this.terminating) return false;
     this.terminating = true;
     this.emitState();
-    // 탭 없이 막 붙어 바로 종료하는 경우(히스토리 "세션 종료…", F2-1)는 칸 목록·승인 대기 기록을 아직 읽지 않았으므로 먼저 맞춘다
+    // 탭 없이 막 붙어 바로 종료하는 경우(히스토리 "세션 종료…")는 칸 목록·승인 대기 기록을 아직 읽지 않았으므로 먼저 맞춘다
     if (this.client && this.panes.size === 0) {
       await this.refresh();
       if (this.opts.hookCommand) this.pollHooks();
@@ -992,7 +992,7 @@ export class TabSession extends EventEmitter {
         await new Promise((r) => setTimeout(r, 1000));
       }
     }
-    // 기다리는 사이 밖에서 detach됐으면(앱 종료) 세션은 남긴다: "앱을 끄면 탭 없는 연결은 끊고 세션은 남는다"(F2-1)
+    // 기다리는 사이 밖에서 detach됐으면(앱 종료) 세션은 남긴다: "앱을 끄면 탭 없는 연결은 끊고 세션은 남는다"
     if (this.closing) return requested;
     await this.kill();
     return requested;

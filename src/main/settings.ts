@@ -45,7 +45,7 @@ export const DEFAULT_SETTINGS: Settings = {
 };
 
 const MAX_RECENT = 10;
-// M1 초기 빌드의 기본 글꼴(기본값으로 간주해 새 기본값이 적용되게 함)
+// 초기 빌드의 기본 글꼴(기본값으로 간주해 새 기본값이 적용되게 함)
 const LEGACY_FONT = "'Cascadia Mono', Consolas, 'D2Coding', 'Malgun Gothic', monospace";
 
 /** 저장값을 검증하며 기본값과 합친다(타입이 다른 필드는 버림). */
@@ -68,7 +68,7 @@ export function normalizeSettings(raw: unknown): Settings {
   return s;
 }
 
-/** 파일 시스템 확인(테스트 주입용). 비동기 + 시간 제한: 끊긴 네트워크 경로가 main을 멈추지 않게(QA M4-1). */
+/** 파일 시스템 확인(테스트 주입용). 비동기 + 시간 제한: 끊긴 네트워크 경로가 main을 멈추지 않게. */
 export interface PathChecks {
   /** 실행 파일(앱 실행 별칭 포함)이 있는지. */
   isFile: (p: string) => Promise<PathProbe>;
@@ -79,13 +79,13 @@ export interface PathChecks {
 export const FS_CHECKS: PathChecks = { isFile: (p) => probeExecutable(p), isDir: (p) => probeDir(p) };
 
 const CONTROL_RE = /[\x00-\x1f\x7f]/;
-// 앱이 리드 명령 끝에 -r·--settings를 붙이므로 명령이 여러 개면 인자가 마지막 명령에 붙고, #(pwsh 주석) 뒤면 무시된다(QA M4-2)
+// 앱이 리드 명령 끝에 -r·--settings를 붙이므로 명령이 여러 개면 인자가 마지막 명령에 붙고, #(pwsh 주석) 뒤면 무시된다
 const LEAD_MULTI_RE = /;|&&|\|\||\||`|[\r\n]|#/;
-// 허용하는 &: 맨 앞 호출 연산자 + 따옴표 경로(& "C:\…\claude.exe"), 스트림 리디렉션(2>&1, *>&1). 그 밖의 단독 &는 pwsh 7 백그라운드 연산자(QA M4-2b)
+// 허용하는 &: 맨 앞 호출 연산자 + 따옴표 경로(& "C:\…\claude.exe"), 스트림 리디렉션(2>&1, *>&1). 그 밖의 단독 &는 pwsh 7 백그라운드 연산자
 const LEAD_CALL_OP_RE = /^\s*&\s*(?=["'\u2018-\u201E])/;
 const LEAD_REDIRECT_RE = /[0-9*]>&[0-9]/g;
-// 앱이 리드 명령 뒤에 붙이는 옵션(리뷰 m-4). 사용자가 넣으면 중복·충돌한다
-// 따옴표로 감싼 옵션("-r")도 pwsh가 같은 인자로 넘기므로 함께 거부. -c/--continue는 -r과 충돌(QA O-25)
+// 앱이 리드 명령 뒤에 붙이는 옵션. 사용자가 넣으면 중복·충돌한다
+// 따옴표로 감싼 옵션("-r")도 pwsh가 같은 인자로 넘기므로 함께 거부. -c/--continue는 -r과 충돌
 const LEAD_APP_OPTION_RE = /(^|\s)["']?(--settings|-r|--resume|-c|--continue)["']?(\s|=|$)/;
 // pwsh가 따옴표로 읽는 문자(스마트 따옴표 포함)
 const SINGLE_QUOTES = "'\u2018\u2019\u201A\u201B";
@@ -107,7 +107,7 @@ export function quotesBalanced(cmd: string): boolean {
 
 /**
  * 리드 명령을 검사한다: 여러 명령으로 나뉘는지(뒤에 붙는 -r·--settings가 마지막 명령으로 감), 앱이 붙이는 옵션을 이미 넣었는지,
- * 따옴표 짝이 맞는지(안 맞으면 pwsh가 >> 이어 입력을 기다려 리드가 뜨지 않음, QA O-22). 저장과 세션 시작 두 곳에서 쓴다.
+ * 따옴표 짝이 맞는지(안 맞으면 pwsh가 >> 이어 입력을 기다려 리드가 뜨지 않음). 저장과 세션 시작 두 곳에서 쓴다.
  *
  * Returns:
  *   문제가 없으면 null, 있으면 현재 UI 언어 오류.
@@ -138,7 +138,7 @@ export async function validateSettings(raw: unknown, fsx: PathChecks = FS_CHECKS
   const o = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
   const errors: SettingsErrors = {};
   const str = (k: string): string => (typeof o[k] === 'string' ? (o[k] as string).trim() : '');
-  // 형식 검사를 통과한 경로는 정규화(. · .. · / 정리)해 검사·저장한다(QA M4-6). 존재 확인은 세 경로를 함께 기다린다
+  // 형식 검사를 통과한 경로는 정규화(. · .. · / 정리)해 검사·저장한다. 존재 확인은 세 경로를 함께 기다린다
   const exe = async (k: 'psmuxPath' | 'pwshPath', label: string): Promise<string> => {
     const given = str(k);
     if (!given) return '';
@@ -163,7 +163,7 @@ export async function validateSettings(raw: unknown, fsx: PathChecks = FS_CHECKS
       return given;
     }
     const v = win32.resolve(given);
-    // 드라이브(공유) 전체를 감시·스캔하게 되므로 거부(리뷰 m-4). 정규화 후 비교해야 C:\. · C:\Users\.. 도 걸린다
+    // 드라이브(공유) 전체를 감시·스캔하게 되므로 거부. 정규화 후 비교해야 C:\. · C:\Users\.. 도 걸린다
     if (win32.parse(v).root === v) errors.historyDir = tr('set.historyRoot');
     else {
       const r = await fsx.isDir(v);
@@ -174,7 +174,7 @@ export async function validateSettings(raw: unknown, fsx: PathChecks = FS_CHECKS
     return v;
   };
   const [psmuxPath, pwshPath, historyDir] = await Promise.all([exe('psmuxPath', 'psmux'), exe('pwshPath', 'PowerShell'), histDir()]);
-  // 리드 명령·글꼴·크기는 비우면 기본값으로 되돌린다(리뷰 m-1)
+  // 리드 명령·글꼴·크기는 비우면 기본값으로 되돌린다
   const leadCommand = str('leadCommand') || DEFAULT_SETTINGS.leadCommand;
   const leadErr = leadCommandError(leadCommand);
   if (leadErr) errors.leadCommand = leadErr;

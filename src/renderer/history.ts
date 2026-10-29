@@ -24,7 +24,7 @@ export function originalTitle(i: HistoryItemDto, now: Date): string {
   return i.title ?? `${i.folderName} ${formatTime(i.mtimeMs, now)}`;
 }
 
-/** 표시 제목: 앱에서 바꾼 이름(F2-1)이 있으면 그것, 없으면 원래 제목. */
+/** 표시 제목: 앱에서 바꾼 이름이 있으면 그것, 없으면 원래 제목. */
 export function displayTitle(i: HistoryItemDto, now: Date): string {
   return i.customTitle ?? originalTitle(i, now);
 }
@@ -45,7 +45,7 @@ function matches(i: HistoryItemDto, q: string, now: Date): boolean {
   return !q || displayTitle(i, now).toLowerCase().includes(q) || originalTitle(i, now).toLowerCase().includes(q) || i.folderName.toLowerCase().includes(q);
 }
 
-/** 상태 필터(F2-2): 활성 = 보관 안 됨. */
+/** 상태 필터: 활성 = 보관 안 됨. */
 export type StatusFilter = 'active' | 'archived' | 'all';
 /** 최근 활동 필터: N일(지금 - N×24h 이후 수정) 또는 전체. */
 export type RecentFilter = '1' | '3' | '7' | '30' | 'all';
@@ -54,7 +54,7 @@ export type GroupBy = 'folder' | 'date' | 'none';
 /** 정렬 기준. */
 export type SortBy = 'name' | 'created' | 'activity';
 
-/** 히스토리 필터(F2-2). ui-state.json에 저장한다. */
+/** 히스토리 필터. ui-state.json에 저장한다. */
 export interface HistoryFilter {
   status: StatusFilter;
   recent: RecentFilter;
@@ -132,7 +132,7 @@ export function dateBucketName(b: DateBucket): string {
 
 /**
  * 수정 시각의 날짜 그룹(로컬 자정 기준): 오늘 / 어제 / 지난 7일 / 지난 30일 / 이전.
- * "지난 N일"은 오늘을 포함한 N일(QA O-34): 지난 7일 = 2~6일 전, 지난 30일 = 7~29일 전.
+ * "지난 N일"은 오늘을 포함한 N일: 지난 7일 = 2~6일 전, 지난 30일 = 7~29일 전.
  */
 export function dateBucket(ms: number, now: Date): DateBucket {
   const at = (back: number): number => new Date(now.getFullYear(), now.getMonth(), now.getDate() - back).getTime();
@@ -167,7 +167,7 @@ export interface HistoryGroup {
 }
 
 /**
- * 필터·검색·정렬·그룹화를 적용한 목록(F2-2). 그룹 안은 정렬 기준대로, 폴더 그룹 순서는 이름 정렬이면 폴더 이름 순, 그 밖에는 같은 기준(그룹의 첫 항목 = 대표값),
+ * 필터·검색·정렬·그룹화를 적용한 목록. 그룹 안은 정렬 기준대로, 폴더 그룹 순서는 이름 정렬이면 폴더 이름 순, 그 밖에는 같은 기준(그룹의 첫 항목 = 대표값),
  * 날짜 그룹은 오늘 → 이전 고정 순서, 그룹 없음은 그룹 1개(머리 없이 표시).
  *
  * Args:
@@ -250,7 +250,7 @@ export function itemDot(sessionId: string, tabs: TabStateDto[], running: Running
 }
 
 /**
- * 삭제(F2-1)를 막는 사유: 메뉴 "삭제… (사유)"에 글자로 붙인다(v0.9). main도 삭제 직전에 다시 확인한다.
+ * 삭제를 막는 사유: 메뉴 "삭제… (사유)"에 글자로 붙인다. main도 삭제 직전에 다시 확인한다.
  *
  * Args:
  *   sessionId: 대화 ID.
@@ -278,7 +278,7 @@ export interface StopTarget {
 }
 
 /**
- * 히스토리 "세션 끊기…"(F2-1) 대상: 실행 중이고 탭으로 열려 있지 않은 대화(출처 무관). 실제 대상은 main이 다시 찾는다.
+ * 히스토리 "세션 끊기…" 대상: 실행 중이고 탭으로 열려 있지 않은 대화(출처 무관). 실제 대상은 main이 다시 찾는다.
  *
  * Args:
  *   sessionId: 대화 ID.
@@ -298,7 +298,7 @@ export function stopTarget(sessionId: string, tabs: TabStateDto[], running: Runn
 }
 
 /**
- * 탭에 대화 기록이 없는지(F1 ×: 분리 대신 종료 안내용. 판정은 main이 다시 한다). 로그인 탭도 닫으면 바로 끝나므로 true.
+ * 탭에 대화 기록이 없는지(탭 ×: 분리 대신 종료 안내용. 판정은 main이 다시 한다). 로그인 탭도 닫으면 바로 끝나므로 true.
  *
  * Args:
  *   t: 탭 상태.

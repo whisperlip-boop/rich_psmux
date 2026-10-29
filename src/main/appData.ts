@@ -22,7 +22,7 @@ export interface SessionMeta {
   leadSessionId?: string;
   /** 리드에서 본 대화 sessionId 전부(본 순서, 최대 MAX_LEAD_IDS개). /clear로 ID가 바뀌어도 지난 대화를 이 세션 것으로 알아본다. */
   leadSessionIds?: string[];
-  /** 로그인 전용 탭(F7-2)이 만든 세션. 앱을 다시 열면 복원하지 않고 정리한다. */
+  /** 로그인 전용 탭이 만든 세션. 앱을 다시 열면 복원하지 않고 정리한다. */
   purpose?: 'login';
 }
 
@@ -159,7 +159,7 @@ export interface UiState {
   sidebarCollapsed: boolean;
   /** 사이드바 폭(px, 200~480). */
   sidebarWidth: number;
-  /** 히스토리 필터(F2-2). 값 검증은 렌더러가 읽을 때 한다(여기서는 짧은 문자열 필드만 보관). */
+  /** 히스토리 필터. 값 검증은 렌더러가 읽을 때 한다(여기서는 짧은 문자열 필드만 보관). */
   historyFilter: Record<string, string>;
 }
 
@@ -202,7 +202,7 @@ export class UiStateStore {
     this.schedule();
   }
 
-  /** 히스토리 필터 저장(F2-2). */
+  /** 히스토리 필터 저장. */
   setHistoryFilter(v: unknown): void {
     this.cur.historyFilter = cleanFilter(v);
     this.schedule();

@@ -39,7 +39,7 @@ describe('clampSize', () => {
   });
 });
 
-describe('makeSessionName (D12)', () => {
+describe('makeSessionName', () => {
   it('normalizes folder names', () => {
     expect(makeSessionName('D:\\github\\Private\\win_memory', 'a1b2c3')).toBe('ctd-win_memory-a1b2c3');
     expect(makeSessionName('D:\\work\\my.proj:v2\\', 'a1b2c3')).toBe('ctd-my_proj_v2-a1b2c3');

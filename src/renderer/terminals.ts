@@ -32,7 +32,7 @@ const TERM_THEME: ITheme = {
 };
 
 /**
- * 터미널 포커스 중에도 앱이 처리할 키(D3). 여기 해당하면 xterm이 칸으로 보내지 않는다.
+ * 터미널 포커스 중에도 앱이 처리할 키. 여기 해당하면 xterm이 칸으로 보내지 않는다.
  * Tab·Shift+Tab·Esc·Ctrl+T·Ctrl+W는 Claude Code로 보낸다. Ctrl+Shift+1~5는 레이아웃 선택(항상 앱).
  */
 export function isAppShortcut(e: KeyboardEvent): boolean {
@@ -48,7 +48,7 @@ export function isAppShortcut(e: KeyboardEvent): boolean {
 const terms = new Map<string, PaneTerm>();
 const pending = new Map<string, Uint8Array[]>();
 const MAX_PENDING_CHUNKS = 2000;
-// 비활성 탭 출력은 xterm에 쓰지 않고 보관(렌더링 중지, D14)
+// 비활성 탭 출력은 xterm에 쓰지 않고 보관(렌더링 중지)
 const held = new HoldBuffer();
 let activeTab: string | null = null;
 let font = { size: 13, family: '"D2Coding", "Cascadia Mono", Consolas, "Malgun Gothic", monospace' };
@@ -90,7 +90,7 @@ export function setTerminalFont(size: number, family: string): void {
   const changed = font.size !== size || font.family !== family;
   font = { size, family };
   if (!changed) return;
-  // 설정 변경(F8): 열린 터미널에도 즉시 적용. 글자 크기가 바뀌면 열·행 수가 달라지므로 카드가 다시 맞추게 알린다
+  // 설정 변경: 열린 터미널에도 즉시 적용. 글자 크기가 바뀌면 열·행 수가 달라지므로 카드가 다시 맞추게 알린다
   for (const pt of terms.values()) {
     pt.term.options.fontSize = size;
     pt.term.options.fontFamily = family;
@@ -118,7 +118,7 @@ export function attachTerminal(tabId: string, pane: string, container: HTMLEleme
     const host = document.createElement('div');
     host.className = 'xterm-host';
     const term = new Terminal({
-      // 처음부터 psmux 칸의 실제 크기로 만든다(QA M2-1: 80x24 기본값에 44줄 캡처가 먼저 쓰이면 화면이 어긋남)
+      // 처음부터 psmux 칸의 실제 크기로 만든다(80x24 기본값에 44줄 캡처가 먼저 쓰이면 화면이 어긋남)
       cols: Math.max(20, Math.min(500, Math.floor(cols) || 80)), rows: Math.max(5, Math.min(200, Math.floor(rows) || 24)),
       allowProposedApi: true, // unicode11 활성화에 필요
       fontSize: font.size, fontFamily: font.family, lineHeight: 1.2, scrollback: 5000,

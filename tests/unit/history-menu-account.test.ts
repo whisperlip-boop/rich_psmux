@@ -1,4 +1,4 @@
-// v0.6: 히스토리 항목 메뉴(F2-1: 이름·보관·휴지통), 로그아웃·로그인(F7-2), 사용량 영역 항상 표시(F7-1 수정).
+// 히스토리 항목 메뉴(이름·보관·휴지통), 로그아웃·로그인, 사용량 영역 항상 표시.
 
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -20,13 +20,13 @@ import { filterValueLabel } from '../../src/renderer/components/FilterMenu';
 
 vi.mock('../../src/main/logger', () => ({ log: () => undefined, errMsg: (e: unknown) => String(e) }));
 
-const tmp = mkdtempSync(join(tmpdir(), 'ctd-v06-'));
+const tmp = mkdtempSync(join(tmpdir(), 'ctd-history-menu-account-'));
 afterAll(() => rmSync(tmp, { recursive: true, force: true }));
 
 const SID = (n: number): string => `${String(n).padStart(8, '0')}-0000-0000-0000-000000000000`;
 const KEY = (dir: string, n: number): string => `${dir}/${SID(n)}.jsonl`;
 
-describe('history-meta 저장소(F2-1)', () => {
+describe('history-meta 저장소', () => {
   it('이름 변경·빈 값이면 override 제거·보관/해제·파일에 저장', () => {
     const f = join(tmp, 'm1', 'history-meta.json');
     const s = new HistoryMetaStore(f);
@@ -87,7 +87,7 @@ describe('목록 오버레이·팀원 묶기', () => {
   });
 });
 
-describe('휴지통 대상 경로 검증(F2-1)', () => {
+describe('휴지통 대상 경로 검증', () => {
   const root = 'C:\\Users\\u\\.claude\\projects';
   it('허용: <dir>/<sid>.jsonl(파일), <dir>/<sid>(대화 폴더)', () => {
     expect(trashKind(root, `${root}\\D--x\\${SID(1)}.jsonl`)).toBe('file');
@@ -154,7 +154,7 @@ describe('휴지통 대상 경로 검증(F2-1)', () => {
   });
 });
 
-describe('로그인 상태·로그아웃·로그인 감시(F7-2)', () => {
+describe('로그인 상태·로그아웃·로그인 감시', () => {
   it('auth status JSON에서 loggedIn만', () => {
     expect(parseAuthStatus('{"loggedIn":true,"email":"a@b","orgName":"x"}')).toBe(true);
     expect(parseAuthStatus('{"loggedIn":false}')).toBe(false);
@@ -222,8 +222,8 @@ describe('로그인 상태·로그아웃·로그인 감시(F7-2)', () => {
   });
 });
 
-describe('사용량 영역 항상 표시(F7-1 v0.6)', () => {
-  it('데이터 없음 → 막대 —와 ↻만(안내 문구 없음, v0.6 수정), ↻ 활성', () => {
+describe('사용량 영역 항상 표시', () => {
+  it('데이터 없음 → 막대 —와 ↻만(안내 문구 없음), ↻ 활성', () => {
     expect(usageView(null, true)).toMatchObject({ fiveHour: null, sevenDay: null, model: null, note: null, refreshDisabled: false });
     expect(usageView({ fiveHour: null, sevenDay: null, model: null, updatedAt: null, error: null }, true).note).toBeNull();
   });
@@ -258,7 +258,7 @@ describe('사용량 영역 항상 표시(F7-1 v0.6)', () => {
   });
 });
 
-describe('사이드바 표시 규칙(F2-1)', () => {
+describe('사이드바 표시 규칙', () => {
   const now = new Date(2026, 9, 26, 12, 0);
   const dto = (n: number, o: Partial<HistoryItemDto> = {}): HistoryItemDto => ({
     sessionId: SID(n), title: `제목${n}`, cwd: 'D:\\x', folderKey: 'd:\\x', folderName: 'x', mtimeMs: n, createdMs: null, kind: 'lead', mates: 0,
@@ -291,7 +291,7 @@ describe('사이드바 표시 규칙(F2-1)', () => {
   });
 });
 
-describe('히스토리 필터·그룹·정렬(F2-2)', () => {
+describe('히스토리 필터·그룹·정렬', () => {
   const DAY = 24 * 60 * 60 * 1000;
   const now = new Date(2026, 9, 26, 12, 0, 0);
   const t = now.getTime();
@@ -315,7 +315,7 @@ describe('히스토리 필터·그룹·정렬(F2-2)', () => {
     expect(dateBucket(midnight - 1, now)).toBe('yesterday');
     expect(dateBucket(new Date(2026, 9, 25).getTime(), now)).toBe('yesterday');
     expect(dateBucket(new Date(2026, 9, 25).getTime() - 1, now)).toBe('week');
-    // 오늘 포함 N일(QA O-34): 지난 7일 = 10/20 0시부터(2~6일 전), 지난 30일 = 9/27 0시부터(7~29일 전)
+    // 오늘 포함 N일: 지난 7일 = 10/20 0시부터(2~6일 전), 지난 30일 = 9/27 0시부터(7~29일 전)
     expect(dateBucket(new Date(2026, 9, 20).getTime(), now)).toBe('week');
     expect(dateBucket(new Date(2026, 9, 20).getTime() - 1, now)).toBe('month');
     expect(dateBucket(new Date(2026, 9, 19).getTime(), now)).toBe('month');
@@ -374,7 +374,7 @@ describe('히스토리 필터·그룹·정렬(F2-2)', () => {
   it('삭제 불가 사유: 탭으로 열림(이어간 원래 ID 포함) / 실행 중', () => {
     const tab = { leadSessionId: null, resumeSessionId: SID(1) } as unknown as TabStateDto;
     const run: RunningDto[] = [{ sessionId: SID(2), psmuxSession: null, ours: false }];
-    // v0.9: 툴팁 문장 대신 메뉴 라벨에 붙는 짧은 사유
+    // 툴팁 문장 대신 메뉴 라벨에 붙는 짧은 사유
     expect(trashBlockedReason(SID(1), [tab], [])).toBe('탭으로 열림');
     expect(trashBlockedReason(SID(2), [], run)).toBe('외부에서 실행 중');
     expect(trashBlockedReason(SID(3), [tab], run)).toBeNull();
@@ -388,7 +388,7 @@ describe('히스토리 필터·그룹·정렬(F2-2)', () => {
   });
 });
 
-describe('사이드바 접기·메뉴 위치(v0.6 추가)', () => {
+describe('사이드바 접기·메뉴 위치', () => {
   it('ui-state.json: 사이드바 접힘 저장·복원, boolean만 받음', async () => {
     const { UiStateStore } = await import('../../src/main/appData');
     const f = join(tmp, 'ui1', 'ui-state.json');
@@ -411,7 +411,7 @@ describe('사이드바 접기·메뉴 위치(v0.6 추가)', () => {
   });
 });
 
-describe('첫 기록 시각(F2-2 생성 날짜)', () => {
+describe('첫 기록 시각(정렬 "생성 날짜")', () => {
   it('timestamp가 있는 첫 레코드 시각만, 형식이 틀리면 건너뜀', async () => {
     const { applyLine, emptyFacts } = await import('../../src/main/history/jsonlFacts');
     const f = emptyFacts();
@@ -452,8 +452,8 @@ describe('사이드바 폭 조절', () => {
   });
 });
 
-describe('v0.6 리뷰 반영', () => {
-  it('휴지통 이동 순서: 대화 폴더 → 팀원 파일 → 대화 파일(M-1)', async () => {
+describe('휴지통 이동 순서·확인 창 수·날짜 그룹 시각 표기', () => {
+  it('휴지통 이동 순서: 대화 폴더 → 팀원 파일 → 대화 파일', async () => {
     const { trashOrder } = await import('../../src/main/trash');
     const plan = { main: { path: 'M', key: 'k' }, mates: [{ path: 'T1', key: 'k1' }, { path: 'T2', key: 'k2' }], folders: ['F1', 'F2'], subagents: 0, folderSubagents: [0, 0], sessionIds: [] };
     expect(trashOrder(plan)).toEqual(['F1', 'F2', 'T1', 'T2', 'M']);
@@ -478,7 +478,7 @@ describe('v0.6 리뷰 반영', () => {
     expect(out.failed).toEqual([main]);
   });
 
-  it('확인 창 수는 실제로 옮길 수 있는 대상만(O-29): 없는 폴더·밖의 팀원 경로는 세지 않음', async () => {
+  it('확인 창 수는 실제로 옮길 수 있는 대상만: 없는 폴더·밖의 팀원 경로는 세지 않음', async () => {
     const { movableSummary } = await import('../../src/main/trash');
     const r = join(tmp, 'movable');
     const folder = join(r, 'D--x', SID(1));
@@ -505,7 +505,7 @@ describe('v0.6 리뷰 반영', () => {
   });
 });
 
-describe('실기 피드백(v0.6 이후)', () => {
+describe('세션 한도 초기화 문구·필터 메뉴 위치', () => {
   it('세션 한도 초기화 문구: 60분 미만 N분, 이상 N시간 M분, 지났거나 없으면 null(분은 올림)', async () => {
     const { resetLabel } = await import('../../src/renderer/components/UsageArea');
     const now = 1_800_000_000_000;
@@ -544,7 +544,7 @@ describe('실기 피드백(v0.6 이후)', () => {
   });
 });
 
-describe('계정 확인 캐시(AuthCache, 리뷰 Minor)', () => {
+describe('계정 확인 캐시(AuthCache)', () => {
   /** 끝나는 시점을 테스트가 정하는 확인. */
   const controlled = () => {
     let calls = 0;

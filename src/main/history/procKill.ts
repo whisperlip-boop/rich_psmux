@@ -1,4 +1,4 @@
-// 히스토리 "세션 끊기…"(F2-1)의 psmux 밖 Claude Code 프로세스 종료: 프로세스 정보 확인(PowerShell CIM 1회) → 트리 종료(taskkill).
+// 히스토리 "세션 끊기…"의 psmux 밖 Claude Code 프로세스 종료: 프로세스 정보 확인(PowerShell CIM 1회) → 트리 종료(taskkill).
 // 셸을 거치지 않는 execFile, 실행 파일은 System32 절대 경로(PATH에 같은 이름 프로그램이 있어도 그것을 실행하지 않게).
 
 import { execFile } from 'node:child_process';

@@ -1,4 +1,4 @@
-// Agents 설정(F8-1) 순수 로직: md frontmatter의 name·description, 리더 명령 해석, 리더 본문의 팀원 대조, 팀 기능 판정.
+// Agents 설정 순수 로직: md frontmatter의 name·description, 리더 명령 해석, 리더 본문의 팀원 대조, 팀 기능 판정.
 // YAML 라이브러리 없이 `---` 블록의 두 키만 읽는다. main(파일 조사)·renderer(표시)·테스트가 같이 쓴다.
 
 /** 에이전트 이름으로 쓸 수 있는 형식(리드 명령 `claude --agent <name>`에 그대로 넣을 수 있어야 함). */
@@ -68,7 +68,7 @@ export function isPlainLeadCommand(cmd: string): boolean {
 /** 표 머리·구분 행 등 이름이 아닌 칸. */
 const NOT_A_NAME = new Set(['name', 'names', 'agent', 'agents', 'role', 'roles', 'member', 'members', 'teammate', 'teammates', '이름', '역할', '에이전트', '팀원']);
 
-/** 이름 열로 보는 표 머리 행 첫 칸(대소문자 무시, TC-205). */
+/** 이름 열로 보는 표 머리 행 첫 칸(대소문자 무시). */
 const NAME_HEADER_RE = /^(이름|name|agent|role|역할)$/i;
 /** 펜스 코드 블록 시작·끝 줄(``` 또는 ~~~). */
 const FENCE_RE = /^\s*(`{3,}|~{3,})/;
@@ -82,9 +82,9 @@ function firstCell(line: string): string | null {
 }
 
 /**
- * 리더 본문의 팀원 대조(F8-1): `@name` 언급과 이름 표의 첫 칸을 참조 후보로 모아 목록과 대조한다.
+ * 리더 본문의 팀원 대조: `@name` 언급과 이름 표의 첫 칸을 참조 후보로 모아 목록과 대조한다.
  * 코드(펜스 블록·인라인 `...`) 안의 `@`는 예시일 수 있어 세지 않고, 표는 머리 행 첫 칸이 이름·name·agent·role·역할인
- * 표만 본다(TC-205). 목록 이름이 단어 경계로 본문에 나오면 "참조함"으로 센다. 후보가 없으면 경고하지 않는다(missing 빈 배열).
+ * 표만 본다. 목록 이름이 단어 경계로 본문에 나오면 "참조함"으로 센다. 후보가 없으면 경고하지 않는다(missing 빈 배열).
  *
  * Args:
  *   body: 리더 md 본문(frontmatter 제외).

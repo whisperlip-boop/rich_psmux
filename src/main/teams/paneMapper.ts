@@ -135,7 +135,7 @@ export interface ResolveInput {
 
 /**
  * 칸마다 이름표를 정한다. 우선순위: 리드 칸 → config tmuxPaneId → hook 힌트 → 캐시 → %N 임시 표시.
- * 확정된 매핑(lead/config/hook)은 캐시에 남겨 config가 지워진 뒤에도 이름을 유지한다(F3).
+ * 확정된 매핑(lead/config/hook)은 캐시에 남겨 config가 지워진 뒤에도 이름을 유지한다.
  *
  * Returns:
  *   labels: 칸별 이름표, cache: 갱신된 캐시.

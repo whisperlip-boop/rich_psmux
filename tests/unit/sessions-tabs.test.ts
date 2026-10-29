@@ -14,10 +14,10 @@ import { nextActiveAfterClose, normalizeSavedTabUi, tabStatus, toSavedTabUi, wor
 
 vi.mock('../../src/main/logger', () => ({ log: () => undefined, errMsg: (e: unknown) => String(e) }));
 
-const tmp = mkdtempSync(join(tmpdir(), 'ctd-m2-test-'));
+const tmp = mkdtempSync(join(tmpdir(), 'ctd-sessions-tabs-'));
 afterAll(() => rmSync(tmp, { recursive: true, force: true }));
 
-describe('session restore filter (F1, D13)', () => {
+describe('session restore filter', () => {
   it('restores only ctd- sessions that have app data; external (ceoteam) and foreign ctd- sessions are skipped', () => {
     const live = ['win_memory', 'github', 'ctd-a-000001', 'ctd-b-000002', 'ctd-qa-x', 'ctd-bad;name'];
     expect(selectRestorable(live, ['ctd-a-000001', 'ctd-b-000002', 'ctd-gone-000003', 'ctd-bad;name'])).toEqual(['ctd-a-000001', 'ctd-b-000002']);
@@ -129,7 +129,7 @@ describe('tab status aggregation', () => {
   });
 });
 
-describe('inactive tab hold buffer (D14)', () => {
+describe('inactive tab hold buffer', () => {
   it('keeps chunks until the cap, then drops them and asks for resync', () => {
     const h = new HoldBuffer(10);
     h.push('t\u0000%0', 'abc');
@@ -180,5 +180,26 @@ describe('sidebar rules', () => {
     // 탭의 sessionId 갱신 전이라도 실행 중 세션이 열린 탭이면 그 탭 상태
     expect(itemDot('new-id', [tab({ panes: [pane('%0')] })], run)).toBe('idle');
     expect(itemDot('old', [tab({ resumeSessionId: 'old' })], [])).toBe('idle');
+  });
+});
+
+describe('tab order and Ctrl+W scope', () => {
+  it('tab order: reconnected tabs go back to their creation-time slot', async () => {
+    const { insertByCreatedAt } = await import('../../src/renderer/tabs');
+    const at: Record<string, number> = { a: 10, c: 30 };
+    expect(insertByCreatedAt(['a', 'c'], 'b', 20, (x) => at[x])).toEqual(['a', 'b', 'c']);
+    expect(insertByCreatedAt(['a', 'c'], 'z', 99, (x) => at[x])).toEqual(['a', 'c', 'z']);
+    expect(insertByCreatedAt(['a', 'c'], 'a', 1, (x) => at[x])).toEqual(['a', 'c']);
+  });
+  it('Ctrl+W only from tab bar / sidebar non-text focus', async () => {
+    const { ctrlWAllowed } = await import('../../src/renderer/tabs');
+    const el = (tagName: string, inside: string[]): Element => ({ tagName, isContentEditable: false, closest: (sel: string) => (sel.split(',').some((x) => inside.includes(x.trim())) ? {} : null) }) as unknown as Element;
+    expect(ctrlWAllowed(el('DIV', ['.tabbar']))).toBe(true);
+    expect(ctrlWAllowed(el('BUTTON', ['.sidebar']))).toBe(true);
+    expect(ctrlWAllowed(el('INPUT', ['.sidebar']))).toBe(false);
+    expect(ctrlWAllowed(el('TEXTAREA', ['.card']))).toBe(false);
+    expect(ctrlWAllowed(el('TEXTAREA', ['.xterm', '.tabbar']))).toBe(false);
+    expect(ctrlWAllowed(el('BUTTON', ['.card']))).toBe(false);
+    expect(ctrlWAllowed(null)).toBe(false);
   });
 });

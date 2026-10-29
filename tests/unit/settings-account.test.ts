@@ -16,7 +16,7 @@ import { resolveTheme } from '../../src/renderer/theme';
 
 vi.mock('../../src/main/logger', () => ({ log: () => undefined, errMsg: (e: unknown) => String(e) }));
 
-const tmp = mkdtempSync(join(tmpdir(), 'ctd-m4-'));
+const tmp = mkdtempSync(join(tmpdir(), 'ctd-settings-account-'));
 afterAll(() => rmSync(tmp, { recursive: true, force: true }));
 afterEach(() => {
   setClaudeHomeForTest(null);
@@ -30,7 +30,7 @@ const fsx = (files: string[], dirs: string[], slow: string[] = []): PathChecks =
 });
 const check = (o: unknown, f: PathChecks = fsx([], [])): ReturnType<typeof validateSettings> => validateSettings(o, f);
 
-describe('settings validation (M4-02)', () => {
+describe('settings validation', () => {
   it('accepts defaults and existing absolute paths', async () => {
     const r = await check({ ...valid, psmuxPath: ' C:\\p\\psmux.exe ', pwshPath: 'C:\\Program Files\\PowerShell\\7\\pwsh.exe', historyDir: 'D:\\hist' },
       fsx(['C:\\p\\psmux.exe', 'C:\\Program Files\\PowerShell\\7\\pwsh.exe'], ['D:\\hist']));
@@ -51,12 +51,12 @@ describe('settings validation (M4-02)', () => {
   it('rejects bad lead command, font, size, theme and flag', async () => {
     const e = (await check({ ...valid, leadCommand: 'claude\n--x', fontFamily: 'x;}', fontSize: 7.5, theme: 'blue', showSdkSessions: 'yes' })).errors;
     expect(Object.keys(e).sort()).toEqual(['fontFamily', 'fontSize', 'leadCommand', 'showSdkSessions', 'theme']);
-    // 빈 값은 기본값으로(리뷰 m-1)
+    // 빈 값은 기본값으로
     const blank = (await check({ ...valid, leadCommand: '   ', fontFamily: '', fontSize: Number.NaN })).values;
     expect(blank).toMatchObject({ leadCommand: DEFAULT_SETTINGS.leadCommand, fontFamily: DEFAULT_SETTINGS.fontFamily, fontSize: DEFAULT_SETTINGS.fontSize });
     expect((await check({ ...valid, fontSize: '' })).values?.fontSize).toBe(DEFAULT_SETTINGS.fontSize);
     expect((await check({ ...valid, fontSize: 0 })).errors.fontSize).toBeDefined();
-    // 드라이브 루트 거부(리뷰 m-4)
+    // 드라이브 루트 거부
     for (const d of ['C:\\', 'd:/', 'E:']) expect((await check({ ...valid, historyDir: d }, fsx([], ['C:\\', 'd:\\', 'E:']))).errors.historyDir).toMatch(/드라이브 루트|절대 경로/);
     expect((await check({ ...valid, historyDir: 'C:\\' }, fsx([], ['C:\\']))).errors.historyDir).toMatch(/드라이브 루트/);
     expect((await check({ ...valid, fontSize: 33 })).errors.fontSize).toBeDefined();
@@ -69,7 +69,7 @@ describe('settings validation (M4-02)', () => {
   });
 });
 
-describe('account (M4-01)', () => {
+describe('account', () => {
   it('extracts only email and organization; secrets elsewhere in the file are not returned', async () => {
     const home = join(tmp, 'acct');
     mkdirSync(join(home, '.claude'), { recursive: true });
@@ -99,7 +99,7 @@ describe('account (M4-01)', () => {
   });
 });
 
-describe('history folder override (M4-02)', () => {
+describe('history folder override', () => {
   it('lists jsonl from the configured folder and keeps the secret-file guard', async () => {
     const h = join(tmp, 'hist');
     mkdirSync(join(h, 'D--proj'), { recursive: true });
@@ -116,7 +116,7 @@ describe('history folder override (M4-02)', () => {
   });
 });
 
-describe('theme and packaging helpers (M4-03·04)', () => {
+describe('theme and packaging helpers', () => {
   it('resolves system theme from the OS preference', () => {
     expect(resolveTheme('light', true)).toBe('light');
     expect(resolveTheme('dark', false)).toBe('dark');
@@ -132,7 +132,7 @@ describe('theme and packaging helpers (M4-03·04)', () => {
   });
 });
 
-describe('executable check (M4-02)', () => {
+describe('executable check', () => {
   it('files yes, folders and missing paths no', async () => {
     const f = join(tmp, 'tool.exe');
     writeFileSync(f, 'x');
@@ -151,7 +151,7 @@ describe('executable check (M4-02)', () => {
   });
 });
 
-describe('session shell (M4-02, review M-1)', () => {
+describe('session shell', () => {
   it('inherited SHELL is always removed from the psmux environment', () => {
     expect(cleanEnv({ SHELL: '/usr/bin/bash', PATH: 'p', CLAUDECODE: '1' })).toEqual({ PATH: 'p' });
   });
@@ -164,7 +164,7 @@ describe('session shell (M4-02, review M-1)', () => {
   });
 });
 
-describe('session list classification (review m-9)', () => {
+describe('session list classification', () => {
   it('app sessions need the ctd- name and app metadata; only open app sessions get a tab id', () => {
     const live = ['ctd-a-000001', 'ctd-b-000002', 'ctd-gone-000003', 'team', 'ctd-bad name'];
     const meta = new Set(['ctd-a-000001', 'ctd-b-000002', 'team', 'ctd-bad name']);
@@ -179,7 +179,7 @@ describe('session list classification (review m-9)', () => {
   });
 });
 
-describe('history folder switch (review m-3·m-9)', () => {
+describe('history folder switch', () => {
   const sid = (n: number): string => `${String(n).repeat(8)}-${String(n).repeat(4)}-4${String(n).repeat(3)}-8${String(n).repeat(3)}-${String(n).repeat(12)}`;
   const conv = (dir: string, n: number, title: string): void => {
     mkdirSync(dir, { recursive: true });
@@ -212,8 +212,8 @@ describe('history folder switch (review m-3·m-9)', () => {
   });
 });
 
-describe('QA M4 2nd round (M4-1·2·6)', () => {
-  it('M4-1: path probes time out instead of waiting for the OS (unreachable UNC)', async () => {
+describe('path probe timeouts, single lead command, path normalization', () => {
+  it('path probes time out instead of waiting for the OS (unreachable UNC)', async () => {
     expect(await probe(new Promise<boolean>(() => undefined), 30)).toBe('timeout');
     expect(await probe(Promise.resolve(true), 30)).toBe('ok');
     expect(await probe(Promise.resolve(false), 30)).toBe('missing');
@@ -224,14 +224,14 @@ describe('QA M4 2nd round (M4-1·2·6)', () => {
     expect(await probeDir(tmp)).toBe('ok');
     expect(await probeDir(f)).toBe('missing');
   });
-  it('M4-1: a path that does not answer in time is rejected with a Korean "no response" error', async () => {
+  it('a path that does not answer in time is rejected with a Korean "no response" error', async () => {
     const r = await check({ ...valid, psmuxPath: '\\\\nohost\\s\\psmux.exe', historyDir: '\\\\nohost\\share\\projects' },
       fsx([], [], ['\\\\nohost\\s\\psmux.exe', '\\\\nohost\\share\\projects']));
     expect(r.values).toBeNull();
     expect(r.errors.psmuxPath).toMatch(/확인할 수 없습니다.*응답 없음/);
     expect(r.errors.historyDir).toMatch(/확인할 수 없습니다.*응답 없음/);
   });
-  it('M4-1: the three path checks run concurrently (total wait ≈ one timeout, not three)', async () => {
+  it('the three path checks run concurrently (total wait ≈ one timeout, not three)', async () => {
     const slowFsx: PathChecks = {
       isFile: () => new Promise((res) => setTimeout(() => res('timeout'), 100)),
       isDir: () => new Promise((res) => setTimeout(() => res('timeout'), 100)),
@@ -240,7 +240,7 @@ describe('QA M4 2nd round (M4-1·2·6)', () => {
     await check({ ...valid, psmuxPath: 'C:\\a\\psmux.exe', pwshPath: 'C:\\a\\pwsh.exe', historyDir: 'C:\\a\\h' }, slowFsx);
     expect(Date.now() - t0).toBeLessThan(250);
   });
-  it('M4-2: lead command must be a single command', async () => {
+  it('lead command must be a single command', async () => {
     for (const bad of ['claude; Write-Host done', 'claude && x', 'claude || x', 'claude | Out-Null', 'claude `\n x', 'a`b', 'claude\rx', 'claude --agent ceo # note', 'claude #x']) {
       expect(leadCommandError(bad)).toMatch(/하나의 명령만/);
       expect((await check({ ...valid, leadCommand: bad })).errors.leadCommand).toMatch(/하나의 명령만/);
@@ -250,12 +250,12 @@ describe('QA M4 2nd round (M4-1·2·6)', () => {
       expect((await check({ ...valid, leadCommand: ok })).values?.leadCommand).toBe(ok);
     }
   });
-  it('M4-6: drive roots are rejected after normalization (. and ..), share roots too', async () => {
+  it('drive roots are rejected after normalization (. and ..), share roots too', async () => {
     for (const d of ['C:\\.', 'C:\\.\\', 'C:\\Users\\..', 'C:/Windows/..', 'c:\\\\', '\\\\?\\C:\\', '\\\\srv\\share', '\\\\srv\\share\\x\\..']) {
       expect((await check({ ...valid, historyDir: d }, fsx([], [d, 'C:\\', 'c:\\']))).errors.historyDir, d).toMatch(/드라이브 루트/);
     }
   });
-  it('M4-6: history, psmux and pwsh paths are stored normalized', async () => {
+  it('history, psmux and pwsh paths are stored normalized', async () => {
     const r = await check({ ...valid, historyDir: 'D:/hist/sub/../', psmuxPath: 'C:/p/./psmux.exe', pwshPath: 'C:\\x\\y\\..\\pwsh.exe' },
       fsx(['C:\\p\\psmux.exe', 'C:\\x\\pwsh.exe'], ['D:\\hist']));
     expect(r.errors).toEqual({});
@@ -265,7 +265,7 @@ describe('QA M4 2nd round (M4-1·2·6)', () => {
   });
 });
 
-describe('dialog focus trap (M4-4)', () => {
+describe('dialog focus trap', () => {
   it('Tab wraps inside the dialog and pulls outside focus back in', () => {
     const [a, b, c] = [{}, {}, {}] as HTMLElement[];
     const items = [a, b, c];

@@ -1,4 +1,4 @@
-// M2 리뷰 수정 검증: 제목 필드 길이 제한, 팀원 앞부분 조기 종료, 비정렬 이어 읽기, append-only 확인, 인덱서 갱신 분기.
+// 히스토리 인덱서: 제목 필드 길이 제한, 팀원 앞부분 조기 종료, 비정렬 이어 읽기, append-only 확인, 인덱서 갱신 분기, 꼬리 앞 역방향 탐색, list-sessions 결과 해석.
 import { appendFileSync, mkdirSync, mkdtempSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -18,7 +18,7 @@ const mem = (buf: Buffer): RangeReader => async (_d, _f, start, end, onChunk) =>
   for (let p = start; p < Math.min(end, buf.length); p += 4096) if (!onChunk(buf.subarray(p, Math.min(p + 4096, end, buf.length)))) break;
 };
 
-describe('title fields are capped before caching (review Major 2)', () => {
+describe('title fields are capped before caching', () => {
   it('ai-title / custom-title / summary / last-prompt keep only TITLE_MAX chars, whitespace collapsed', () => {
     const f = emptyFacts();
     const long = `a\n\n${'b'.repeat(5000)}`;
@@ -32,7 +32,7 @@ describe('title fields are capped before caching (review Major 2)', () => {
   });
 });
 
-describe('teammate head scan stops at teamName (review Minor 3)', () => {
+describe('teammate head scan stops at teamName', () => {
   it('stops immediately once teamName is seen, even before cwd/title', () => {
     const f = emptyFacts();
     applyLine(f, { text: rec({ type: 'attachment', teamName: 'session-4df7e772' }), truncated: false, end: 0 });
@@ -53,7 +53,7 @@ describe('teammate head scan stops at teamName (review Minor 3)', () => {
   });
 });
 
-describe('alignment of the resume offset (review Minor 5·6)', () => {
+describe('alignment of the resume offset', () => {
   it('tail window without any newline → offset not aligned → next append skips the cut piece', async () => {
     const head = `${user('q')}\n`;
     const huge = `${rec({ type: 'api-request-blob', b: 'x'.repeat(TAIL_BYTES * 3) })}`; // 개행 없는 긴 줄(쓰는 중)
@@ -77,7 +77,7 @@ describe('alignment of the resume offset (review Minor 5·6)', () => {
   });
 });
 
-describe('HistoryIndexer update branches (review test ①)', () => {
+describe('HistoryIndexer update branches', () => {
   let home: string;
   let proj: string;
   let file: string;
@@ -171,8 +171,8 @@ describe('HistoryIndexer update branches (review test ①)', () => {
   });
 });
 
-describe('QA M2 round', () => {
-  it('IDX-1: back-scan also finds custom-title / summary before the tail window, newest wins', async () => {
+describe('tail back-scan and list-sessions parsing', () => {
+  it('back-scan also finds custom-title / summary before the tail window, newest wins', async () => {
     const pad = (n: number): string[] => Array.from({ length: n }, (_, i) => rec({ type: 'api-request-blob', b: `${i}`.padEnd(2000, '.') }));
     const lines = [user('first'), rec({ type: 'custom-title', customTitle: 'old name' }), ...pad(2200), rec({ type: 'custom-title', customTitle: 'renamed' }),
       rec({ type: 'summary', summary: 'sum' }), ...pad(Math.ceil((TAIL_BYTES * 1.5) / 2050))];
@@ -181,28 +181,10 @@ describe('QA M2 round', () => {
     expect(r.facts.customTitle).toBe('renamed');
     expect(r.facts.summary).toBe('sum');
   });
-  it('M2-3: list-sessions "no server running" = 0 sessions; other failures = unknown', async () => {
+  it('list-sessions "no server running" = 0 sessions; other failures = unknown', async () => {
     const { parseListSessions } = await import('../../src/main/psmux/sessionName');
     expect(parseListSessions(0, 'a\r\nb\n', '')).toEqual(['a', 'b']);
     expect(parseListSessions(1, '', 'no server running on \\.\pipe\psmux')).toEqual([]);
     expect(parseListSessions(1, '', 'timed out')).toBeNull();
-  });
-  it('tab order: reconnected tabs go back to their creation-time slot', async () => {
-    const { insertByCreatedAt } = await import('../../src/renderer/tabs');
-    const at: Record<string, number> = { a: 10, c: 30 };
-    expect(insertByCreatedAt(['a', 'c'], 'b', 20, (x) => at[x])).toEqual(['a', 'b', 'c']);
-    expect(insertByCreatedAt(['a', 'c'], 'z', 99, (x) => at[x])).toEqual(['a', 'c', 'z']);
-    expect(insertByCreatedAt(['a', 'c'], 'a', 1, (x) => at[x])).toEqual(['a', 'c']);
-  });
-  it('Ctrl+W only from tab bar / sidebar non-text focus', async () => {
-    const { ctrlWAllowed } = await import('../../src/renderer/tabs');
-    const el = (tagName: string, inside: string[]): Element => ({ tagName, isContentEditable: false, closest: (sel: string) => (sel.split(',').some((x) => inside.includes(x.trim())) ? {} : null) }) as unknown as Element;
-    expect(ctrlWAllowed(el('DIV', ['.tabbar']))).toBe(true);
-    expect(ctrlWAllowed(el('BUTTON', ['.sidebar']))).toBe(true);
-    expect(ctrlWAllowed(el('INPUT', ['.sidebar']))).toBe(false);
-    expect(ctrlWAllowed(el('TEXTAREA', ['.card']))).toBe(false);
-    expect(ctrlWAllowed(el('TEXTAREA', ['.xterm', '.tabbar']))).toBe(false);
-    expect(ctrlWAllowed(el('BUTTON', ['.card']))).toBe(false);
-    expect(ctrlWAllowed(null)).toBe(false);
   });
 });

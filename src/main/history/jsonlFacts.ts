@@ -5,7 +5,7 @@ import type { SplitLine } from './lineSplitter';
 
 /** 파일 하나에서 모은 정보. 앞에서부터 순서대로 줄을 넣으면 "처음 값"·"마지막 값" 규칙이 맞게 쌓인다. */
 export interface FileFacts {
-  /** 첫 cwd(폴더명 디코딩 대신 사용, D2). */
+  /** 첫 cwd(폴더명 디코딩 대신 사용). */
   cwd?: string;
   entrypoint?: string;
   /** --agent 정의 이름(리드·팀원). */
@@ -23,7 +23,7 @@ export interface FileFacts {
   customTitle?: string;
   summary?: string;
   lastPrompt?: string;
-  /** 첫 레코드 시각(epoch ms, timestamp 필드). 정렬 "생성 날짜"(F2-2) 기준. */
+  /** 첫 레코드 시각(epoch ms, timestamp 필드). 정렬 "생성 날짜" 기준. */
   firstAt?: number;
   /** 넣은 줄 수·해석 실패 줄 수. */
   lines: number;

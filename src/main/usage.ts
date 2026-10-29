@@ -1,4 +1,4 @@
-// 사용량 표시(F7-1) main 쪽: usage.json 감시(statusline 자동 갱신)와 ↻ 수동 갱신(GET /api/oauth/usage 1회),
+// 사용량 표시 main 쪽: usage.json 감시(statusline 자동 갱신)와 ↻ 수동 갱신(GET /api/oauth/usage 1회),
 // 기동·로그인 직후 자동 1회(같은 경로, 실패는 조용히). 이 조회가 앱의 유일한 API 호출이다(네트워크 미사용 원칙의 예외). OAuth access token은 fetchOauthUsage 한 함수의 지역변수로만 존재하며
 // 반환값·로그·IPC·저장소·예외 메시지 어디에도 넣지 않는다. 토큰 갱신(refresh)·~/.claude 쓰기는 하지 않는다.
 
@@ -148,7 +148,7 @@ export class UsageTracker extends EventEmitter {
     return { ...this.state, error: this.errorMsg === null ? null : resolveMsg(this.errorMsg) };
   }
 
-  /** 로그아웃(F7-2): 표시 값을 비우고(막대 "—") 진행 중 조회는 바로 끊는다. usage.json은 그대로 두고, 이후 더 새 기록이 오면 다시 표시한다. */
+  /** 로그아웃: 표시 값을 비우고(막대 "—") 진행 중 조회는 바로 끊는다. usage.json은 그대로 두고, 이후 더 새 기록이 오면 다시 표시한다. */
   clear(): void {
     this.state = { fiveHour: null, sevenDay: null, model: null, updatedAt: null, error: null };
     this.errorMsg = null;
@@ -202,11 +202,11 @@ export class UsageTracker extends EventEmitter {
       log('warn', 'usage file has unexpected format; ignored');
       return;
     }
-    // 받은 시각이 미래면(시계 조정 등) 지금으로 자른다: 그대로 두면 그 시각까지 이후 기록이 모두 무시된다(QA O-14)
+    // 받은 시각이 미래면(시계 조정 등) 지금으로 자른다: 그대로 두면 그 시각까지 이후 기록이 모두 무시된다
     const at = Math.min(rec.at, Date.now());
     if (at <= this.fileAt) return;
     this.fileAt = at;
-    // 새 값이 들어오면 이전 ↻ 실패 안내는 지운다(QA O-15)
+    // 새 값이 들어오면 이전 ↻ 실패 안내는 지운다
     this.state = { ...this.state, fiveHour: rec.fiveHour, sevenDay: rec.sevenDay, updatedAt: Math.max(this.state.updatedAt ?? 0, at), error: null };
     this.errorMsg = null;
     this.emit('update', this.get());
@@ -286,7 +286,7 @@ export class UsageTracker extends EventEmitter {
 }
 
 /**
- * 자동 1회 갱신(F7-1: 기동 직후·로그인 확인 직후). 로그인 상태가 확인된 경우에만 ↻와 같은 경로(tracker.refresh)로 조회하고,
+ * 자동 1회 갱신(기동 직후·로그인 확인 직후). 로그인 상태가 확인된 경우에만 ↻와 같은 경로(tracker.refresh)로 조회하고,
  * 실패는 조용히 처리한다(안내 없음, 로그 warn 1줄). 예외를 던지지 않는다.
  *
  * Args:
@@ -309,7 +309,7 @@ export async function autoRefreshUsage(tracker: Pick<UsageTracker, 'refresh'>, i
     log('info', `usage auto refresh skipped (${why}): logged out`);
     return false;
   }
-  // 결과 줄(ok·failed)에는 계기가 없고 ↻가 합류하면 ↻ 줄만 남으므로, 자동 시도마다 계기를 한 줄 남긴다(QA m-1)
+  // 결과 줄(ok·failed)에는 계기가 없고 ↻가 합류하면 ↻ 줄만 남으므로, 자동 시도마다 계기를 한 줄 남긴다
   log('info', `usage auto refresh start (${why})`);
   try {
     await tracker.refresh({ silent: true });

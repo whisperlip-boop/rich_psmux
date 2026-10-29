@@ -1,5 +1,5 @@
 // 앱 루트: [사이드바 240] | [탭 바 36 / 카드 그리드]. 탭별 상태(레이아웃·비율·활성 카드·카드 자리)를 따로 기억하고
-// 세션 이름 키로 앱 데이터에 저장해 재시작 후에도 복원한다(M2-05·M2-10).
+// 세션 이름 키로 앱 데이터에 저장해 재시작 후에도 복원한다.
 
 import { useEffect, useRef, useState } from 'preact/hooks';
 
@@ -55,7 +55,7 @@ export function App() {
   const [recent, setRecent] = useState<string[]>([]);
   const [homeDir, setHomeDir] = useState('');
   const [busy, setBusy] = useState(false);
-  /** 오류 배너(메시지 + 그래도 이어가기 대상, TC-180). setError는 항상 통째로 교체한다(이어가기 대상은 지워짐). */
+  /** 오류 배너(메시지 + 그래도 이어가기 대상). setError는 항상 통째로 교체한다(이어가기 대상은 지워짐). */
   const [notice, setNotice] = useState<ErrorNotice | null>(null);
   const setError = (message: string | null): void => setNotice(errorNotice(message));
   /** 실행 중으로 보여 거부된 대화(오류 줄의 "그래도 이어가기"로 강제 이어가기). */
@@ -72,17 +72,17 @@ export function App() {
   const [dialog, setDialog] = useState<'settings' | 'language' | 'agents' | 'sessions' | 'about' | null>(null);
   /** UI 언어. 문구는 shared/i18n의 현재 언어를 읽고, 이 state는 바뀔 때 전체를 다시 그리는 용도(main.tsx가 첫 렌더 전에 적용). */
   const [lang, setLangState] = useState<Lang>(getLang);
-  /** 현재 리드 명령(새 세션 메뉴·첫 화면의 "리더" 표시, F8-1). */
+  /** 현재 리드 명령(새 세션 메뉴·첫 화면의 "리더" 표시). */
   const [leadCommand, setLeadCommand] = useState<string | null>(null);
-  /** 히스토리 항목 메뉴(F2-1) 대화상자. */
+  /** 히스토리 항목 메뉴 대화상자. */
   const [renaming, setRenaming] = useState<HistoryItemDto | null>(null);
   const [trashing, setTrashing] = useState<{ item: HistoryItemDto; extra: number; folders: number; busy: boolean } | null>(null);
-  /** 세션 끊기 확인 대상(F2-1)과 끊는 중인 대상 키(alias로 묶인 두 행이 같은 세션이라 세션 이름·pid 기준). */
+  /** 세션 끊기 확인 대상과 끊는 중인 대상 키(alias로 묶인 두 행이 같은 세션이라 세션 이름·pid 기준). */
   const [stopAsk, setStopAsk] = useState<StopAsk | null>(null);
   const [stopping, setStopping] = useState<ReadonlySet<string>>(new Set());
-  /** 탭 없는 앱 세션 끊기 확인 대상(F2-1 보완). */
+  /** 탭 없는 앱 세션 끊기 확인 대상. */
   const [stopDetachedAsk, setStopDetachedAsk] = useState<DetachedSessionDto | null>(null);
-  /** 로그아웃 확인(F7-2). */
+  /** 로그아웃 확인. */
   const [logoutOpen, setLogoutOpen] = useState<{ busy: boolean } | null>(null);
   const [loginBusy, setLoginBusy] = useState(false);
   /** 사이드바 전체 접힘(ui-state.json에 저장). */
@@ -90,11 +90,11 @@ export function App() {
   const sidebarHiddenRef = useRef(false);
   /** 사이드바 폭(px, ui-state.json에 저장). */
   const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT_W);
-  /** 히스토리 필터(F2-2, ui-state.json에 저장). */
+  /** 히스토리 필터(ui-state.json에 저장). */
   const [historyFilter, setHistoryFilter] = useState<HistoryFilter>(DEFAULT_FILTER);
   const [history, setHistory] = useState<HistoryDto>({ status: 'loading', items: [] });
   const [running, setRunning] = useState<RunningDto[]>([]);
-  /** 탭 없는 앱 세션(F2-1 보완): 있을 때만 사이드바 맨 위 그룹. */
+  /** 탭 없는 앱 세션: 있을 때만 사이드바 맨 위 그룹. */
   const [detached, setDetached] = useState<DetachedSessionDto[]>([]);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const panesSeen = useRef<Record<string, Set<string>>>({});
@@ -127,7 +127,7 @@ export function App() {
     // 첫 팀원 카드가 생기면 이어가기 안내 배너를 숨긴다
     // 리드 칸 확정 전 상태(leadPaneId null)에서는 판단하지 않는다(리드 칸을 팀원으로 오인)
     if (s.resumeSessionId && s.leadPaneId && s.panes.some((p) => p.paneId !== s.leadPaneId)) setBannerDone((b) => (b[s.tabId] ? b : { ...b, [s.tabId]: true }));
-    // 로그인 탭: 다시 실행 중(실패 해제)이면 닫았던 실패 배너를 되살려, 또 실패하면 다시 보이게 한다(리뷰 m-3)
+    // 로그인 탭: 다시 실행 중(실패 해제)이면 닫았던 실패 배너를 되살려, 또 실패하면 다시 보이게 한다
     if (s.purpose === 'login' && !s.loginFailed) {
       setBannerDone((b) => {
         if (!b[s.tabId]) return b;
@@ -208,7 +208,7 @@ export function App() {
     window.dispatchEvent(new CustomEvent<InsertDetail>(INSERT_EVENT, { detail }));
   };
 
-  /** 폴더 추가(F6): 리드 카드 입력창에 /add-dir <경로>(따옴표 없음, 입력창이 비어 있을 때만). */
+  /** 폴더 추가: 리드 카드 입력창에 /add-dir <경로>(따옴표 없음, 입력창이 비어 있을 때만). */
   const addDir = async (tabId: string): Promise<void> => {
     const lead = addDirLeadPane(live.current.tabs[tabId]);
     if (!lead) return;
@@ -227,7 +227,7 @@ export function App() {
     insertInto({ tabId, pane: lead, text: q.text, command: true });
   };
 
-  /** 사용량 ↻(F7-1). IPC 자체가 실패하면 영역 안 한 줄로 알린다. */
+  /** 사용량 ↻. IPC 자체가 실패하면 영역 안 한 줄로 알린다. */
   /** 이름 변경 저장(빈 값 = 원래 제목). */
   const saveRename = (item: HistoryItemDto, title: string): void => {
     setRenaming(null);
@@ -334,7 +334,7 @@ export function App() {
    * 누른 버튼이 사라지므로 반대쪽 버튼(펼치기 ↔ 접기)으로 포커스를 옮긴다.
    */
   const toggleSidebar = (): void => {
-    // 부수 효과(저장·포커스)는 상태 업데이터 밖에서(리뷰 Nit). 키 처리기는 오래된 클로저라 ref로 현재 값을 읽는다
+    // 부수 효과(저장·포커스)는 상태 업데이터 밖에서. 키 처리기는 오래된 클로저라 ref로 현재 값을 읽는다
     const next = !sidebarHiddenRef.current;
     sidebarHiddenRef.current = next;
     setSidebarHidden(next);
@@ -381,7 +381,7 @@ export function App() {
       offs.push(window.ctd.onHistory(setHistory));
       offs.push(window.ctd.onRunning(setRunning));
       offs.push(window.ctd.onDetached(setDetached));
-      // 설정 저장 즉시 적용(F8): 글꼴·크기·테마
+      // 설정 저장 즉시 적용: 글꼴·크기·테마
       offs.push(window.ctd.onAppearance((a) => {
         setTerminalFont(a.fontSize, a.fontFamily);
         applyTheme(a.theme);
@@ -391,14 +391,14 @@ export function App() {
     return () => offs.forEach((f) => f());
   }, []);
 
-  // 창 전체 드래그앤드롭(F6): 파일·폴더를 놓으면 대상 카드 입력창 커서 위치에 @"경로"(공백 구분). 놓은 곳이 카드면 그 카드, 아니면 활성 카드
+  // 창 전체 드래그앤드롭: 파일·폴더를 놓으면 대상 카드 입력창 커서 위치에 @"경로"(공백 구분). 놓은 곳이 카드면 그 카드, 아니면 활성 카드
   useEffect(() => {
     const isFiles = (e: DragEvent): boolean => !!e.dataTransfer && [...e.dataTransfer.types].includes('Files');
     const hoveredPane = (e: DragEvent, tabId: string): string | null => {
       const card = (e.target as Element | null)?.closest?.('.card') as HTMLElement | null;
       return card && card.closest(`.tab-page[data-tab="${CSS.escape(tabId)}"]`) ? card.dataset.pane ?? null : null;
     };
-    // 취소(Esc·창 밖) 때 dragleave 짝이 안 맞아 점선이 남는 문제(M3-1): 창 밖 이탈 즉시 + dragover 1초 없으면 해제(안전망. 경계에서 dragover가 200ms 넘게 빠질 수 있음, O-3)
+    // 취소(Esc·창 밖) 때 dragleave 짝이 안 맞아 점선이 남는 문제: 창 밖 이탈 즉시 + dragover 1초 없으면 해제(안전망. 경계에서 dragover가 200ms 넘게 빠질 수 있음)
     const hover = new DragHoverTracker(() => setDrop(null));
     const onEnter = (e: DragEvent): void => {
       if (isFiles(e)) hover.enter();
@@ -452,13 +452,13 @@ export function App() {
     };
   }, []);
 
-  // "그래도 이어가기" 확인 창·종료 확인 창(QA M2-2): 취소 포커스, Esc 닫기, 닫히면 연 버튼으로 포커스 복귀(O-7)
+  // "그래도 이어가기" 확인 창·종료 확인 창: 취소 포커스, Esc 닫기, 닫히면 연 버튼으로 포커스 복귀
   useDialogKeys(!!confirmForce, () => setConfirmForce(null), CANCEL_BTN);
   useDialogKeys(!!confirmEnd, () => setConfirmEnd(null), CANCEL_BTN);
-  // 칸 정보 창도 같은 처리(동적 autoFocus는 Chromium이 무시, QA M4-4 동일 패턴)
+  // 칸 정보 창도 같은 처리(동적 autoFocus는 Chromium이 무시)
   useDialogKeys(!!info, () => setInfo(null));
 
-  // 활성 탭만 터미널에 그린다(비활성 탭은 버퍼만, D14)
+  // 활성 탭만 터미널에 그린다(비활성 탭은 버퍼만)
   useEffect(() => setActiveTab(active), [active]);
 
   // 탭 화면 상태 저장(세션 이름 키). 바뀐 탭만 보낸다
@@ -475,7 +475,7 @@ export function App() {
     }
   }, [ui, tabs, order, bannerDone]);
 
-  // 단축키(D3). 캡처 단계에서 먼저 받아 터미널과 충돌하지 않게 한다.
+  // 단축키. 캡처 단계에서 먼저 받아 터미널과 충돌하지 않게 한다.
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       const inTerm = !!(document.activeElement as HTMLElement | null)?.closest('.xterm');
@@ -568,7 +568,7 @@ export function App() {
     return it ? displayTitle(it, now) : null;
   };
   const endTab = confirmEnd ? tabs[confirmEnd] : undefined;
-  /** 리드 카드 배너: 로그인 탭 실패 안내(F7-2) 또는 이어가기 안내(팀원은 복원되지 않음). */
+  /** 리드 카드 배너: 로그인 탭 실패 안내 또는 이어가기 안내(팀원은 복원되지 않음). */
   const cardBanner = (tab: TabStateDto, dismissed: boolean): string | null => {
     if (tab.purpose === 'login') return tab.loginFailed && !dismissed ? t('banner.loginFailed') : null;
     return tab.resumeSessionId && !dismissed && !tab.panes.some((p) => p.paneId !== tab.leadPaneId) ? t('banner.resume') : null;

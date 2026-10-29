@@ -1,4 +1,4 @@
-// v0.9: 히스토리 ⋮ "세션 끊기…"(실행 중 대화, 출처 3분기) 표시 조건·main 재검증·이름/pid/프로세스 검증, 비활성 "삭제…" 사유 라벨(F2-1). 작업 중 Enter 미제출 방지(F5).
+// 히스토리 ⋮ "세션 끊기…"(실행 중 대화, 출처 3분기) 표시 조건·main 재검증·이름/pid/프로세스 검증, 비활성 "삭제…" 사유 라벨. 작업 중 Enter 미제출 방지.
 
 import { describe, expect, it } from 'vitest';
 
@@ -18,7 +18,7 @@ const RUN: RunningDto[] = [
   { sessionId: 'open-ps', psmuxSession: 'ctd-open-000002', ours: true },
 ];
 
-describe('삭제 비활성 사유 라벨(v0.9)', () => {
+describe('삭제 비활성 사유 라벨', () => {
   it('탭으로 열림 / 실행 중 / 외부에서 실행 중 / 삭제 가능', () => {
     const tabs = [tab({ resumeSessionId: 'resumed' }), tab({ session: 'ctd-open-000002' })];
     expect(trashBlockedReason('RESUMED', tabs, RUN)).toBe('탭으로 열림');
@@ -31,7 +31,7 @@ describe('삭제 비활성 사유 라벨(v0.9)', () => {
   });
 });
 
-describe('"세션 끊기…" 표시 조건(F2-1): 실행 중 + 탭 없음, 출처 무관', () => {
+describe('"세션 끊기…" 표시 조건: 실행 중 + 탭 없음, 출처 무관', () => {
   const RUNP: RunningDto[] = [
     { sessionId: 'det', psmuxSession: 'ctd-det-000001', ours: true, pid: 101, inPsmux: true },
     { sessionId: 'ext', psmuxSession: 'win_memory', ours: false, pid: 102, inPsmux: true },
@@ -74,7 +74,7 @@ describe('"세션 끊기…" 표시 조건(F2-1): 실행 중 + 탭 없음, 출�
   });
 });
 
-describe('대화 기록이 없는 탭(F1 ×: 분리 대신 종료 안내)', () => {
+describe('대화 기록이 없는 탭(탭 ×: 분리 대신 종료 안내)', () => {
   const items = [{ sessionId: 'AAAA-lead' }] as unknown as HistoryItemDto[];
   it('이어간 대화면 기록이 히스토리에 없어도 false', () => {
     expect(isFreshTab(tab({ resumeSessionId: 'old', leadSessionId: null }), [])).toBe(false);
@@ -209,14 +209,14 @@ describe('세션 이름·pid·프로세스 이미지 검증', () => {
   });
 });
 
-describe('QA 8차: psmux 경로 pid 확인·확정 거부 제외 캐시', () => {
+describe('psmux 경로 pid 확인·확정 거부 제외 캐시', () => {
   const mtime = Date.UTC(2026, 9, 26, 9, 50, 1);
   const info = (o: Partial<ProcessInfo>): ProcessInfo => ({ name: 'pwsh.exe', commandLine: 'pwsh -NoLogo', createdMs: mtime - 1000, isAncestor: false, ...o });
 
   it('judgeOwner: 생성 시각 ≤ 세션 파일 수정 시각·조상 아님만 보고 이름·명령줄은 보지 않음(칸 셸 pid)', () => {
     expect(judgeOwner(info({}), mtime)).toBeNull();
     expect(judgeOwner(info({ name: 'PING.EXE', commandLine: '' }), mtime)).toBeNull();
-    // QA 재현: PING.EXE 생성 09:59:43Z, 파일 수정 09:50:01Z
+    // 재현 사례: PING.EXE 생성 09:59:43Z, 파일 수정 09:50:01Z
     expect(judgeOwner(info({ name: 'PING.EXE', createdMs: Date.UTC(2026, 9, 26, 9, 59, 43) }), mtime)).toBe('pid-mismatch');
     expect(judgeOwner(info({}), Number.NaN)).toBe('pid-mismatch');
     expect(judgeOwner(info({ isAncestor: true }), mtime)).toBe('self');
@@ -259,13 +259,13 @@ describe('QA 8차: psmux 경로 pid 확인·확정 거부 제외 캐시', () => 
   });
 });
 
-describe('QA 9차(M9-1): 끊기 직전 <pid>.json이 대상을 가리키는지', () => {
+describe('끊기 직전 <pid>.json이 대상을 가리키는지', () => {
   const ids = new Set(['new-id', 'orig-id']);
   it('psmux 경로: 내용 pid = 파일 이름 pid, sessionId(alias 포함), tmux 세션 이름이 모두 맞을 때만', () => {
     const f = { pid: 36792, sessionId: 'NEW-ID', tmux: 'extsess-keep:@0.%0' };
     expect(sessionFileOwns(f, 36792, ids, 'extsess-keep')).toBe(true);
     expect(sessionFileOwns({ ...f, sessionId: 'orig-id' }, 36792, ids, 'extsess-keep')).toBe(true);
-    // QA 재현: 36792.json은 tmux 없음(psmux 밖) → 외부 세션 extsess-keep의 소유 확인 실패
+    // 재현 사례: 36792.json은 tmux 없음(psmux 밖) → 외부 세션 extsess-keep의 소유 확인 실패
     expect(sessionFileOwns({ pid: 36792, sessionId: 'new-id' }, 36792, ids, 'extsess-keep')).toBe(false);
     expect(sessionFileOwns({ ...f, tmux: 'other:@0.%0' }, 36792, ids, 'extsess-keep')).toBe(false);
     expect(sessionFileOwns({ ...f, sessionId: 'someone-else' }, 36792, ids, 'extsess-keep')).toBe(false);
@@ -281,7 +281,7 @@ describe('QA 9차(M9-1): 끊기 직전 <pid>.json이 대상을 가리키는지',
   });
 });
 
-describe('입력 제출 분리(작업 중 Enter 미제출 방지, v0.9)', () => {
+describe('입력 제출 분리(작업 중 Enter 미제출 방지)', () => {
   it('한 줄: 본문 → Enter 두 묶음', () => {
     expect(splitSubmit('%1', inputToCommands('%1', 'hi'))).toEqual([["send-keys -t %1 -l 'hi'"], ['send-keys -t %1 Enter']]);
   });

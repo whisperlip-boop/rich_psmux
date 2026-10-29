@@ -73,7 +73,7 @@ describe('chunkCodePoints', () => {
   });
 });
 
-describe('inputToCommands: End before Enter when @ references are present (M3)', () => {
+describe('inputToCommands: End before Enter when @ references are present', () => {
   it('Claude pane (paste mode), single and multi line', () => {
     expect(inputToCommands('%1', 'see @"D:\\a b.txt"')).toEqual(["send-keys -t %1 -l 'see @\"D:\\a b.txt\"'", 'send-keys -t %1 End', 'send-keys -t %1 Enter']);
     const ml = inputToCommands('%1', 'a\n@"D:\\x"');

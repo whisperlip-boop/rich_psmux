@@ -18,7 +18,7 @@ export const TAIL_BYTES = 256 * 1024;
 export const TAIL_BACK_MAX_BYTES = 2 * 1024 * 1024;
 export const APPEND_MAX_BYTES = 8 * 1024 * 1024;
 // v2: 이어 읽기 위치 정렬 여부(aligned) 추가, 제목 후보 필드를 앞부분만 보관
-// 3: 첫 레코드 시각(firstAt) 추가(F2-2 생성 날짜 정렬). 이전 캐시는 버리고 한 번 다시 읽는다
+// 3: 첫 레코드 시각(firstAt) 추가(정렬 "생성 날짜"용). 이전 캐시는 버리고 한 번 다시 읽는다
 const CACHE_VERSION = 3;
 const WATCH_DEBOUNCE_MS = 400;
 const PERIODIC_MS = 30000;
@@ -248,8 +248,8 @@ export class HistoryIndexer extends EventEmitter {
   }
 
   /**
-   * 히스토리 폴더가 바뀌었을 때(설정 F8): 감시·타이머를 멈추고 진행 중인 읽기를 기다린 뒤 switchDir로 폴더를 바꾸고,
-   * 이전 폴더 항목·캐시를 버리고 처음부터 다시 읽는다. 연달아 불러도 순서대로 하나씩 처리한다(리뷰 m-3).
+   * 히스토리 폴더가 바뀌었을 때(설정): 감시·타이머를 멈추고 진행 중인 읽기를 기다린 뒤 switchDir로 폴더를 바꾸고,
+   * 이전 폴더 항목·캐시를 버리고 처음부터 다시 읽는다. 연달아 불러도 순서대로 하나씩 처리한다.
    *
    * Args:
    *   switchDir: 진행 중인 읽기가 모두 끝난 뒤(이전 폴더 기준 읽기가 새 폴더 경로로 섞이지 않게) 실행할 폴더 전환.
@@ -293,7 +293,7 @@ export class HistoryIndexer extends EventEmitter {
   }
 
   /**
-   * 지운 파일(F2-1 휴지통 이동)을 인덱스·캐시에서 바로 뺀다. 파일 감시도 결국 반영하지만 기다리지 않는다.
+   * 지운 파일(휴지통 이동)을 인덱스·캐시에서 바로 뺀다. 파일 감시도 결국 반영하지만 기다리지 않는다.
    *
    * Returns:
    *   빠진 항목이 있으면 true(그때만 'update'를 낸다).

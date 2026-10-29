@@ -52,7 +52,7 @@ export function writeUsageAtomicSync(file: string, rec: UsageRecord): void {
 }
 
 /**
- * main 전용: 비동기로 원자적 기록을 1번 시도한다(재시도·동기 대기 없음, 리뷰 m-3). 실패하면 임시 파일을 지우고 예외를 그대로 던진다.
+ * main 전용: 비동기로 원자적 기록을 1번 시도한다(재시도·동기 대기 없음). 실패하면 임시 파일을 지우고 예외를 그대로 던진다.
  *
  * Args:
  *   file: usage.json 절대 경로.

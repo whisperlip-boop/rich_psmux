@@ -1,4 +1,4 @@
-// 로그아웃·로그인(F7-2, ~/.claude 읽기 전용 원칙의 예외): 앱은 자격 증명 파일을 직접 읽거나 쓰지 않고 Claude Code CLI만 실행한다.
+// 로그아웃·로그인(~/.claude 읽기 전용 원칙의 예외): 앱은 자격 증명 파일을 직접 읽거나 쓰지 않고 Claude Code CLI만 실행한다.
 // claude auth status(JSON)에서는 loggedIn 하나만 꺼내고, CLI 출력 본문은 로그에 남기지 않는다(종료 코드만).
 
 import { execFile } from 'node:child_process';
@@ -54,7 +54,7 @@ export function runClaude(cli: string, args: string[], timeoutMs: number): Promi
     }, (err, stdout) => {
       if (!err) return res({ code: 0, stdout, timedOut: false });
       const e = err as NodeJS.ErrnoException & { code?: number | string; killed?: boolean; signal?: string };
-      // 출력이 상한(1MB)을 넘으면 Node가 프로세스를 끝내고 killed도 true다 → 시간 초과와 구분(리뷰 Nit)
+      // 출력이 상한(1MB)을 넘으면 Node가 프로세스를 끝내고 killed도 true다 → 시간 초과와 구분
       if (e.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER') return res({ code: null, stdout: '', timedOut: false, reason: 'maxBuffer' });
       if (e.killed || e.signal) return res({ code: null, stdout: '', timedOut: true, reason: 'timeout' });
       if (typeof e.code === 'number') return res({ code: e.code, stdout, timedOut: false });

@@ -1,4 +1,4 @@
-// v0.8: Agents 소규모 수정(TC-200 상한 순서, TC-203 대소문자, TC-205 팀원 대조 오탐).
+// Agents: 정의 개수 상한 순서, 드롭다운 선택값 대소문자, 팀원 대조 오탐.
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -14,7 +14,7 @@ import { agentIssues, findAgent, initialSelection, selectableAgents } from '../.
 
 vi.mock('../../src/main/logger', () => ({ log: () => undefined, errMsg: (e: unknown) => String(e) }));
 
-const tmp = mkdtempSync(join(tmpdir(), 'ctd-v08-'));
+const tmp = mkdtempSync(join(tmpdir(), 'ctd-agents-limits-'));
 afterAll(() => rmSync(tmp, { recursive: true, force: true }));
 afterEach(() => setClaudeHomeForTest(null));
 
@@ -24,7 +24,7 @@ const write = (dir: string, file: string, text: string) => {
   writeFileSync(join(dir, file), text);
 };
 
-describe('TC-200 상한: 프로젝트 먼저, 남는 개수만 전역', () => {
+describe('개수 상한: 프로젝트 먼저, 남는 개수만 전역', () => {
   it('전역이 상한을 넘어도 프로젝트 정의(리더)는 모두 읽고 합계는 상한', async () => {
     const home = join(tmp, 'cap', '.claude');
     const proj = join(tmp, 'cap', 'proj');
@@ -65,7 +65,7 @@ describe('TC-200 상한: 프로젝트 먼저, 남는 개수만 전역', () => {
   });
 });
 
-describe('TC-203 드롭다운 선택값: 대소문자 무시로 정의 이름에 맞춤', () => {
+describe('드롭다운 선택값: 대소문자 무시로 정의 이름에 맞춤', () => {
   const list = selectableAgents([
     { file: 'CEO.md', scope: 'project', name: 'Ceo', description: null, error: null, referenced: [], missing: [] },
     { file: 'ceo.md', scope: 'global', name: 'ceo', description: null, error: null, referenced: [], missing: [] },
@@ -81,7 +81,7 @@ describe('TC-203 드롭다운 선택값: 대소문자 무시로 정의 이름에
   });
 });
 
-describe('TC-205 팀원 대조 오탐', () => {
+describe('팀원 대조 오탐', () => {
   const names = ['ceo', 'pm', 'qa'];
 
   it('인라인 코드 안의 @는 무시', () => {

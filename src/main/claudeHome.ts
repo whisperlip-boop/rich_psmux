@@ -1,7 +1,7 @@
 // ~/.claude 읽기 전용 접근 계층. 이 모듈만 ~/.claude 를 읽으며 쓰기 API(write/rename/unlink/mkdir/touch)는 아예 두지 않는다.
 // 비밀값 파일(.credentials.json, sessions/*.key)은 경로 단계에서 거부해 열지도 않는다.
-// 유일한 예외: 사용량 ↻(F7-1)은 usage.ts fetchOauthUsage 한 함수가 .credentials.json을 직접 읽는다(읽기 전용 원칙의 예외, 토큰은 그 함수 밖으로 나가지 않음).
-// 대화 삭제(F2-1)의 휴지통 이동은 이 모듈이 아니라 trash.ts가 projects 아래 .jsonl만 대상으로 한다(읽기 전용 원칙의 예외).
+// 유일한 예외: 사용량 ↻은 usage.ts fetchOauthUsage 한 함수가 .credentials.json을 직접 읽는다(읽기 전용 원칙의 예외, 토큰은 그 함수 밖으로 나가지 않음).
+// 대화 삭제의 휴지통 이동은 이 모듈이 아니라 trash.ts가 projects 아래 .jsonl만 대상으로 한다(읽기 전용 원칙의 예외).
 
 import { createReadStream, watch, type FSWatcher } from 'node:fs';
 import { readdir, readFile, stat } from 'node:fs/promises';
@@ -23,7 +23,7 @@ export function setClaudeHomeForTest(dir: string | null): void {
   rootOverride = dir;
 }
 
-/** 히스토리(projects) 폴더를 바꾼다(설정 F8). null·빈 값이면 ~/.claude/projects. */
+/** 히스토리(projects) 폴더를 바꾼다(설정). null·빈 값이면 ~/.claude/projects. */
 export function setProjectsDir(dir: string | null): void {
   projectsOverride = dir && dir.trim() ? dir.trim() : null;
 }
@@ -86,7 +86,7 @@ export function resolveSafe(...segments: string[]): string {
 }
 
 /**
- * 계정 표시값(F7)만 ~/.claude.json 에서 꺼낸다: oauthAccount.emailAddress·organizationName.
+ * 계정 표시값만 ~/.claude.json 에서 꺼낸다: oauthAccount.emailAddress·organizationName.
  * 이 파일에는 MCP 서버 env·headers 등 비밀값이 같이 있을 수 있어, 파싱한 객체는 함수 밖으로 내보내지 않고 두 문자열만 돌려준다.
  * 값은 로그에 남기지 않는다(호출부 포함). Claude Code가 쓰는 도중이면 잘린 JSON일 수 있어 한 번 다시 읽는다.
  *
@@ -110,7 +110,7 @@ export async function readAccount(): Promise<{ email: string | null; org: string
 }
 
 /**
- * 팀 기능 판정용 값만 ~/.claude/settings.json에서 꺼낸다(F8-1): env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS, teammateMode.
+ * 팀 기능 판정용 값만 ~/.claude/settings.json에서 꺼낸다: env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS, teammateMode.
  * 이 파일의 다른 값(권한·hook·다른 env 등)은 함수 밖으로 내보내지 않고 로그에도 남기지 않는다.
  */
 export async function readTeamSettings(): Promise<{ envFlag: string | null; teammateMode: string | null }> {

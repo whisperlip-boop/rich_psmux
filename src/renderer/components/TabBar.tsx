@@ -57,7 +57,7 @@ export function TabBar({ tabs, active, titleOf, onSelect, onNew, onNewPlain, rec
 
   useEffect(() => {
     if (!menu) return;
-    // 메뉴가 열리면 첫 항목(비활성이면 그다음)에 포커스(QA M2-2)
+    // 메뉴가 열리면 첫 항목(비활성이면 그다음)에 포커스
     listRef.current?.parentElement?.querySelector<HTMLElement>('.ctx-menu button:not(:disabled)')?.focus();
     const close = (): void => setMenu(null);
     const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') close(); };
@@ -181,7 +181,7 @@ export function TabBar({ tabs, active, titleOf, onSelect, onNew, onNewPlain, rec
       {menu && (
         <div class="ctx-menu" role="menu" style={{ left: `${menu.x}px`, top: `${menu.y}px` }} onPointerDown={(e) => e.stopPropagation()}>
           <button role="menuitem" autoFocus disabled={menuTerminating} onClick={() => { setMenu(null); onDetach(menu.id); }}>{t(menuFresh ? 'tab.closeFresh' : 'tab.detach')}</button>
-          {/* 확인 창이 닫힌 뒤 포커스가 돌아올 곳: 사라지는 메뉴 항목 대신 그 탭(QA M4-4) */}
+          {/* 확인 창이 닫힌 뒤 포커스가 돌아올 곳: 사라지는 메뉴 항목 대신 그 탭 */}
           <button role="menuitem" class="is-danger" disabled={menuTerminating} onClick={() => {
             setMenu(null);
             listRef.current?.querySelector<HTMLElement>(`[data-tab="${CSS.escape(menu.id)}"]`)?.focus();

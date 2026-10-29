@@ -48,7 +48,7 @@ export interface TabStateDto {
   /** 종료 처리 중. */
   terminating: boolean;
   createdAt: number;
-  /** 탭 용도: 일반 대화 / 로그인 전용(F7-2, 칸에서 claude auth login 실행). */
+  /** 탭 용도: 일반 대화 / 로그인 전용(칸에서 claude auth login 실행). */
   purpose: 'conversation' | 'login';
   /** 로그인 탭: 프로세스가 끝났는데 로그인이 확인되지 않음(카드 배너). */
   loginFailed: boolean;
@@ -64,16 +64,16 @@ export interface HistoryItemDto {
   folderKey: string;
   folderName: string;
   mtimeMs: number;
-  /** 첫 레코드 시각(없으면 null). 정렬 "생성 날짜"(F2-2)는 없으면 mtimeMs로 대체. */
+  /** 첫 레코드 시각(없으면 null). 정렬 "생성 날짜"는 없으면 mtimeMs로 대체. */
   createdMs: number | null;
   kind: 'session' | 'lead' | 'sdk';
   /** 이 대화(리드)에 묶인 팀원 대화 파일 수. */
   mates: number;
   /** 앱 저장소 키(`<프로젝트 폴더>/<파일>`, 인덱서 keyOf와 같음). 이름 변경·보관 기준. */
   key: string;
-  /** 앱에서 바꾼 표시 이름(F2-1). 없으면 null. */
+  /** 앱에서 바꾼 표시 이름. 없으면 null. */
   customTitle: string | null;
-  /** 보관함에 있는지(F2-1). */
+  /** 보관함에 있는지. */
   archived: boolean;
 }
 
@@ -96,7 +96,7 @@ export interface RunningDto {
   inPsmux?: boolean;
 }
 
-/** 탭 없는 앱 세션(F2-1 보완): 탭을 닫았지만 psmux 세션이 살아 있고 대화 기록이 없어 히스토리 행이 없는 세션. 있을 때만 사이드바에 보인다. */
+/** 탭 없는 앱 세션: 탭을 닫았지만 psmux 세션이 살아 있고 대화 기록이 없어 히스토리 행이 없는 세션. 있을 때만 사이드바에 보인다. */
 export interface DetachedSessionDto {
   session: string;
   folder: string;
@@ -114,14 +114,14 @@ export interface UiStateDto {
   sidebarCollapsed: boolean;
   /** 사이드바 폭(px). */
   sidebarWidth: number;
-  /** 히스토리 필터(F2-2, 렌더러가 parseFilter로 검증). */
+  /** 히스토리 필터(렌더러가 parseFilter로 검증). */
   historyFilter: Record<string, string>;
 }
 
 /** 테마 설정값. system = OS(prefers-color-scheme) 추종. */
 export type ThemeMode = 'light' | 'dark' | 'system';
 
-/** 설정 대화상자에서 바꿀 수 있는 값(F8). 경로의 빈 값은 기본값(자동 탐색·~/.claude/projects·psmux 기본 셸). */
+/** 설정 대화상자에서 바꿀 수 있는 값. 경로의 빈 값은 기본값(자동 탐색·~/.claude/projects·psmux 기본 셸). */
 export interface EditableSettings {
   psmuxPath: string;
   pwshPath: string;
@@ -158,17 +158,17 @@ export interface AppearanceDto {
   theme: ThemeMode;
 }
 
-/** 계정 영역(F7): 읽기 전용 표시값만. */
+/** 계정 영역: 읽기 전용 표시값만. */
 export interface AccountDto {
   email: string | null;
   org: string | null;
-  /** 로그인 상태(F7-2): claude auth status의 loggedIn, 확인 못 하면 이메일 유무. */
+  /** 로그인 상태: claude auth status의 loggedIn, 확인 못 하면 이메일 유무. */
   loggedIn: boolean;
   /** PATH에서 claude 실행 파일을 찾았는지(로그인·로그아웃 가능 여부). */
   cliAvailable: boolean;
 }
 
-/** 대화 삭제 미리보기(F2-1): 함께 휴지통으로 갈 다른 파일 수, 삭제할 수 없으면 사유. */
+/** 대화 삭제 미리보기: 함께 휴지통으로 갈 다른 파일 수, 삭제할 수 없으면 사유. */
 export interface TrashPreviewDto {
   ok: boolean;
   /** 대화 파일 외에 함께 이동할 팀원·서브에이전트 기록 수. */
@@ -187,14 +187,14 @@ export interface TrashResultDto {
   error?: string;
 }
 
-/** 히스토리 "세션 끊기…"(F2-1) 결과. */
+/** 히스토리 "세션 끊기…" 결과. */
 export interface HistoryStopDto {
   ok: boolean;
   /** 거부·실패 안내(현재 UI 언어 한 줄). */
   error?: string;
 }
 
-/** 에이전트 정의 하나(F8-1). */
+/** 에이전트 정의 하나. */
 export interface AgentEntryDto {
   file: string;
   scope: 'global' | 'project';
@@ -208,7 +208,7 @@ export interface AgentEntryDto {
   missing: string[];
 }
 
-/** Agents 대화상자 데이터(F8-1, 읽기 전용 조사 결과). */
+/** Agents 대화상자 데이터(읽기 전용 조사 결과). */
 export interface AgentsDto {
   globalDir: string;
   projectDir: string | null;
@@ -264,10 +264,10 @@ export interface InitDto {
   tabs: TabStateDto[];
   history: HistoryDto;
   running: RunningDto[];
-  /** 탭 없는 앱 세션(F2-1 보완). */
+  /** 탭 없는 앱 세션. */
   detached: DetachedSessionDto[];
   uiState: UiStateDto;
-  /** 사용량(F7-1): usage.json의 마지막 값. 없으면 세 값 모두 null. */
+  /** 사용량: usage.json의 마지막 값. 없으면 세 값 모두 null. */
   usage: UsageDto;
 }
 
@@ -340,10 +340,10 @@ export interface CtdApi {
   /** 앱이 만든 세션에 연결(이미 열린 탭이면 그 탭 ID). */
   openAppSession(name: string): Promise<OpenResult>;
   appInfo(): Promise<AppInfoDto>;
-  /** 사용량 ↻(F7-1): /api/oauth/usage 1회 조회 후 표시 상태. 실패는 error에 현재 UI 언어 한 줄. */
+  /** 사용량 ↻: /api/oauth/usage 1회 조회 후 표시 상태. 실패는 error에 현재 UI 언어 한 줄. */
   refreshUsage(): Promise<UsageDto>;
   onUsage(cb: (u: UsageDto) => void): Unsub;
-  /** 히스토리 항목 메뉴(F2-1): 표시 이름 변경(빈 값이면 원래 제목). */
+  /** 히스토리 항목 메뉴: 표시 이름 변경(빈 값이면 원래 제목). */
   renameHistory(key: string, title: string): Promise<boolean>;
   /** 보관/보관 해제. */
   archiveHistory(key: string, archived: boolean): Promise<boolean>;
@@ -351,17 +351,17 @@ export interface CtdApi {
   trashPreview(sessionId: string): Promise<TrashPreviewDto>;
   /** 대화와 팀원·서브에이전트 기록을 휴지통으로 이동. */
   trashHistory(sessionId: string): Promise<TrashResultDto>;
-  /** 세션 끊기(F2-1): 탭 없는 실행 중 대화를 끝낸다(앱 세션 = 팀 종료 요청 후 kill-session, 외부 psmux = kill-session, psmux 밖 = 프로세스 종료). 대상은 main이 찾고 실행 직전에 다시 확인한다. */
+  /** 세션 끊기: 탭 없는 실행 중 대화를 끝낸다(앱 세션 = 팀 종료 요청 후 kill-session, 외부 psmux = kill-session, psmux 밖 = 프로세스 종료). 대상은 main이 찾고 실행 직전에 다시 확인한다. */
   terminateHistory(sessionId: string): Promise<HistoryStopDto>;
   /** 탭 없는 앱 세션에 다시 연결(새 탭). */
   attachDetached(session: string): Promise<OpenResult>;
   /** 탭 없는 앱 세션 끊기: 대화 기록이 없으므로 종료 요청 없이 kill-session. */
   stopDetached(session: string): Promise<HistoryStopDto>;
-  /** 로그아웃(F7-2): claude auth logout. */
+  /** 로그아웃: claude auth logout. */
   logout(): Promise<LogoutResultDto>;
-  /** 로그인 탭 열기(F7-2): 새 탭에서 claude auth login. 이미 있으면 그 탭. */
+  /** 로그인 탭 열기: 새 탭에서 claude auth login. 이미 있으면 그 탭. */
   login(): Promise<OpenResult>;
-  /** Agents 설정(F8-1): 에이전트 정의·팀 기능 상태(읽기 전용). tabId = 활성 탭(그 작업 폴더의 프로젝트 정의도 읽음). */
+  /** Agents 설정: 에이전트 정의·팀 기능 상태(읽기 전용). tabId = 활성 탭(그 작업 폴더의 프로젝트 정의도 읽음). */
   listAgents(tabId: string | null): Promise<AgentsDto>;
   /** 리더 저장: 리드 명령을 `claude --agent <name>`으로. */
   setLeadAgent(name: string): Promise<{ ok: boolean; error?: string; leadCommand?: string }>;

@@ -43,7 +43,7 @@ export function unreachableMsg(r: PathProbe): Msg | null {
   return null;
 }
 
-/** 경로 확인 시간 제한(ms). 연결되지 않은 UNC 경로는 OS가 5~6초 뒤에야 실패를 돌려준다(QA M4-1). */
+/** 경로 확인 시간 제한(ms). 연결되지 않은 UNC 경로는 OS가 5~6초 뒤에야 실패를 돌려준다. */
 export const PATH_TIMEOUT_MS = 2000;
 
 /** 시간 제한 안에 끝나지 않으면 'timeout'. 늦게 끝난 원래 작업의 결과·오류는 버린다. */
@@ -94,7 +94,7 @@ const inflight = new Map<string, Promise<boolean>>();
 let uncActive = 0;
 
 /**
- * 시간 제한 + 중복·동시 실행 제한이 있는 경로 확인(QA M4-7).
+ * 시간 제한 + 중복·동시 실행 제한이 있는 경로 확인.
  * 시간 제한은 기다림만 끊고 응답 없는 UNC stat은 libuv 스레드 풀(기본 4개)에 OS 실패(5~6초 이상)까지 남는다.
  * 그래서 같은 경로는 진행 중인 확인을 공유하고, UNC 확인은 동시에 1개만 실행해 로컬 경로 확인용 스레드를 남긴다.
  * UNC 확인이 진행 중이면 다른 UNC 경로는 stat을 내지 않고 바로 'busy'.
@@ -166,7 +166,7 @@ export function resolveNode(): Promise<string | null> {
 }
 
 /**
- * Claude Code CLI(F7-2 로그인·로그아웃): PATH의 claude 중 실행할 수 있는 형식(.exe, npm 설치의 .cmd)만.
+ * Claude Code CLI(로그인·로그아웃): PATH의 claude 중 실행할 수 있는 형식(.exe, npm 설치의 .cmd)만.
  * npm 설치는 확장자 없는 sh 스크립트(claude)도 PATH에 있어 그것은 건너뛴다. 설정의 리드 명령과 무관.
  */
 export function resolveClaude(): Promise<string | null> {

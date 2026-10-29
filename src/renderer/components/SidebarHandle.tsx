@@ -25,7 +25,7 @@ function notifyCards(): void {
 export function SidebarHandle({ width, onCommit }: SidebarHandleProps) {
   const drag = useRef<{ pointerId: number; startX: number; startW: number; w: number; app: HTMLElement | null } | null>(null);
 
-  // 드래그 중에 핸들이 사라지면(접기 단축키 등) 표시를 지우고 카드 크기를 다시 맞춘다(리뷰 Nit)
+  // 드래그 중에 핸들이 사라지면(접기 단축키 등) 표시를 지우고 카드 크기를 다시 맞춘다
   useEffect(() => () => {
     const d = drag.current;
     if (!d) return;

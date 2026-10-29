@@ -36,7 +36,7 @@ describe('settings', () => {
   });
 });
 
-describe('claudeHome has no write API (M1-03)', () => {
+describe('claudeHome has no write API', () => {
   it('imports only read functions from fs', () => {
     const src = readFileSync(join(__dirname, '../../src/main/claudeHome.ts'), 'utf8');
     const imports = src.split('\n').filter((l) => /^import .* from 'node:fs/.test(l));

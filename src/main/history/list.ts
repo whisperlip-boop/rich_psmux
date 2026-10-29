@@ -7,7 +7,7 @@ import type { HistoryItem } from './indexer';
 /** 리드가 여러 개 맞아 묶지 못한 팀 이름(같은 팀은 로그 1회만). */
 const ambiguousTeams = new Set<string>();
 
-/** 폴더 그룹 키: 첫 cwd(없으면 인코딩 폴더명), 구분자 통일 + 대소문자 무시(D2). */
+/** 폴더 그룹 키: 첫 cwd(없으면 인코딩 폴더명), 구분자 통일 + 대소문자 무시. */
 export function folderKeyOf(cwd: string | null, dir: string): string {
   return (cwd ?? dir).replace(/\//g, '\\').replace(/\\+$/, '').toLowerCase();
 }
@@ -21,7 +21,7 @@ export function folderNameOf(cwd: string | null, dir: string): string {
 
 /**
  * 팀원 파일 → 리드 sessionId. 팀원이 아닌 파일 중 sessionId 앞 8자가 teamName(session-<8자>)과 정확히 1개 맞을 때만 묶는다
- * (팀원 파일은 다른 프로젝트 폴더에 있을 수 있어 전체에서 찾음). 목록 묶기와 삭제(F2-1) 대상 계산이 같은 규칙을 쓴다.
+ * (팀원 파일은 다른 프로젝트 폴더에 있을 수 있어 전체에서 찾음). 목록 묶기와 삭제 대상 계산이 같은 규칙을 쓴다.
  *
  * Returns:
  *   팀원 항목 키 → 리드 sessionId.
@@ -54,7 +54,7 @@ export function teammatesOf(items: HistoryItem[], leadSessionId: string): Histor
   return items.filter((i) => leads.get(i.key)?.toLowerCase() === lead);
 }
 
-/** 앱 저장소의 표시 이름·보관 목록(F2-1). */
+/** 앱 저장소의 표시 이름·보관 목록. */
 export interface HistoryOverlay {
   overrides: Record<string, string>;
   archived: string[];

@@ -1,5 +1,5 @@
-// 사이드바 하단 사용량 영역(F7-1): 계정 영역 바로 위. 세션 한도(5시간)·주간 모든 모델·주간 모델별 막대 3개 + 마지막 갱신 시각 + ↻.
-// 영역은 항상 보인다(v0.6): 데이터가 없으면 막대 "—"와 ↻만(안내 문구 없음), 로그아웃 상태면 "—"·↻ 비활성·로그인 안내. 모델별 막대는 첫 조회(기동 시 자동 1회 또는 ↻) 전까지 "—".
+// 사이드바 하단 사용량 영역: 계정 영역 바로 위. 세션 한도(5시간)·주간 모든 모델·주간 모델별 막대 3개 + 마지막 갱신 시각 + ↻.
+// 영역은 항상 보인다: 데이터가 없으면 막대 "—"와 ↻만(안내 문구 없음), 로그아웃 상태면 "—"·↻ 비활성·로그인 안내. 모델별 막대는 첫 조회(기동 시 자동 1회 또는 ↻) 전까지 "—".
 
 import { useEffect, useState } from 'preact/hooks';
 
@@ -9,7 +9,7 @@ import { t } from '../i18n';
 
 interface UsageAreaProps {
   usage: UsageDto | null;
-  /** 로그인 상태(F7-2). false면 값을 보이지 않고 ↻ 비활성. */
+  /** 로그인 상태. false면 값을 보이지 않고 ↻ 비활성. */
   loggedIn: boolean;
   /** ↻: main에 조회를 요청하고 끝날 때까지 기다린다(그동안 버튼 비활성). */
   onRefresh: () => Promise<void>;
@@ -49,7 +49,7 @@ export const USAGE_WARN_PCT = 70;
 /** 이 사용률 이상이면 위험 색(high). */
 export const USAGE_HIGH_PCT = 90;
 
-/** 막대 색 단계. 표시값(반올림)과 같은 기준으로 판정한다: 69.6%는 "70%"로 보이므로 warn(QA O-13). 값이 없으면 null. */
+/** 막대 색 단계. 표시값(반올림)과 같은 기준으로 판정한다: 69.6%는 "70%"로 보이므로 warn. 값이 없으면 null. */
 export function usageLevel(w: UsageWindow | null): UsageLevel | null {
   if (!w) return null;
   const p = Math.round(w.pct);

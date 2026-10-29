@@ -1,4 +1,4 @@
-// 붙여넣기 이미지 저장소: <앱 데이터>/clips/<ISO시각>-<6자>.png. 7일 지난 파일은 앱 시작 시 정리(D15). ~/.claude 와 무관.
+// 붙여넣기 이미지 저장소: <앱 데이터>/clips/<ISO시각>-<6자>.png. 7일 지난 파일은 앱 시작 시 정리. ~/.claude 와 무관.
 
 import { randomBytes } from 'node:crypto';
 import { mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';

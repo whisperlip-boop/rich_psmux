@@ -1,4 +1,4 @@
-// 설정 대화상자(F8): 값 검증·저장은 main(settings:save)이 하고, 여기서는 입력과 항목별 오류 표시만 한다.
+// 설정 대화상자: 값 검증·저장은 main(settings:save)이 하고, 여기서는 입력과 항목별 오류 표시만 한다.
 // 글꼴·테마·히스토리 경로는 저장 즉시 적용, psmux·PowerShell 경로와 리드 명령은 다음 새 세션부터.
 
 import { useEffect, useRef, useState } from 'preact/hooks';

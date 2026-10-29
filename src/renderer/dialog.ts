@@ -33,8 +33,8 @@ export function trapTarget(items: HTMLElement[], active: Element | null, back: b
 }
 
 /**
- * 대화상자가 열려 있는 동안 창 어디서든 Esc로 닫고, Tab이 대화상자 안에서만 돌게 하며(M4-4),
- * 닫히면 열기 전 포커스 요소(아직 화면에 있으면)로 돌려준다(O-7).
+ * 대화상자가 열려 있는 동안 창 어디서든 Esc로 닫고, Tab이 대화상자 안에서만 돌게 하며,
+ * 닫히면 열기 전 포커스 요소(아직 화면에 있으면)로 돌려준다.
  * Chromium은 나중에 그려진 autofocus를 무시하므로 열 때 포커스를 직접 옮긴다: focusSelector → [autofocus] → 첫 포커스 가능 요소.
  * 컴포넌트가 이미 안쪽으로 포커스를 옮겼으면(설정의 첫 입력) 건드리지 않는다.
  *
@@ -48,7 +48,7 @@ export function useDialogKeys(open: boolean, close: () => void, focusSelector?: 
     if (!open) return;
     const opener = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
     const box = topDialog();
-    // 이 훅이 맡은 대화상자. 위에 다른 대화상자가 열려 있으면 키를 처리하지 않는다(리뷰 m-1: 중첩 시 Esc 한 번에 둘 다 닫힘)
+    // 이 훅이 맡은 대화상자. 위에 다른 대화상자가 열려 있으면 키를 처리하지 않는다(중첩 시 Esc 한 번에 둘 다 닫힘)
     const mine = box;
     if (box && !box.contains(document.activeElement)) {
       const target = (focusSelector ? box.querySelector<HTMLElement>(focusSelector) : null)

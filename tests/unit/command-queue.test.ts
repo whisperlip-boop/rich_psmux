@@ -1,4 +1,4 @@
-// QA 2차 결과(BUG-1 보강, FAIL 19) 회귀 테스트.
+// control mode 명령 큐: 표지(nonce)로 응답 다시 맞추기, send-keys 응답 처리, '-' 인자, 칸 프로그램별 여러 줄 모드.
 import { describe, expect, it } from 'vitest';
 
 import { CommandQueue } from '../../src/main/controlMode/client';
@@ -7,7 +7,7 @@ import { multilineModeFor } from '../../src/main/psmux/panes';
 
 const blk = (num: number, lines: string[] = [], ok = true) => ({ ok, lines, num });
 
-describe('CommandQueue nonce realignment (QA BUG-1)', () => {
+describe('CommandQueue nonce realignment', () => {
   it('realigns when the nonce response arrives at an earlier slot (a dropped command does not consume a number)', () => {
     const q = new CommandQueue();
     const got: string[] = [];
@@ -39,8 +39,8 @@ describe('CommandQueue nonce realignment (QA BUG-1)', () => {
   });
 });
 
-describe('CommandQueue round-2 QA fixes', () => {
-  it('NEW-3: a reply with lines in a send-keys slot goes to the next command', () => {
+describe('CommandQueue reply matching around send-keys and nonce barriers', () => {
+  it('a reply with lines in a send-keys slot goes to the next command', () => {
     const q = new CommandQueue();
     const got: string[] = [];
     q.push('a', (r) => got.push(`a:${r.lines[0]}`));
@@ -52,7 +52,7 @@ describe('CommandQueue round-2 QA fixes', () => {
     expect(q.resolve(blk(3, ['E']))).toBe('matched'); // 번호 차이를 다시 맞춰 다음 명령도 제자리
     expect(got).toEqual(['a:A', 's:false:no response', 'd:7', 'e:E']);
   });
-  it('NEW-3: send-keys keeps its own empty reply and its error reply', () => {
+  it('send-keys keeps its own empty reply and its error reply', () => {
     const q = new CommandQueue();
     const got: string[] = [];
     q.push("send-keys -t %1 Enter", (r) => got.push(`s1:${r.ok}`));
@@ -63,7 +63,7 @@ describe('CommandQueue round-2 QA fixes', () => {
     expect(q.resolve(blk(3, ['D']))).toBe('matched');
     expect(got).toEqual(['s1:true', "s2:false:can't find pane: %9", 'd:D']);
   });
-  it('NEW-4: same-number nonce reply with other content fails only the barrier and keeps the queue', () => {
+  it('same-number nonce reply with other content fails only the barrier and keeps the queue', () => {
     const q = new CommandQueue();
     const got: string[] = [];
     q.push('a', (r) => got.push(`a:${r.lines[0]}`));
@@ -74,7 +74,7 @@ describe('CommandQueue round-2 QA fixes', () => {
     expect(q.resolve(blk(23, ['B']))).toBe('matched');
     expect(got).toEqual(['a:A', 'n:false:nonce mismatch', 'b:B']);
   });
-  it('NEW-4: a different-number reply in the nonce slot after the offset is known is still drift', () => {
+  it('a different-number reply in the nonce slot after the offset is known is still drift', () => {
     const q = new CommandQueue();
     q.push('a', () => undefined);
     q.push("display-message -p 'ctd-nonce-5'", () => undefined, 'ctd-nonce-5');
@@ -82,7 +82,7 @@ describe('CommandQueue round-2 QA fixes', () => {
     expect(q.resolve(blk(25, ['other']))).toBe('drift');
     expect(q.length).toBe(1); // drift면 큐를 건드리지 않음
   });
-  it('NEW-4: nonce reply surrounded by blank lines still matches', () => {
+  it('nonce reply surrounded by blank lines still matches', () => {
     const q = new CommandQueue();
     let v = '';
     q.push("display-message -p 'ctd-nonce-4'", (r) => { v = r.lines.join('|'); }, 'ctd-nonce-4');
@@ -91,7 +91,7 @@ describe('CommandQueue round-2 QA fixes', () => {
   });
 });
 
-describe("generated commands never contain a '-'-leading literal argument (QA BUG-1)", () => {
+describe("generated commands never contain a '-'-leading literal argument", () => {
   const bad = /-l '-|"'" '-/;
   const cases: [string, string][] = [
     ['quoted -x', "'-x'"],
@@ -116,7 +116,7 @@ describe("generated commands never contain a '-'-leading literal argument (QA BU
   }
 });
 
-describe('multi-line mode by pane program (QA FAIL 19)', () => {
+describe('multi-line mode by pane program', () => {
   it('uses C-j between lines for pwsh panes', () => {
     expect(inputToCommands('%2', 'a\nb', 'ctrlj')).toEqual([
       "send-keys -t %2 -l 'a'", 'send-keys -t %2 C-j', "send-keys -t %2 -l 'b'", 'send-keys -t %2 Enter',

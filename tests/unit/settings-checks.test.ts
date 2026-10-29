@@ -1,4 +1,4 @@
-// 3차 리뷰·QA 반영: 리드 명령 검사(M4-2b·m-4·O-22), 경로 확인 중복·UNC 동시 제한(M4-7).
+// 리드 명령 검사, 경로 확인 중복·UNC 동시 제한.
 
 import { describe, expect, it, vi } from 'vitest';
 
@@ -19,7 +19,7 @@ function deferred(): { promise: Promise<boolean>; resolve: (v: boolean) => void 
   return { promise, resolve };
 }
 
-describe('리드 명령: & (M4-2b)', () => {
+describe('리드 명령: &', () => {
   it('단독 &(백그라운드 연산자)는 거부', () => {
     for (const bad of ['claude --agent ceo & calc', 'claude &', '& claude & calc', '& claude', '& { Write-Output A }', 'Write-Output A & Write-Output B', 'a&b', '& "C:\\x\\claude.exe" & calc']) {
       expect(leadCommandError(bad), bad).toMatch(/하나의 명령만/);
@@ -38,14 +38,14 @@ describe('리드 명령: & (M4-2b)', () => {
   });
 });
 
-describe('리드 명령: 앱이 붙이는 옵션(m-4)', () => {
+describe('리드 명령: 앱이 붙이는 옵션', () => {
   it('--settings·-r·--resume은 거부', () => {
     for (const bad of ['claude --settings x.json', 'claude --settings=x.json', 'claude -r abc', 'claude --resume', '-r x', 'claude --agent ceo -r']) {
       expect(leadCommandError(bad), bad).toMatch(/자동으로 붙이거나 그와 충돌하는 옵션/);
     }
   });
 
-  it('따옴표로 감싼 옵션, -c·--continue도 거부(4차, QA O-25)', () => {
+  it('따옴표로 감싼 옵션, -c·--continue도 거부', () => {
     for (const bad of ['claude "-r" abc', "claude '--resume'", 'claude "--settings"=x', 'claude -c', 'claude --continue', 'claude --agent ceo -c', 'claude "-c"', 'claude --continue=x']) {
       expect(leadCommandError(bad), bad).toMatch(/-c·--continue는 쓸 수 없습니다/);
     }
@@ -58,7 +58,7 @@ describe('리드 명령: 앱이 붙이는 옵션(m-4)', () => {
   });
 });
 
-describe('리드 명령: 따옴표 짝(O-22)', () => {
+describe('리드 명령: 따옴표 짝', () => {
   it('짝이 안 맞으면 거부(스마트 따옴표 포함)', () => {
     for (const bad of ["Write-Output 'A", 'Write-Output "A', 'Write-Output \u201CA', 'claude --append-system-prompt "it\'s', "a 'b' 'c"]) {
       expect(quotesBalanced(bad), bad).toBe(false);
@@ -82,7 +82,7 @@ describe('리드 명령: 따옴표 짝(O-22)', () => {
   });
 });
 
-describe('경로 확인 중복·UNC 동시 제한(M4-7)', () => {
+describe('경로 확인 중복·UNC 동시 제한', () => {
   it('UNC 판정: \\\\?\\C:\\는 로컬, \\\\?\\UNC\\·//srv는 UNC', () => {
     expect(isUncPath('\\\\srv\\share\\p')).toBe(true);
     expect(isUncPath('//srv/share')).toBe(true);

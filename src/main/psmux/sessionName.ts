@@ -1,6 +1,6 @@
-// 앱 psmux 세션 이름 규칙(D12): ctd-<정규화 폴더명>-<6자 hex>. 순수 로직.
+// 앱 psmux 세션 이름 규칙: ctd-<정규화 폴더명>-<6자 hex>. 순수 로직.
 
-/** 앱이 만든 세션 접두사. 재실행 시 이 접두사로 자기 세션을 찾는다(M2). */
+/** 앱이 만든 세션 접두사. 재실행 시 이 접두사로 자기 세션을 찾는다. */
 export const SESSION_PREFIX = 'ctd-';
 
 /**
@@ -27,7 +27,7 @@ export function isAppSessionName(name: string): boolean {
 }
 
 /**
- * 앱 시작 시 복원할 세션(D13): ctd- 접두사 + 이 앱 데이터에 메타가 있는 세션만.
+ * 앱 시작 시 복원할 세션: ctd- 접두사 + 이 앱 데이터에 메타가 있는 세션만.
  * 메타 조건은 다른 데이터 폴더(검증 자동화·다른 사용자 프로필)가 만든 ctd- 세션에 붙지 않게 하기 위함.
  *
  * Args:
@@ -55,7 +55,7 @@ export function staleSessions(live: string[], metas: Iterable<string>): string[]
 }
 
 /**
- * 열린 psmux 세션 목록 분류(F7 메뉴): 앱 세션 = ctd- 이름 + 이 앱 데이터에 메타 있음. 앱 세션이 탭으로 열려 있으면 tabId(= 세션 이름).
+ * 열린 psmux 세션 목록 분류(계정 메뉴): 앱 세션 = ctd- 이름 + 이 앱 데이터에 메타 있음. 앱 세션이 탭으로 열려 있으면 tabId(= 세션 이름).
  *
  * Args:
  *   live: list-sessions 결과.

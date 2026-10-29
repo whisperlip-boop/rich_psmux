@@ -1,4 +1,4 @@
-// 첨부 경로 규칙(F6, M3): @"<절대경로>" 인용, 입력창 커서 위치 삽입, /add-dir 명령, 붙여넣기 이미지 이름·정리. 순수 로직(main·renderer 공용, 단위 테스트 대상).
+// 첨부 경로 규칙: @"<절대경로>" 인용, 입력창 커서 위치 삽입, /add-dir 명령, 붙여넣기 이미지 이름·정리. 순수 로직(main·renderer 공용, 단위 테스트 대상).
 
 import { tr } from './i18n';
 
@@ -130,7 +130,7 @@ export interface DragTimers {
 
 /**
  * 드래그 중 드롭 표시(점선) 해제 시점 판단. 드래그 취소(Esc·창 밖 이탈) 때 dragleave가 짝 맞게 오지 않아
- * 표시가 남는 문제(M3-1)를 막으려고, 창 밖 이탈 즉시 해제 + dragover가 idleMs 동안 없으면 해제하는 안전 타이머를 둔다.
+ * 표시가 남는 문제를 막으려고, 창 밖 이탈 즉시 해제 + dragover가 idleMs 동안 없으면 해제하는 안전 타이머를 둔다.
  * 표시 자체는 dragover가 다시 세우므로 여기서는 해제만 맡는다.
  */
 export class DragHoverTracker {
@@ -181,7 +181,7 @@ export class DragHoverTracker {
   }
 }
 
-/** clips 정리 대상(D15): 앱이 만든 이름 형식의 PNG 중 수정 시각이 maxAgeDays보다 오래된 것. */
+/** clips 정리 대상: 앱이 만든 이름 형식의 PNG 중 수정 시각이 maxAgeDays보다 오래된 것. */
 export function staleClipNames(entries: { name: string; mtimeMs: number }[], nowMs: number, maxAgeDays = 7): string[] {
   const limit = nowMs - maxAgeDays * 24 * 3600 * 1000;
   return entries.filter((e) => CLIP_NAME_RE.test(e.name) && e.mtimeMs < limit).map((e) => e.name);

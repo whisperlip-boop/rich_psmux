@@ -174,7 +174,7 @@ describe('indexFile / appendFile (head + tail streaming)', () => {
     expect(toItem({ dir: 'd', file: `${SID}.jsonl`, size: 1, mtimeMs: 1, offset: 0, aligned: true, facts: factsOf([user('x')]) })).toMatchObject({ sessionId: SID, title: 'x', kind: 'session' });
     expect(parseCache(null)).toEqual([]);
     expect(parseCache({ version: 999, entries: [] })).toEqual([]);
-    // v0.6: 캐시 버전 3(firstAt 추가). 이전 버전 캐시는 버리고 다시 읽는다
+    // 캐시 버전 3(firstAt 추가). 이전 버전 캐시는 버리고 다시 읽는다
     const entry = { dir: 'd', file: 'f', size: 1, mtimeMs: 2, offset: 0, facts: { lines: 1, aiTitle: 'x', cwd: 5, firstAt: 1700000000000 } };
     expect(parseCache({ version: 2, entries: [entry] })).toEqual([]);
     const ok = parseCache({ version: 3, entries: [entry, { dir: 1 }, null] });

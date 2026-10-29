@@ -1,5 +1,5 @@
-// 히스토리 필터(F2-2): 검색창 오른쪽 필터 버튼 → 4항목 메뉴(현재 값 + ›). 항목에 마우스를 올리면(또는 →·Enter) 오른쪽에
-// 하위 메뉴(플라이아웃)가 붙어 열리고, 값을 고르면 적용 후 메뉴 전체가 닫힌다(v0.6 실기 피드백, 참고 filter_ex.png).
+// 히스토리 필터: 검색창 오른쪽 필터 버튼 → 4항목 메뉴(현재 값 + ›). 항목에 마우스를 올리면(또는 →·Enter) 오른쪽에
+// 하위 메뉴(플라이아웃)가 붙어 열리고, 값을 고르면 적용 후 메뉴 전체가 닫힌다.
 // 최상위·하위 메뉴 모두 position: fixed라 사이드바(overflow hidden) 밖·카드 영역 위로 나올 수 있다. 하위 메뉴는 화면 오른쪽이 모자라면 왼쪽에 붙인다.
 // 최상위 메뉴는 내용 폭(라벨 한 줄·값 전체, 최대 360px)이라 긴 언어(ta·ml 등)에서 사이드바보다 넓어질 수 있다.
 // 키보드: ↑↓ 이동, →·Enter 하위 열기, ← 하위 닫기(최상위 그 항목으로), Esc 전체 닫기(필터 버튼으로 포커스).
@@ -78,7 +78,7 @@ export function FilterMenu({ filter, onChange }: FilterMenuProps) {
   };
   const rowOf = (key: keyof HistoryFilter): HTMLElement | null => rootRef.current?.querySelector<HTMLElement>(`[data-field="${key}"]`) ?? null;
   const openSub = (key: keyof HistoryFilter, viaKeyboard: boolean): void => {
-    // 포커스가 하위 메뉴 안에 있었으면(키보드로 들어간 뒤 마우스로 다른 항목에 올림) 새 하위의 체크 항목으로 옮긴다(리뷰 C-3).
+    // 포커스가 하위 메뉴 안에 있었으면(키보드로 들어간 뒤 마우스로 다른 항목에 올림) 새 하위의 체크 항목으로 옮긴다.
     // 아니면 포커스가 사라진 하위 메뉴에 남아 body로 떨어진다
     const inSub = !!subRef.current?.contains(document.activeElement);
     setSubFocus(viaKeyboard || inSub);

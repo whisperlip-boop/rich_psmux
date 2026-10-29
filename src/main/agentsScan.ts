@@ -1,4 +1,4 @@
-// Agents 설정(F8-1) 읽기 전용 조사: ~/.claude/agents/*.md(전역)와 활성 탭 작업 폴더의 .claude/agents/*.md(프로젝트),
+// Agents 설정 읽기 전용 조사: ~/.claude/agents/*.md(전역)와 활성 탭 작업 폴더의 .claude/agents/*.md(프로젝트),
 // 팀 기능 상태(환경변수·사용자 환경변수 레지스트리·~/.claude/settings.json). 아무것도 쓰지 않고, 파일 내용은 로그에 남기지 않는다.
 
 import { execFile } from 'node:child_process';
@@ -91,7 +91,7 @@ export async function teamsStatus(env: NodeJS.ProcessEnv = process.env, userEnv:
 }
 
 /**
- * Agents 대화상자 데이터(F8-1).
+ * Agents 대화상자 데이터.
  *
  * Args:
  *   projectFolder: 활성 탭 작업 폴더(없으면 전역만). main이 탭 상태에서 꺼낸 값만 받는다.
@@ -99,7 +99,7 @@ export async function teamsStatus(env: NodeJS.ProcessEnv = process.env, userEnv:
  */
 export async function listAgents(projectFolder: string | null, leadCommand: string): Promise<AgentsDto> {
   const globalDir = agentsDir();
-  // 상한(200)은 프로젝트 정의부터 채우고 남는 개수를 전역에 준다(TC-200: 리더는 대개 프로젝트에 두므로 전역이 많아도 가려지지 않게)
+  // 상한(200)은 프로젝트 정의부터 채우고 남는 개수를 전역에 준다(리더는 대개 프로젝트에 두므로 전역이 많아도 가려지지 않게)
   const projectDir = projectFolder ? resolve(projectFolder, '.claude', 'agents') : null;
   const p = projectDir ? await scanDir(projectDir, 'project', AGENT_COUNT_MAX) : { items: [] as Scanned[], more: false };
   const g = await scanDir(globalDir, 'global', AGENT_COUNT_MAX - p.items.length);

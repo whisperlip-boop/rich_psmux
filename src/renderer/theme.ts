@@ -1,4 +1,4 @@
-// 테마 적용(F8): <html data-theme="light|dark">. system은 OS 설정(prefers-color-scheme)을 따라 바뀐다.
+// 테마 적용: <html data-theme="light|dark">. system은 OS 설정(prefers-color-scheme)을 따라 바뀐다.
 // 터미널(xterm)은 양쪽 모두 #0C0C0C라 손대지 않는다.
 
 import type { ThemeMode } from '../shared/api';

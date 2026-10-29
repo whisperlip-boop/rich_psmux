@@ -81,7 +81,7 @@ describe('resolveLabels', () => {
     expect(labels['%8']).toMatchObject({ name: '%8', source: 'fallback', color: 'transparent' });
     expect(Object.keys(cache).sort()).toEqual(['%1', '%5', '%6', '%7']);
   });
-  it('keeps names from cache after the config is deleted (F3)', () => {
+  it('keeps names from cache after the config is deleted', () => {
     const first = resolveLabels({ panes: ['%5'], leadPaneId: '%1', leadName: 'ceo', config, cache: {}, hints: {} });
     const after = resolveLabels({ panes: ['%5'], leadPaneId: '%1', leadName: 'ceo', config: null, cache: first.cache, hints: {} });
     expect(after.labels['%5']).toMatchObject({ name: 'pm', source: 'cache' });

@@ -1,6 +1,6 @@
 // %output을 칸별로 짧게 모아 한 번에 내보낸다(IPC 횟수 절감).
 // 재동기화(capture-pane) 때는 캡처 응답 블록보다 먼저 도착한 출력만 캡처 직전에 내보내고, 뒤에 도착한 출력은
-// 캡처 다음에 그려지도록 남긴다(리뷰 Major 2). 순서 판단은 control mode 스트림 순번(seq)으로 한다.
+// 캡처 다음에 그려지도록 남긴다. 순서 판단은 control mode 스트림 순번(seq)으로 한다.
 
 interface Chunk {
   data: Buffer;

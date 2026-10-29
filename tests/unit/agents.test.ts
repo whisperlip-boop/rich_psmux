@@ -1,4 +1,4 @@
-// v0.7: Agents 설정(F8-1) 파서·대조·조사, TC-180 오류 배너 상태 교체.
+// Agents 설정 파서·대조·조사, 오류 배너 상태 교체.
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -15,7 +15,7 @@ import { errorNotice } from '../../src/renderer/notice';
 
 vi.mock('../../src/main/logger', () => ({ log: () => undefined, errMsg: (e: unknown) => String(e) }));
 
-const tmp = mkdtempSync(join(tmpdir(), 'ctd-v07-'));
+const tmp = mkdtempSync(join(tmpdir(), 'ctd-agents-'));
 afterAll(() => rmSync(tmp, { recursive: true, force: true }));
 afterEach(() => setClaudeHomeForTest(null));
 
@@ -155,7 +155,7 @@ describe('조사(가짜 홈·프로젝트, 읽기 전용)', () => {
   });
 });
 
-describe('오류 배너 상태(TC-180)', () => {
+describe('오류 배너 상태', () => {
   it('새 오류는 통째로 교체: 이어가기 대상은 명시할 때만 붙고, 다른 오류로 바뀌면 사라진다', () => {
     const running = errorNotice('실행 중인 대화입니다', 'sid-1');
     expect(running).toEqual({ message: '실행 중인 대화입니다', forceSid: 'sid-1' });

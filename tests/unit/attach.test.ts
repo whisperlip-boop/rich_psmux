@@ -12,7 +12,7 @@ import { addDirCommand, CLIP_JFIF_TYPE, CLIP_NAME_RE, clipFileName, DragHoverTra
 
 vi.mock('../../src/main/logger', () => ({ log: () => undefined, errMsg: (e: unknown) => String(e) }));
 
-describe('path quoting (F6)', () => {
+describe('path quoting', () => {
   it('wraps absolute paths in @"..." keeping backslashes, spaces and Korean', () => {
     expect(quoteMention('D:\\내 문서\\보고서 v2.txt')).toEqual({ ok: true, text: '@"D:\\내 문서\\보고서 v2.txt"' });
     expect(quoteMention('  C:\\a.png ')).toEqual({ ok: true, text: '@"C:\\a.png"' });
@@ -41,7 +41,7 @@ describe('path quoting (F6)', () => {
     expect(addDirCommand('D:\\a"b').ok).toBe(false);
     expect(addDirCommand('x').ok).toBe(false);
   });
-  it('trailing backslash is dropped so it cannot escape the closing quote (O-2)', () => {
+  it('trailing backslash is dropped so it cannot escape the closing quote', () => {
     expect(quoteMention('C:\\')).toEqual({ ok: true, text: '@"C:/"' });
     expect(quoteMention('d:\\\\')).toEqual({ ok: true, text: '@"d:/"' });
     expect(quoteMention('D:\\내 폴더\\')).toEqual({ ok: true, text: '@"D:\\내 폴더"' });
@@ -51,7 +51,7 @@ describe('path quoting (F6)', () => {
   });
 });
 
-describe('drag hover tracker (M3-1)', () => {
+describe('drag hover tracker', () => {
   const fakeTimers = () => {
     const pending = new Map<number, () => void>();
     let n = 0;
@@ -139,7 +139,7 @@ describe('insert at caret', () => {
   });
 });
 
-describe('pasted image files (D15)', () => {
+describe('pasted image files', () => {
   const now = new Date('2026-10-23T10:20:30.456Z');
   it('file name is Windows-safe ISO time + 6 hex', () => {
     const n = clipFileName(now, 'a1b2c3');
@@ -180,13 +180,13 @@ describe('pasted image files (D15)', () => {
   });
 });
 
-describe('M3 wrap-up', () => {
+describe('add-dir availability, clipboard image order, safeIpc', () => {
   const tab = (o: Partial<TabStateDto>): TabStateDto => ({
     tabId: 't', session: 's', folder: 'D:\\x', status: 'connected', leadPaneId: '%0', teamName: null,
     panes: [{ paneId: '%0' } as TabStateDto['panes'][number]],
     plain: false, hooksEnabled: true, leadSessionId: null, resumeSessionId: null, leadGone: false, terminating: false, createdAt: 0, purpose: 'conversation', loginFailed: false, ...o,
   });
-  it('add-dir is only offered while the tab accepts input and the lead pane is alive (M3-2)', () => {
+  it('add-dir is only offered while the tab accepts input and the lead pane is alive', () => {
     expect(addDirLeadPane(tab({}))).toBe('%0');
     for (const status of ['reconnecting', 'ended', 'error'] as const) expect(addDirLeadPane(tab({ status }))).toBeNull();
     expect(addDirLeadPane(tab({ terminating: true }))).toBeNull();
@@ -196,14 +196,14 @@ describe('M3 wrap-up', () => {
     expect(addDirLeadPane(undefined)).toBeNull();
     expect(tabAcceptsInput(tab({ status: 'starting' }))).toBe(true);
   });
-  it('clipboard image pick order: png > jpeg > raw JFIF (O-4)', () => {
+  it('clipboard image pick order: png > jpeg > raw JFIF', () => {
     expect(pickClipImage([['text/plain'], ['image/jpeg', 'image/png']])).toEqual({ index: 1, type: 'image/png', png: true });
     expect(pickClipImage([[CLIP_JFIF_TYPE], ['image/jpeg']])).toEqual({ index: 1, type: 'image/jpeg', png: false });
     expect(pickClipImage([['electron application/osclipboard;format="DataObject"', CLIP_JFIF_TYPE]])).toEqual({ index: 0, type: CLIP_JFIF_TYPE, png: false });
     expect(pickClipImage([['image/gif'], ['text/html']])).toBeNull();
     expect(pickClipImage([])).toBeNull();
   });
-  it('safeIpc turns rejections and sync throws into the fallback (Nit 8)', async () => {
+  it('safeIpc turns rejections and sync throws into the fallback', async () => {
     const err = vi.fn();
     const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     try {

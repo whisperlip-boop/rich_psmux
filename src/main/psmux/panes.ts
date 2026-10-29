@@ -74,12 +74,12 @@ export function clampSize(cols: number, rows: number): { cols: number; rows: num
   return { cols: Math.min(500, Math.max(20, c)), rows: Math.min(200, Math.max(5, r)) };
 }
 
-/** 칸에서 실행 중인 프로그램이 PowerShell이면 여러 줄을 C-j로, 그 밖(Claude Code 등)은 bracketed paste로(QA FAIL 19). */
+/** 칸에서 실행 중인 프로그램이 PowerShell이면 여러 줄을 C-j로, 그 밖(Claude Code 등)은 bracketed paste로. */
 export function multilineModeFor(command: string | undefined): 'paste' | 'ctrlj' {
   return /^(pwsh|powershell)(\.exe)?$/i.test((command ?? '').trim()) ? 'ctrlj' : 'paste';
 }
 
-/** set-option default-shell 값: psmux가 `\`를 이스케이프로 소비하므로 `/`로 바꾼다(M4 리뷰 실측). */
+/** set-option default-shell 값: psmux가 `\`를 이스케이프로 소비하므로 `/`로 바꾼다(실측). */
 export function shellOptionPath(shell: string): string {
   return shell.replace(/\\/g, '/');
 }

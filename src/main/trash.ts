@@ -1,4 +1,4 @@
-// 대화 삭제(F2-1, ~/.claude 읽기 전용 원칙의 예외): 대화 .jsonl, 같은 대화에 묶인 팀원 .jsonl, 각 대화 폴더(<sessionId>\: 서브에이전트 기록·메타·도구 결과)를
+// 대화 삭제(~/.claude 읽기 전용 원칙의 예외): 대화 .jsonl, 같은 대화에 묶인 팀원 .jsonl, 각 대화 폴더(<sessionId>\: 서브에이전트 기록·메타·도구 결과)를
 // Windows 휴지통으로 옮긴다(영구 삭제 없음). 대상은 반드시 현재 히스토리(projects) 폴더 아래의 두 모양뿐이다:
 // <dir>/<sessionId>.jsonl(파일), <dir>/<sessionId>(폴더). history.jsonl·sessions/·teams/ 등 그 밖의 경로는 거부한다.
 
@@ -95,7 +95,7 @@ export async function canMove(root: string, p: string): Promise<boolean> {
 }
 
 /**
- * 확인 창용 요약(QA O-28·O-29): 실제로 옮길 수 있는 대상만 센다.
+ * 확인 창용 요약: 실제로 옮길 수 있는 대상만 센다.
  *
  * Returns:
  *   mainOk: 대화 파일을 옮길 수 있는지, extra: 함께 옮길 팀원 + 서브에이전트 기록 수, folders: 옮길 수 있는 대화 폴더 수.
@@ -113,7 +113,7 @@ export async function movableSummary(root: string, plan: TrashPlan): Promise<{ m
 }
 
 /**
- * 이동 순서(리뷰 M-1): 대화 폴더 → 팀원 파일 → 대화 파일. 대화 파일을 마지막에 옮겨, 중간에 실패해도 목록에 대화가 남아 다시 지울 수 있게 한다.
+ * 이동 순서: 대화 폴더 → 팀원 파일 → 대화 파일. 대화 파일을 마지막에 옮겨, 중간에 실패해도 목록에 대화가 남아 다시 지울 수 있게 한다.
  */
 export function trashOrder(plan: TrashPlan): string[] {
   return [...plan.folders, ...plan.mates.map((m) => m.path), plan.main.path];

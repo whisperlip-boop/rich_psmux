@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { OutputBatcher } from '../../src/main/psmux/outputBatcher';
 
-describe('OutputBatcher (review Major 2: flush order around resync)', () => {
+describe('OutputBatcher (flush order around resync)', () => {
   let events: string[];
   let b: OutputBatcher;
   beforeEach(() => {
@@ -33,7 +33,7 @@ describe('OutputBatcher (review Major 2: flush order around resync)', () => {
     expect(events).toEqual(['out %1 old1old2', 'resync %1', 'out %1 new', 'out %2 other']);
   });
 
-  it('inserts a late cursor chunk at its stream position (review round-2 M1)', () => {
+  it('inserts a late cursor chunk at its stream position', () => {
     b.push('%1', Buffer.from('old'), 10);
     b.flushBefore('%1', 13); // 캡처(13) 응답 직후
     events.push('resync %1');

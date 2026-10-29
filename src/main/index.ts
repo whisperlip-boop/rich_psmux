@@ -67,9 +67,9 @@ if (devUserDataWarn) log('warn', devUserDataWarn);
 const settings = new SettingsStore(join(dataDir, 'settings.json'));
 const uiStore = new UiStateStore(join(dataDir, 'ui-state.json'));
 const indexer = new HistoryIndexer(join(dataDir, 'cache', 'history-index.json'));
-// 히스토리 항목 표시 이름·보관 목록(F2-1). ~/.claude 는 바꾸지 않는다
+// 히스토리 항목 표시 이름·보관 목록. ~/.claude 는 바꾸지 않는다
 const historyMeta = new HistoryMetaStore(join(dataDir, 'history-meta.json'));
-// 사용량(F7-1): statusline 스크립트가 쓰는 usage.json 감시 + ↻ 수동 갱신. 첫 app:init 때 저장값을 읽고 감시를 시작한다
+// 사용량: statusline 스크립트가 쓰는 usage.json 감시 + ↻ 수동 갱신. 첫 app:init 때 저장값을 읽고 감시를 시작한다
 const usageFile = join(dataDir, USAGE_FILE);
 const usage = new UsageTracker(usageFile);
 let usageReady: Promise<void> | null = null;
@@ -86,7 +86,7 @@ let runningJson = '';
 let restoring: Promise<void> | null = null;
 /** 같은 대화를 연달아 클릭해도 세션을 두 번 만들지 않게 진행 중인 열기를 공유한다. */
 const opening = new Map<string, Promise<OpenResult>>();
-/** 히스토리 "세션 끊기…"(F2-1) 작업 하나: 앱 세션이면 탭 없는 연결, 결과. */
+/** 히스토리 "세션 끊기…" 작업 하나: 앱 세션이면 탭 없는 연결, 결과. */
 interface StopJob { conn: TabSession | null; done: Promise<HistoryStopDto> }
 /** 끊는 중인 대상(psmux 세션 이름 또는 `pid:<n>` → 작업). 그 사이 탭으로 붙거나 두 번 끊지 않게 한다. */
 const stopping = new Map<string, StopJob>();
@@ -96,7 +96,7 @@ const stopping = new Map<string, StopJob>();
  */
 const notRunning = new Map<number, number>();
 const RUNNING_POLL_MS = 2500;
-/** 탭 없는 앱 세션(F2-1 보완) 마지막 목록과 그 JSON(바뀌었을 때만 보낸다). */
+/** 탭 없는 앱 세션 마지막 목록과 그 JSON(바뀌었을 때만 보낸다). */
 let detached: DetachedSessionDto[] = [];
 let detachedJson = '';
 /** refreshDetached 세대 번호: 겹친 호출 중 마지막 것만 결과를 보낸다. */
@@ -134,7 +134,7 @@ function send(channel: string, ...args: unknown[]): void {
  * node는 PATH의 node(호출부에서 1번만 찾아 넘김), 없으면 Electron을 node 모드로. what은 로그용 기능 이름.
  */
 function nodeScriptCommand(name: string, what: string, node: string | null): string | null {
-  // 설치본: 외부 node는 asar 안 파일을 읽지 못하므로 asarUnpack된 사본(app.asar.unpacked)을 쓴다(M4-04)
+  // 설치본: 외부 node는 asar 안 파일을 읽지 못하므로 asarUnpack된 사본(app.asar.unpacked)을 쓴다
   const script = asarUnpackedPath(join(__dirname, '..', 'hook', name)).replace(/\\/g, '/');
   if (!existsSync(script)) {
     log('warn', `${name} missing; ${what} disabled`);
@@ -147,7 +147,7 @@ function nodeScriptCommand(name: string, what: string, node: string | null): str
 }
 
 /**
- * 리드에 붙일 hook(승인 대기 감지)·statusLine(사용량, F7-1) 명령. PATH의 node는 한 번만 찾는다(where.exe 1회).
+ * 리드에 붙일 hook(승인 대기 감지)·statusLine(사용량) 명령. PATH의 node는 한 번만 찾는다(where.exe 1회).
  *
  * Args:
  *   withStatusLine: statusLine도 만들지(재연결은 리드를 다시 실행하지 않으므로 불필요).
@@ -196,19 +196,19 @@ async function startTab(t: TabSession, what: string): Promise<OpenResult> {
 }
 
 /**
- * 새 세션(새 탭). resumeSessionId가 있으면 리드 명령 뒤에 -r <id>를 붙여 그 대화를 이어간다(F2).
+ * 새 세션(새 탭). resumeSessionId가 있으면 리드 명령 뒤에 -r <id>를 붙여 그 대화를 이어간다.
  * plain이면 설정의 리드 명령 대신 `claude`만 실행한다(에이전트 없음).
  */
 async function newSession(folder: string, resumeSessionId?: string, plain = false): Promise<OpenResult> {
   const s = settings.get();
-  // 끊긴 네트워크 폴더가 main을 멈추지 않게 비동기 + 시간 제한(QA M4-1)
+  // 끊긴 네트워크 폴더가 main을 멈추지 않게 비동기 + 시간 제한
   const dir = folder ? await probeDir(folder) : 'missing';
   const dirWhy = unreachableMsg(dir);
   if (dirWhy) return { ok: false, error: tr('sess.folderUnreachable', { why: dirWhy, folder }) };
   if (dir !== 'ok') return { ok: false, error: tr('sess.folderMissing', { folder }) };
   // CTD_LEAD_COMMAND: 검증 자동화용 덮어쓰기(Claude 호출 없이 GUI 확인)
   const leadCommand = AUTO.leadCommand ?? (plain ? PLAIN_LEAD_COMMAND : s.leadCommand);
-  // 이전 버전에서 저장한 여러 명령짜리 리드 명령도 막는다(-r·--settings가 마지막 명령에 붙음, QA M4-2)
+  // 이전 버전에서 저장한 여러 명령짜리 리드 명령도 막는다(-r·--settings가 마지막 명령에 붙음)
   const leadErr = AUTO.leadCommand ? null : leadCommandError(leadCommand);
   if (leadErr) return { ok: false, error: tr('open.fixLead', { err: leadErr }) };
   const psmux = await resolvePsmux(s.psmuxPath);
@@ -238,7 +238,7 @@ async function newSession(folder: string, resumeSessionId?: string, plain = fals
   return r;
 }
 
-/** 살아 있는 앱 세션에 다시 연결(복원·◐ 재연결). 폴더·리드 명령은 메타 값을 쓴다(리드 이름 @ceo 기준, M1 이월). */
+/** 살아 있는 앱 세션에 다시 연결(복원·◐ 재연결). 폴더·리드 명령은 메타 값을 쓴다(리드 이름 @ceo 기준). */
 async function attachSession(name: string): Promise<OpenResult> {
   const existing = tabs.get(name);
   if (existing) return { ok: true, tabId: existing.tabId };
@@ -246,7 +246,7 @@ async function attachSession(name: string): Promise<OpenResult> {
   const meta = readSessionMeta(dataDir, name);
   const psmux = await resolvePsmux(settings.get().psmuxPath);
   if (!meta || !psmux) return { ok: false, error: tr('open.reattachFailed', { name, why: msg(!meta ? 'open.noMeta' : 'open.noPsmux') }) };
-  // 메타의 용도도 넘긴다(리뷰 m-5): 로그인 세션에 다시 붙으면 로그인 탭으로 표시·감시
+  // 메타의 용도도 넘긴다: 로그인 세션에 다시 붙으면 로그인 탭으로 표시·감시
   const purpose = meta.purpose ?? 'conversation';
   const t = new TabSession({ psmux, folder: meta.folder, leadCommand: meta.leadCommand, dataDir, hookCommand: purpose === 'login' ? null : (await leadScriptCommands(false)).hook, attachName: name, purpose });
   log('info', `[${name}] attaching (lead ${meta.leadPaneId ?? '?'}, resume ${meta.resumeSessionId?.slice(0, 8) ?? '-'})`);
@@ -257,8 +257,8 @@ async function attachSession(name: string): Promise<OpenResult> {
 }
 
 /**
- * 앱 시작 시 복원(F1, D13): list-sessions 중 ctd- 접두사 + 메타가 있는 세션만 연결한다.
- * 목록 조회에 성공했을 때만, 세션이 없어진 메타의 앱 파일을 정리한다(M1 이월 ①).
+ * 앱 시작 시 복원: list-sessions 중 ctd- 접두사 + 메타가 있는 세션만 연결한다.
+ * 목록 조회에 성공했을 때만, 세션이 없어진 메타의 앱 파일을 정리한다.
  */
 async function restoreSessions(): Promise<void> {
   const psmux = await resolvePsmux(settings.get().psmuxPath);
@@ -275,7 +275,7 @@ async function restoreSessions(): Promise<void> {
     removeSessionFiles(dataDir, n);
     uiStore.removeTab(n);
   }
-  // 로그인 전용 탭(F7-2)의 세션은 복원하지 않고 정리한다(로그인 확인 흐름이 앱 실행 사이에 이어지지 않음)
+  // 로그인 전용 탭의 세션은 복원하지 않고 정리한다(로그인 확인 흐름이 앱 실행 사이에 이어지지 않음)
   const loginLeft = selectRestorable(live, metas).filter((n) => readSessionMeta(dataDir, n)?.purpose === 'login');
   for (const n of loginLeft) {
     await psmuxCli(psmux, ['kill-session', '-t', n]);
@@ -349,7 +349,7 @@ function metaHasConversation(meta: SessionMeta, name: string, cache?: JsonlCache
 }
 
 /**
- * 대화 기록이 없는 탭(F1 ×: 분리 대신 종료): 이어간 대화가 아니고, 칸이 리드 하나뿐이고(나눈 칸에는 셸 작업이 있을 수 있음),
+ * 대화 기록이 없는 탭(탭 ×: 분리 대신 종료): 이어간 대화가 아니고, 칸이 리드 하나뿐이고(나눈 칸에는 셸 작업이 있을 수 있음),
  * 아는 대화 ID(탭·메타의 지난 ID 포함, 실행 목록)의 기록이 없음. ID를 하나도 모를 때만 세션 생성 뒤 수정된 .jsonl로 판정.
  */
 function isFreshTab(t: TabSession): boolean {
@@ -361,7 +361,7 @@ function isFreshTab(t: TabSession): boolean {
   return !conversationProbe(st.folder, st.createdAt, ids);
 }
 
-/** 탭 없는 앱 세션 목록(F2-1 보완)을 다시 세어 바뀌었으면 렌더러에 보낸다. 사라진 세션의 메타 정리는 복원 때만 한다. */
+/** 탭 없는 앱 세션 목록을 다시 세어 바뀌었으면 렌더러에 보낸다. 사라진 세션의 메타 정리는 복원 때만 한다. */
 async function refreshDetached(): Promise<void> {
   try {
     await refreshDetachedInner();
@@ -402,7 +402,7 @@ async function refreshDetachedInner(): Promise<void> {
   }
 }
 
-/** 탭 없는 앱 세션 끊기(F2-1 보완): 대화 기록이 없으니 리드에 종료 요청 문장을 보내지 않고(보내면 그 문장으로 대화가 생긴다) 바로 kill-session. */
+/** 탭 없는 앱 세션 끊기: 대화 기록이 없으니 리드에 종료 요청 문장을 보내지 않고(보내면 그 문장으로 대화가 생긴다) 바로 kill-session. */
 async function stopOrphan(name: string): Promise<HistoryStopDto> {
   const fail = (code: StopFailCode): HistoryStopDto => {
     log('warn', `detached stop ${name} refused: ${code}`);
@@ -452,7 +452,7 @@ function orderedTabs(): TabSession[] {
 
 /** 마지막 새 세션에서 설정한 셸을 적용하지 못한 기록(경로가 바뀌면 무효). 안내는 보여 줄 때 현재 언어로 번역한다. */
 let lastShellWarning: { path: string; message: Msg } | null = null;
-/** 자동 탐색한 psmux 위치(where.exe 호출이라 처음 한 번만, 리뷰 m-2). */
+/** 자동 탐색한 psmux 위치(where.exe 호출이라 처음 한 번만). */
 let psmuxDetected: string | null | undefined;
 /** 설정 저장 직렬화: 검증이 비동기라 연속 저장의 적용 순서가 뒤바뀌지 않게(마지막 저장이 최종값). */
 let saveChain: Promise<unknown> = Promise.resolve();
@@ -470,7 +470,7 @@ async function settingsView(): Promise<SettingsView> {
   };
 }
 
-/** 설정 저장(F8): 검증 → 저장 → 즉시 적용(글꼴·테마·히스토리 경로·sdk 표시). psmux·pwsh·리드 명령은 다음 세션부터. */
+/** 설정 저장: 검증 → 저장 → 즉시 적용(글꼴·테마·히스토리 경로·sdk 표시). psmux·pwsh·리드 명령은 다음 세션부터. */
 function saveSettings(raw: unknown): Promise<SaveSettingsResult> {
   const p = saveChain.then(() => saveSettingsNow(raw));
   saveChain = p.catch(() => undefined);
@@ -532,7 +532,7 @@ function setLanguage(raw: unknown): SetLanguageResultDto {
 }
 
 /**
- * 계정 표시값과 로그인 상태(F7·F7-2). 이메일·조직은 ~/.claude.json, 로그인 여부는 claude auth status(JSON의 loggedIn만)를 쓰고
+ * 계정 표시값과 로그인 상태. 이메일·조직은 ~/.claude.json, 로그인 여부는 claude auth status(JSON의 loggedIn만)를 쓰고
  * CLI가 없거나 실패하면 이메일 유무로 판정한다. 값 자체는 로그에 남기지 않는다(있음/없음·종료 코드만).
  * CLI 확인은 30초 캐시: 시작·⋯ 메뉴는 캐시를 바로 쓰고(오래됐으면 뒤에서 갱신 후 account:update), 로그아웃·로그인 확인은 fresh로 기다린다.
  *
@@ -580,7 +580,7 @@ async function accountDto(): Promise<AccountDto> {
 }
 
 
-/** 로그아웃(F7-2): claude auth logout(셸 없이, 15초 제한) → 계정 다시 읽기 → 사용량 표시 비우기. 열린 탭은 닫지 않는다. */
+/** 로그아웃: claude auth logout(셸 없이, 15초 제한) → 계정 다시 읽기 → 사용량 표시 비우기. 열린 탭은 닫지 않는다. */
 async function logout(): Promise<LogoutResultDto> {
   const cli = await resolveClaude();
   if (!cli) return { ok: false, error: tr('main.noCli'), account: await loadAccount({ fresh: true }) };
@@ -588,8 +588,8 @@ async function logout(): Promise<LogoutResultDto> {
   log('info', `auth logout ${r.timedOut ? 'timed out' : `exit ${r.code ?? r.reason ?? '?'}`}`);
   await auth.refresh(true);
   const cache = auth.get();
-  // logout이 0으로 끝났는데 status를 읽지 못하면(비JSON·비0) 로그아웃된 것으로 본다(리뷰 m-2). 이메일 유무로 대신 판정하지 않음.
-  // 단 status 확인이 시간 초과로 끝났으면 상태를 모르는 것이므로 성공으로 보지 않는다(리뷰 Nit)
+  // logout이 0으로 끝났는데 status를 읽지 못하면(비JSON·비0) 로그아웃된 것으로 본다. 이메일 유무로 대신 판정하지 않음.
+  // 단 status 확인이 시간 초과로 끝났으면 상태를 모르는 것이므로 성공으로 보지 않는다
   if (r.code === 0 && cache?.status === null && cache.statusReason === 'timeout') {
     const account = await accountDto();
     send('account:update', account);
@@ -612,7 +612,7 @@ function loginTab(): TabSession | undefined {
 }
 
 /**
- * 로그인 탭(F7-2): 새 psmux 세션의 칸에서 claude auth login을 실행한다(hook·statusLine 없음). 카드 터미널에서 브라우저 열기·코드 입력을 한다.
+ * 로그인 탭: 새 psmux 세션의 칸에서 claude auth login을 실행한다(hook·statusLine 없음). 카드 터미널에서 브라우저 열기·코드 입력을 한다.
  * 칸이 셸로 돌아오면 계정을 다시 읽어 로그인됐으면 탭을 닫고, 아니면 카드에 안내를 띄운 채 감시를 계속한다(다시 실행하면 다시 확인).
  */
 async function openLogin(): Promise<OpenResult> {
@@ -665,7 +665,7 @@ function watchLogin(t: TabSession): void {
       if (a.loggedIn) {
         clearInterval(timer);
         log('info', `[${t.session}] login confirmed; closing login tab`);
-        // F7-1: 로그인 확인 직후 사용량 1회(실패는 조용히). 탭 닫기를 기다리게 하지 않는다
+        // 로그인 확인 직후 사용량 1회(실패는 조용히). 탭 닫기를 기다리게 하지 않는다
         void autoRefreshUsage(usage, async () => a.loggedIn, 'login');
         await closeTab(t, true);
       } else {
@@ -680,14 +680,14 @@ function watchLogin(t: TabSession): void {
 }
 
 
-/** 대화(와 팀원)가 탭으로 열려 있거나, 여는 중이거나, 실행 중이면 삭제할 수 없는 사유(F2-1). */
+/** 대화(와 팀원)가 탭으로 열려 있거나, 여는 중이거나, 실행 중이면 삭제할 수 없는 사유. */
 function trashBlockReason(sessionIds: string[]): string | null {
   const ids = new Set(sessionIds.map((x) => x.toLowerCase()));
   const has = (v: string | null | undefined): boolean => !!v && ids.has(v.toLowerCase());
   if ([...tabs.values()].some((t) => { const s = t.state(); return has(s.leadSessionId) || has(s.resumeSessionId); })) {
     return tr('trash.blockTab');
   }
-  // 이어가기 세션을 만드는 중(아직 탭 없음, 리뷰 m-4)
+  // 이어가기 세션을 만드는 중(아직 탭 없음)
   if ([...opening.keys()].some((k) => ids.has(k))) return tr('trash.blockOpening');
   if (running.some((r) => has(r.sessionId))) return tr('trash.blockRunning');
   return null;
@@ -706,7 +706,7 @@ async function trashPreview(sessionId: string): Promise<TrashPreviewDto> {
 }
 
 /**
- * 대화 삭제(F2-1, ~/.claude 읽기 전용 원칙의 예외): 대화·팀원 .jsonl과 각 대화 폴더(서브에이전트 기록·도구 결과)를 휴지통으로 옮긴다. 부분 실패면 성공분만 반영하고 한 줄 안내.
+ * 대화 삭제(~/.claude 읽기 전용 원칙의 예외): 대화·팀원 .jsonl과 각 대화 폴더(서브에이전트 기록·도구 결과)를 휴지통으로 옮긴다. 부분 실패면 성공분만 반영하고 한 줄 안내.
  * 끝나면 인덱스·캐시·앱 저장소(이름·보관) 항목을 바로 정리하고 목록을 다시 보낸다.
  */
 async function trashConversation(sessionId: string): Promise<TrashResultDto> {
@@ -724,7 +724,7 @@ async function trashConversation(sessionId: string): Promise<TrashResultDto> {
   publishHistory();
   const failed = out.failed.length + out.refused.length;
   log('info', `history trash: moved ${out.moved.length}, failed ${out.failed.length}, refused ${out.refused.length}`);
-  // 안전상 거부(정션·심볼릭 링크·모양 불일치)와 이동 실패(잠김·권한)를 구분해 안내한다(QA O-28)
+  // 안전상 거부(정션·심볼릭 링크·모양 불일치)와 이동 실패(잠김·권한)를 구분해 안내한다
   if (out.refused.includes(plan.main.path)) return { ok: false, moved: out.moved.length, failed, error: tr('trash.unsafe') };
   if (!moved.has(plan.main.path)) return { ok: false, moved: out.moved.length, failed, error: tr('trash.moveFailed') };
   if (failed) {
@@ -734,7 +734,7 @@ async function trashConversation(sessionId: string): Promise<TrashResultDto> {
   return { ok: true, moved: out.moved.length, failed: 0 };
 }
 
-/** psmux 세션 목록(F7 메뉴): 앱 세션(메타 있음)은 탭 전환·재연결 대상, 그 밖은 이름만. */
+/** psmux 세션 목록(계정 메뉴): 앱 세션(메타 있음)은 탭 전환·재연결 대상, 그 밖은 이름만. */
 async function listPsmuxSessions(): Promise<{ ok: boolean; sessions: PsmuxSessionDto[]; error?: string }> {
   const psmux = await resolvePsmux(settings.get().psmuxPath);
   if (!psmux) return { ok: false, sessions: [], error: tr('psmux.notFound') };
@@ -780,7 +780,7 @@ async function refreshRunning(): Promise<RunningConversation[]> {
 const eqi = (a: string | null | undefined, b: string): boolean => !!a && a.toLowerCase() === b.toLowerCase();
 
 /**
- * 대화 클릭(F2, D5): 이미 탭이면 전환 → 앱 세션에서 실행 중이면 재연결 → 다른 곳에서 실행 중이면 거부 → 아니면 새 탭에서 -r.
+ * 대화 클릭: 이미 탭이면 전환 → 앱 세션에서 실행 중이면 재연결 → 다른 곳에서 실행 중이면 거부 → 아니면 새 탭에서 -r.
  */
 async function openHistory(sessionId: string, force: boolean): Promise<OpenResult> {
   const open = [...tabs.values()].find((t) => { const st = t.state(); return eqi(st.leadSessionId, sessionId) || eqi(st.resumeSessionId, sessionId); });
@@ -789,7 +789,7 @@ async function openHistory(sessionId: string, force: boolean): Promise<OpenResul
   if (r) {
     if (r.psmuxSession && tabs.has(r.psmuxSession)) return { ok: true, tabId: r.psmuxSession };
     if (r.ours && r.psmuxSession) return attachSession(r.psmuxSession);
-    // 같은 대화를 두 프로세스가 이어 쓰면 기록이 섞인다(F2 중복 실행 금지).
+    // 같은 대화를 두 프로세스가 이어 쓰면 기록이 섞인다(중복 실행 금지).
     // 판정은 sessions/<pid>.json + pid 생존이라 pid가 재사용되면 오판할 수 있어, 사용자가 확인 후 강제로 이어갈 수 있게 한다
     if (!force) {
       const where = r.psmuxSession ? msg('open.wherePsmux', { name: r.psmuxSession }) : msg('open.whereOther');
@@ -825,7 +825,7 @@ async function findDetachedResumeSession(sessionId: string): Promise<string | nu
 }
 
 /**
- * 히스토리 "세션 끊기…"(F2-1): 실행 중이고 탭으로 열려 있지 않은 대화의 세션을 끝낸다. 대상(앱 세션·외부 psmux 세션·psmux 밖 프로세스)은
+ * 히스토리 "세션 끊기…": 실행 중이고 탭으로 열려 있지 않은 대화의 세션을 끝낸다. 대상(앱 세션·외부 psmux 세션·psmux 밖 프로세스)은
  * 렌더러가 보낸 대화 ID로 main이 실행 목록에서 직접 찾고 실행 직전에 다시 확인한다. 같은 대상(alias 행 포함)의 요청은 같은 작업을 기다린다.
  */
 async function stopDetached(sessionId: string): Promise<HistoryStopDto> {
@@ -966,7 +966,7 @@ async function stopProcess(plan: StopPlan): Promise<StopFailCode | null> {
   const pid = plan.pid;
   if (!isKillablePid(pid)) return 'bad-pid';
   if (pid === process.pid || pid === process.ppid) return 'self';
-  // <pid>.json 자체를 다시 읽는다(다른 이름의 파일이 같은 pid를 담고 있어도 그것으로 통과하지 않게, QA M9-1과 같은 패턴)
+  // <pid>.json 자체를 다시 읽는다(다른 이름의 파일이 같은 pid를 담고 있어도 그것으로 통과하지 않게)
   if (!sessionFileOwns(await readRunningSessionFile(pid), pid, new Set([plan.sessionId.toLowerCase()]), null)) return 'pid-mismatch';
   if (!pidAlive(pid)) return 'not-running';
   const mtimeMs = sessionFileMtime(pid);
@@ -1042,7 +1042,7 @@ async function closeTab(t: TabSession, terminate: boolean): Promise<boolean> {
     await t.terminate();
     uiStore.removeTab(t.session);
   } else if (isFreshTab(t)) {
-    // 대화 기록이 없는 탭(F1): 분리해 둘 이유가 없고, 종료 요청 문장을 보내면 그 문장으로 대화가 생기므로 바로 세션을 끝낸다(로그인 탭과 같음)
+    // 대화 기록이 없는 탭: 분리해 둘 이유가 없고, 종료 요청 문장을 보내면 그 문장으로 대화가 생기므로 바로 세션을 끝낸다(로그인 탭과 같음)
     await t.kill();
     uiStore.removeTab(t.session);
     how = 'killed (no conversation)';
@@ -1092,24 +1092,24 @@ function registerIpc(): void {
       fontSize: s.fontSize, fontFamily: s.fontFamily, theme: s.theme, account: await loadAccount(), recentFolders: s.recentFolders, homeDir: app.getPath('home'),
       tabs: orderedTabs().map((t) => t.state()), history, running: runningDto(), detached, uiState: uiStore.get(), usage: usage.get(),
     };
-    // F7-1 기동 시 1회: 렌더러가 init 응답(현재 값)을 받은 뒤 결과가 usage:update로 간다(CLI 확인·네트워크를 기다리므로 응답보다 늦음)
+    // 기동 시 1회: 렌더러가 init 응답(현재 값)을 받은 뒤 결과가 usage:update로 간다(CLI 확인·네트워크를 기다리므로 응답보다 늦음)
     startupUsage ??= autoRefreshUsage(usage, startupLoggedIn, 'startup');
     return init;
   });
-  // F7-1 ↻: /api/oauth/usage 1회(진행 중이면 같은 요청을 기다림). 반환값에는 사용률·시각·안내 문구만 있다
+  // ↻: /api/oauth/usage 1회(진행 중이면 같은 요청을 기다림). 반환값에는 사용률·시각·안내 문구만 있다
   ipcMain.handle('usage:refresh', () => usage.refresh());
-  // F8 설정
+  // 설정
   ipcMain.handle('settings:get', () => settingsView());
   ipcMain.handle('settings:save', (_e, raw: unknown) => saveSettings(raw));
   // UI 언어: 렌더러가 첫 렌더 전에 읽고, 언어 선택 대화상자에서 바꾼다
   ipcMain.handle('settings:language', () => getLang());
   ipcMain.handle('settings:setLanguage', (_e, lang: unknown) => setLanguage(lang));
-  // F7 계정·세션 목록·앱 정보
+  // 계정·세션 목록·앱 정보
   ipcMain.handle('account:get', () => loadAccount());
-  // F7-2 로그아웃·로그인
+  // 로그아웃·로그인
   ipcMain.handle('auth:logout', () => logout());
   ipcMain.handle('auth:login', () => openLogin());
-  // F8-1 Agents 설정(읽기 전용 조사 + 리드 명령 저장만. ~/.claude 에는 쓰지 않는다)
+  // Agents 설정(읽기 전용 조사 + 리드 명령 저장만. ~/.claude 에는 쓰지 않는다)
   ipcMain.handle('agents:list', async (_e, tabId: unknown): Promise<AgentsDto> => {
     // 프로젝트 폴더는 렌더러가 준 경로가 아니라 main의 탭 상태에서 꺼낸다(로그인 탭 제외)
     const st = typeof tabId === 'string' ? tabs.get(tabId)?.state() : undefined;
@@ -1139,8 +1139,8 @@ function registerIpc(): void {
     return !r;
   });
   ipcMain.handle('agents:leadCommand', () => settings.get().leadCommand);
-  // F2-1 히스토리 항목 메뉴(키·ID는 main에서 형식 검증)
-  // 인덱스에 있는 대화의 키만 받는다(QA O-27: 없는 키로 저장소가 불어나지 않게)
+  // 히스토리 항목 메뉴(키·ID는 main에서 형식 검증)
+  // 인덱스에 있는 대화의 키만 받는다(없는 키로 저장소가 불어나지 않게)
   const indexedKey = (key: unknown): boolean => typeof key === 'string' && indexer.items().some((i) => i.key === key);
   ipcMain.handle('history:rename', (_e, key: unknown, title: unknown) => {
     if (!indexedKey(key) || !historyMeta.rename(key, typeof title === 'string' ? title : '')) return false;
@@ -1156,10 +1156,10 @@ function registerIpc(): void {
     (isSid(sid) ? trashPreview(sid) : { ok: false, extra: 0, folders: 0, error: tr('ipc.badSessionId') }));
   ipcMain.handle('history:trash', (_e, sid: unknown): Promise<TrashResultDto> | TrashResultDto =>
     (isSid(sid) ? trashConversation(sid) : { ok: false, moved: 0, failed: 0, error: tr('ipc.badSessionId') }));
-  // F2-1 세션 끊기: 렌더러는 대화 ID만 보낸다(psmux 세션 이름·pid는 main이 실행 목록에서 찾음)
+  // 세션 끊기: 렌더러는 대화 ID만 보낸다(psmux 세션 이름·pid는 main이 실행 목록에서 찾음)
   ipcMain.handle('history:terminate', (_e, sid: unknown): Promise<HistoryStopDto> | HistoryStopDto =>
     (isSid(sid) ? stopDetached(sid) : { ok: false, error: tr('ipc.badSessionId') }));
-  // F2-1 보완 탭 없는 앱 세션: 다시 연결(새 탭)·끊기(종료 요청 없이 kill-session). 이름은 앱 세션 형식만 받는다
+  // 탭 없는 앱 세션: 다시 연결(새 탭)·끊기(종료 요청 없이 kill-session). 이름은 앱 세션 형식만 받는다
   ipcMain.handle('session:attach', (_e, name: unknown): Promise<OpenResult> | OpenResult =>
     (isStr(name, 200) && isAppSessionName(name) ? attachSession(name) : { ok: false, error: tr('ipc.badSessionId') }));
   ipcMain.handle('session:stopDetached', (_e, name: unknown): Promise<HistoryStopDto> | HistoryStopDto =>
@@ -1209,7 +1209,7 @@ function registerIpc(): void {
     const r = await dialog.showOpenDialog(w!, { title: tr('dialog.pickProject'), properties: ['openDirectory'] });
     return r.canceled ? null : r.filePaths[0] ?? null;
   });
-  // F6 이미지·파일 첨부 버튼(여러 개 선택)
+  // 이미지·파일 첨부 버튼(여러 개 선택)
   ipcMain.handle('dialog:pickFiles', async (e: IpcMainInvokeEvent, kind: unknown) => {
     if (AUTO.pickFiles) return AUTO.pickFiles.split('|').filter(Boolean);
     const w = BrowserWindow.fromWebContents(e.sender);
@@ -1220,17 +1220,17 @@ function registerIpc(): void {
     });
     return r.canceled ? [] : r.filePaths;
   });
-  // F6 폴더 추가(/add-dir)
+  // 폴더 추가(/add-dir)
   ipcMain.handle('dialog:pickAddDir', async (e: IpcMainInvokeEvent) => {
     if (AUTO.pickDir) return AUTO.pickDir;
     const w = BrowserWindow.fromWebContents(e.sender);
     const r = await dialog.showOpenDialog(w!, { title: tr('dialog.addDir'), properties: ['openDirectory'] });
     return r.canceled ? null : r.filePaths[0] ?? null;
   });
-  // F6 Ctrl+V 이미지: 시스템 클립보드 이미지를 PNG(무손실)로 앱 데이터 clips에 저장
+  // Ctrl+V 이미지: 시스템 클립보드 이미지를 PNG(무손실)로 앱 데이터 clips에 저장
   ipcMain.handle('clip:saveImage', async () => {
     try {
-      // PNG는 바이트 그대로(픽셀 동일), JPEG(image/jpeg 또는 Windows 'JFIF' 원시 형식)만 있으면 nativeImage로 PNG 변환(O-4)
+      // PNG는 바이트 그대로(픽셀 동일), JPEG(image/jpeg 또는 Windows 'JFIF' 원시 형식)만 있으면 nativeImage로 PNG 변환
       const items = await clipboard.read();
       const src = pickClipImage(items.map((i) => i.types));
       if (!src) {
@@ -1322,7 +1322,7 @@ const appIcon = asarUnpackedPath(join(__dirname, '..', 'assets', 'app.ico'));
 function createWindow(): void {
   win = new BrowserWindow({
     // 최소 내용 폭 1028 = 사이드바 240 + 그리드 padding 24 + 경계선 12 + (카드 360 + 세로 스크롤바 16)×2: 레이아웃 4(50%)에서
-    // 팀원 열에 스크롤바가 생겨도 팀원 카드 ≥ 360(QA NEW-6 실측: 1021 → 357, 1028 → 361)
+    // 팀원 열에 스크롤바가 생겨도 팀원 카드 ≥ 360(실측: 1021 → 357, 1028 → 361)
     // 크기·최소 크기는 창 테두리를 뺀 내용 영역 기준(useContentSize). 테두리 포함 기준이면 위 계산보다 좁아짐
     // 최소 높이 672 = 기존 앱 영역 640 + 앱이 그리는 제목줄 32(제목줄이 내용 영역 안으로 들어옴)
     width: 1600, height: 1000, minWidth: 1028, minHeight: 640 + TITLE_BAR_H, useContentSize: true,

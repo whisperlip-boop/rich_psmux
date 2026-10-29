@@ -83,7 +83,7 @@ export function inputToCommands(target: string, text: string, mode: MultilineMod
   const norm = text.replace(/\r\n?/g, '\n').replace(/\n+$/, '');
   if (norm.trim() === '') return [];
   const lines = norm.split('\n');
-  // Claude Code 칸(paste 모드)에서 @ 파일 참조가 있으면 Enter 전에 End: 커서가 참조 바로 뒤에 있으면 Enter가 전송되지 않음(M3 실측)
+  // Claude Code 칸(paste 모드)에서 @ 파일 참조가 있으면 Enter 전에 End: 커서가 참조 바로 뒤에 있으면 Enter가 전송되지 않음(실측)
   const end = mode === 'paste' && norm.includes('@') ? [`send-keys -t ${target} End`] : [];
   if (lines.length === 1) return [...literalCommands(target, lines[0]), ...end, `send-keys -t ${target} Enter`];
   if (mode === 'ctrlj') {
@@ -107,7 +107,7 @@ export function inputToCommands(target: string, text: string, mode: MultilineMod
 /**
  * inputToCommands 결과를 시간 간격을 두고 보낼 묶음으로 나눈다: [본문] → [End](@ 참조일 때) → [Enter].
  * Claude Code가 작업 중이면 입력 읽기가 늦어 텍스트와 Enter(CR)가 한 덩어리로 읽히고, 붙여넣기로 판정돼 CR이 제출되지 않는다
- * (2026-10-26 실기). 마지막 Enter와 그 앞 End를 각각 따로 보내 덩어리가 합쳐지지 않게 한다. End+CR이 합쳐져도 같은 위험이라 End도 분리한다.
+ * (실측). 마지막 Enter와 그 앞 End를 각각 따로 보내 덩어리가 합쳐지지 않게 한다. End+CR이 합쳐져도 같은 위험이라 End도 분리한다.
  *
  * Args:
  *   target: 칸 ID(inputToCommands에 준 값).
