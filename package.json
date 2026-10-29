@@ -16,6 +16,7 @@
     "dist": "npm run typecheck && node scripts/build.mjs --prod && electron-builder --win nsis"
   },
   "license": "MIT",
+  "author": "whisperlip",
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/addon-unicode11": "^0.9.0",
@@ -56,6 +57,17 @@
       "icon": "src/img/logo2.ico"
     },
     "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": false,
+      "allowToChangeInstallationDirectory": false,
+      "license": "LICENSE",
+      "include": "installer/installer.nsh",
+      "multiLanguageInstaller": true,
+      "installerLanguages": [
+        "en_US",
+        "ko_KR"
+      ],
       "installerIcon": "src/img/logo2.ico",
       "uninstallerIcon": "src/img/logo2.ico",
       "artifactName": "Rich-psmux-Setup-${version}.${ext}",

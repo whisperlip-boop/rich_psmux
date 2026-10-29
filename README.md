@@ -76,12 +76,18 @@ The **Agent Settings** dialog also shows whether the team feature is on and wher
 ### Download the installer
 
 1. Download `Rich-psmux-Setup-<version>.exe` from the [Releases page](https://github.com/whisperlip-boop/rich_psmux/releases) and run it. It installs for the current user without administrator rights.
-   - Install location: `%LOCALAPPDATA%\Programs\rich-psmux`
-   - Start menu and desktop shortcuts named "Rich psmux" are created.
    - The installer is not code-signed, so SmartScreen may warn you (**More info** → **Run anyway**).
-2. **Uninstall:** Windows Settings → Apps → "Rich psmux" → Uninstall.
-   - App data (`%APPDATA%\rich-psmux`) is kept; delete it manually if needed.
-   - `%LOCALAPPDATA%\rich-psmux-updater\` (a copy of the installer, about 108 MB) may also remain; delete it manually.
+   - The setup language follows Windows (Korean or English).
+2. The setup wizard:
+   - **License** — accept the MIT license.
+   - **Prerequisites** — checks for psmux, PowerShell 7, Claude Code and winget. Each missing item gets a checkbox (checked by default) with the command it will run; uncheck it to install the item yourself later.
+     - psmux: `winget install --id marlocarlo.psmux -e`
+     - PowerShell 7: `winget install --id Microsoft.PowerShell -e` (its own installer may ask for administrator approval)
+     - Claude Code: Anthropic's official installer, `irm https://claude.ai/install.ps1 | iex`
+   - **Install** — copies the app to `%LOCALAPPDATA%\Programs\rich-psmux`, creates Start menu and desktop shortcuts, then runs the checked items one by one in console windows.
+   - **Finish** — shows the result for each item and whether agent definitions (`%USERPROFILE%\.claude\agents`) and Agent Teams are set up. Setup never changes your `~/.claude` settings or environment variables; it only tells you what to do. The log is `%APPDATA%\rich-psmux\logs\installer.log`.
+3. Silent install: `Rich-psmux-Setup-<version>.exe /S` installs or updates the app only (no prerequisite checks or installs).
+4. **Uninstall:** Windows Settings → Apps → "Rich psmux" → Uninstall. psmux, PowerShell 7, Claude Code and `~/.claude` are not touched. App data (`%APPDATA%\rich-psmux`) is kept; delete it manually if needed.
 
 ### Build from source
 
@@ -278,8 +284,9 @@ Rich psmux는 psmux에서 돌아가는 Claude Code **Agent Teams**를 데스크�
 ### 설치
 
 1. [Releases](https://github.com/whisperlip-boop/rich_psmux/releases)에서 `Rich-psmux-Setup-<버전>.exe`를 받아 실행합니다. 관리자 권한 없이 `%LOCALAPPDATA%\Programs\rich-psmux`에 설치됩니다. 코드 서명이 없어 SmartScreen 경고가 뜨면 "추가 정보" → "실행".
-2. 소스 빌드: `git clone` → `npm install` → `npm run dist` → `dist\Rich-psmux-Setup-<버전>.exe`.
-3. 제거: Windows 설정 → 앱 → "Rich psmux". `%APPDATA%\rich-psmux`(앱 데이터)와 `%LOCALAPPDATA%\rich-psmux-updater\`(약 108MB)는 남으므로 필요하면 직접 삭제하세요.
+2. 설치 마법사: MIT 라이선스 동의 → 필수 구성 요소 확인(psmux·PowerShell 7·Claude Code·winget, 없는 항목은 체크하면 앱 설치 후 콘솔 창에서 설치) → 설치 → 완료(항목별 결과, 에이전트 정의·Agent Teams 안내, 로그 `%APPDATA%\rich-psmux\logs\installer.log`). `~/.claude` 설정과 환경 변수는 바꾸지 않습니다. `/S`는 앱만 설치·업데이트합니다.
+3. 소스 빌드: `git clone` → `npm install` → `npm run dist` → `dist\Rich-psmux-Setup-<버전>.exe`.
+4. 제거: Windows 설정 → 앱 → "Rich psmux". psmux·PowerShell 7·Claude Code·`~/.claude`는 건드리지 않고, `%APPDATA%\rich-psmux`(앱 데이터)는 남으므로 필요하면 직접 삭제하세요.
 
 ### 사용법
 
