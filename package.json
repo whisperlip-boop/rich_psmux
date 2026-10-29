@@ -1,0 +1,65 @@
+{
+  "name": "rich-psmux",
+  "version": "1.0.0",
+  "description": "Rich psmux - desktop GUI shell for Claude Code Agent Teams running in psmux (control mode client)",
+  "private": true,
+  "main": "out/main/index.js",
+  "scripts": {
+    "build": "npm run typecheck && node scripts/build.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "dev": "node scripts/build.mjs && electron .",
+    "start": "electron .",
+    "test": "vitest run",
+    "itest": "node scripts/build.mjs && node out/itest/psmux-itest.js",
+    "itest:intl": "esbuild tests/integration/intl-itest.ts --bundle --platform=node --format=cjs --target=node22 --external:electron --log-level=warning --outfile=out/itest/intl-itest.js && node out/itest/intl-itest.js",
+    "icon": "electron scripts/make-icon.cjs",
+    "dist": "npm run typecheck && node scripts/build.mjs --prod && electron-builder --win nsis"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/addon-unicode11": "^0.9.0",
+    "@xterm/xterm": "^6.0.0",
+    "preact": "^11.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "electron": "^45.0.0",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  },
+  "productName": "Rich psmux",
+  "build": {
+    "appId": "dev.local.rich-psmux",
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    },
+    "files": [
+      "out/main/**",
+      "out/preload/**",
+      "out/renderer/**",
+      "out/hook/**",
+      "out/assets/**",
+      "package.json",
+      "!**/*.map",
+      "!node_modules/**"
+    ],
+    "asarUnpack": [
+      "out/hook/**",
+      "out/assets/**"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "src/img/logo2.ico"
+    },
+    "nsis": {
+      "installerIcon": "src/img/logo2.ico",
+      "uninstallerIcon": "src/img/logo2.ico",
+      "artifactName": "Rich-psmux-Setup-${version}.${ext}",
+      "shortcutName": "Rich psmux"
+    }
+  }
+}

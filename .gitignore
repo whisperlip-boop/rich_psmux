@@ -1,0 +1,16 @@
+node_modules/
+out/
+dist/
+build/
+*.log
+m0/logs/
+
+# internal development records (not published)
+docs/qa/
+docs/SPEC.md
+docs/ui-spec.md
+docs/milestones.md
+docs/HANDOFF.md
+CEO_PROMPT.md
+analysis/
+m0/
