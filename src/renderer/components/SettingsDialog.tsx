@@ -122,6 +122,15 @@ export function SettingsDialog({ onClose }: SettingsDialogProps) {
                   </div>
                 </div>
               </fieldset>
+              <fieldset>
+                <legend>{t('settings.secUpdates')}</legend>
+                <label class="check">
+                  <input type="checkbox" name="checkUpdatesOnStartup" checked={form.checkUpdatesOnStartup} aria-describedby="hint-checkUpdates"
+                    onChange={(e) => set('checkUpdatesOnStartup', (e.target as HTMLInputElement).checked)} />
+                  {t('settings.checkUpdates')}
+                </label>
+                <div class="field__hint" id="hint-checkUpdates">{t('settings.checkUpdatesHint')}</div>
+              </fieldset>
             </>
           )}
           <div class="modal__actions">

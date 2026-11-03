@@ -2,6 +2,7 @@
 // 모든 레이아웃에서 같은 DOM 구조([리드 자리][나머지])를 써서 레이아웃을 바꿔도 카드(xterm)가 다시 만들어지지 않게 한다.
 // 1·2·5에서는 두 묶음이 display: contents로 풀려 한 흐름이 된다. 분할 경계선도 항상 두고 3·4에서만 CSS로 보인다.
 
+import type { VNode } from 'preact';
 import { useRef } from 'preact/hooks';
 
 import type { TabStateDto } from '../../shared/api';
@@ -28,6 +29,8 @@ interface CardGridProps {
   onError: (msg: string) => void;
   /** 폴더 추가(리드 카드가 없으면 null). */
   onAddDir: (() => void) | null;
+  /** 그리드 맨 뒤에 붙일 카드(@update). 리드 자리는 차지하지 않는다(레이아웃 3·4에서도 나머지 묶음 끝). */
+  extra?: VNode | null;
 }
 
 /** 경계선 드래그 상태. offset = 잡은 위치와 경계선 가운데의 차이(잡자마자 튀지 않게). */
@@ -56,11 +59,11 @@ function pointerRatio(grid: HTMLElement, handle: HTMLElement, layout: MainLayout
 }
 
 /** 탭 하나의 카드 그리드. */
-export function CardGrid({ tab, slots, ui, onUi, onInfo, banner, onDismissBanner, dropPane, onError, onAddDir }: CardGridProps) {
+export function CardGrid({ tab, slots, ui, onUi, onInfo, banner, onDismissBanner, dropPane, onError, onAddDir, extra = null }: CardGridProps) {
   const gridRef = useRef<HTMLDivElement>(null);
   const drag = useRef<SplitDrag | null>(null);
   const disconnected = tab.status === 'reconnecting' || tab.status === 'ended' || tab.status === 'error';
-  if (!tab.panes.length) {
+  if (!tab.panes.length && !extra) {
     const msg = t(tab.status === 'starting' ? 'grid.starting' : disconnected ? 'card.disconnected' : tab.leadGone ? 'grid.leadGone' : 'grid.waiting');
     return <div class="grid-empty">{msg}</div>;
   }
@@ -68,7 +71,7 @@ export function CardGrid({ tab, slots, ui, onUi, onInfo, banner, onDismissBanner
   const byId = new Map(sorted.map((p) => [p.paneId, p]));
   const { main, rest } = splitLead(sorted.map((p) => p.paneId), tab.leadPaneId);
   const activePane = ui.activePane && byId.has(ui.activePane) ? ui.activePane : main ?? rest[0] ?? null;
-  const tiled = tiledGrid(sorted.length);
+  const tiled = tiledGrid(sorted.length + (extra ? 1 : 0));
   const split = isMainLayout(ui.layout) ? ui.layout : null;
   const ratio = split ? getMainRatio(ui, split) : DEFAULT_MAIN_RATIO;
   const style = { '--cols': String(tiled.cols), '--rows': String(tiled.rows), '--main-ratio': String(ratio) } as Record<string, string>;
@@ -124,14 +127,14 @@ export function CardGrid({ tab, slots, ui, onUi, onInfo, banner, onDismissBanner
   return (
     <div class="grid-wrap">
     {tab.leadGone && <div class="grid-notice" role="status">{t('grid.leadGoneNotice')}</div>}
-    <div ref={gridRef} class={`grid lay-${ui.layout}${rest.length === 0 ? ' no-rest' : ''}${main === null ? ' no-main' : ''}`} style={style} data-layout={ui.layout}>
+    <div ref={gridRef} class={`grid lay-${ui.layout}${rest.length === 0 && !extra ? ' no-rest' : ''}${main === null ? ' no-main' : ''}`} style={style} data-layout={ui.layout}>
       <div class="lay-main">{main && card(main)}</div>
       <div class="split-handle" role="separator" tabIndex={0} aria-label={t('grid.splitLabel')}
         aria-orientation={split === 4 ? 'vertical' : 'horizontal'} aria-valuemin={MIN_MAIN_RATIO} aria-valuemax={MAX_MAIN_RATIO}
         aria-valuenow={Math.round(ratio)} onPointerDown={onSplitDown} onPointerMove={onSplitMove} onPointerUp={onSplitEnd}
         onPointerCancel={onSplitEnd} onLostPointerCapture={onSplitEnd} onKeyDown={onSplitKey}
         onDblClick={() => { if (split && ratio !== DEFAULT_MAIN_RATIO) onUi(withMainRatio(ui, split, DEFAULT_MAIN_RATIO)); }} />
-      <div class="lay-rest">{rest.map(card)}</div>
+      <div class="lay-rest">{rest.map(card)}{extra}</div>
     </div>
     </div>
   );

@@ -52,4 +52,11 @@ export const esES: Dict = {
   'stop.notClaude': 'No se ha detenido porque no es un proceso de Claude Code.',
   'stop.attachFailed': 'No se ha podido detener porque ha fallado la conexión con la sesión.',
   'usage.justNow': 'Ahora mismo',
+  'about.status.failed': 'Error al comprobar',
+  'about.status.checking': 'Comprobando…',
+  'about.checkDone': { one: 'Comprobación finalizada — {n} actualización disponible', many: 'Comprobación finalizada — {n} de actualizaciones disponibles', other: 'Comprobación finalizada — {n} actualizaciones disponibles' },
+  'about.lastChecked': 'Última comprobación: {time}',
+  'update.closeFailed': 'No se han podido cerrar las sesiones. La actualización no se ha iniciado.',
+  'update.stopNote': 'Se detendrá el paso en curso y no se ejecutarán los pasos restantes. Las sesiones que ya se han cerrado no se volverán a abrir.',
+  'update.openedRelease': 'Se ha abierto la página de la versión en el navegador.',
 };

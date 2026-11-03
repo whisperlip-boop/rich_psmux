@@ -76,6 +76,14 @@ const api: CtdApi = {
   copyAgentTemplate: () => ipcRenderer.invoke('agents:copyTemplate'),
   openAgentsFolder: () => ipcRenderer.invoke('agents:openFolder'),
   getLeadCommand: () => ipcRenderer.invoke('agents:leadCommand'),
+  updateState: () => ipcRenderer.invoke('update:state'),
+  checkUpdates: () => ipcRenderer.invoke('update:check'),
+  updateSessionCount: () => ipcRenderer.invoke('update:sessionCount'),
+  startUpdate: (steps) => ipcRenderer.invoke('update:start', steps),
+  stopUpdate: () => ipcRenderer.send('update:stop'),
+  openReleasePage: () => ipcRenderer.invoke('update:openRelease'),
+  onUpdateState: (cb) => on('update:state', cb),
+  onUpdateOutput: (cb) => on('update:output', cb),
 };
 
 contextBridge.exposeInMainWorld('ctd', api);

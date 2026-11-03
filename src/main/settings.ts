@@ -25,6 +25,8 @@ export interface Settings {
   useHooks: boolean;
   /** 히스토리에 entrypoint=sdk-cli 세션도 표시(기본 숨김). */
   showSdkSessions: boolean;
+  /** 시작 시 업데이트 확인(기본 꺼짐: 꺼져 있으면 시작 시 네트워크·명령 호출 0건). */
+  checkUpdatesOnStartup: boolean;
   /** UI 언어. 빈 값 = 고르지 않음(Windows 표시 언어를 따름, 파일에 기록하지 않음). */
   language: Lang | '';
 }
@@ -41,6 +43,7 @@ export const DEFAULT_SETTINGS: Settings = {
   fontFamily: '"D2Coding", "Cascadia Mono", Consolas, "Malgun Gothic", monospace',
   useHooks: true,
   showSdkSessions: false,
+  checkUpdatesOnStartup: false,
   language: '',
 };
 
@@ -62,6 +65,7 @@ export function normalizeSettings(raw: unknown): Settings {
   if (typeof o.fontFamily === 'string' && o.fontFamily.trim() && o.fontFamily !== LEGACY_FONT) s.fontFamily = o.fontFamily;
   if (typeof o.useHooks === 'boolean') s.useHooks = o.useHooks;
   if (typeof o.showSdkSessions === 'boolean') s.showSdkSessions = o.showSdkSessions;
+  if (typeof o.checkUpdatesOnStartup === 'boolean') s.checkUpdatesOnStartup = o.checkUpdatesOnStartup;
   // 알 수 없는 언어 값은 버리고 기본값(시스템 언어)을 쓴다
   if (isLang(o.language)) s.language = o.language;
   else if (o.language !== undefined && o.language !== '') log('warn', `settings: unknown language ignored (${JSON.stringify(o.language).slice(0, 40)})`);
@@ -189,9 +193,11 @@ export async function validateSettings(raw: unknown, fsx: PathChecks = FS_CHECKS
   const theme = o.theme;
   if (theme !== 'light' && theme !== 'dark' && theme !== 'system') errors.theme = tr('set.theme');
   if (typeof o.showSdkSessions !== 'boolean') errors.showSdkSessions = tr('set.invalid');
+  if (typeof o.checkUpdatesOnStartup !== 'boolean') errors.checkUpdatesOnStartup = tr('set.invalid');
   if (Object.keys(errors).length) return { values: null, errors };
   return {
-    values: { psmuxPath, pwshPath, leadCommand, historyDir, fontFamily, fontSize, theme: theme as ThemeMode, showSdkSessions: o.showSdkSessions as boolean },
+    values: { psmuxPath, pwshPath, leadCommand, historyDir, fontFamily, fontSize, theme: theme as ThemeMode, showSdkSessions: o.showSdkSessions as boolean,
+      checkUpdatesOnStartup: o.checkUpdatesOnStartup as boolean },
     errors,
   };
 }

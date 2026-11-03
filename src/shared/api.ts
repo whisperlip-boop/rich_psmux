@@ -131,6 +131,8 @@ export interface EditableSettings {
   fontSize: number;
   theme: ThemeMode;
   showSdkSessions: boolean;
+  /** 시작 시 업데이트 확인(기본 꺼짐: 켜야만 시작 시 네트워크·명령 호출). */
+  checkUpdatesOnStartup: boolean;
 }
 
 /** 항목별 오류(현재 UI 언어). */
@@ -283,6 +285,61 @@ export interface OpenResult {
   warning?: string;
 }
 
+/** 업데이트 확인 대상(표 행 순서 고정: app → pwsh → psmux → claude). 이름은 고유명사라 번역하지 않는다. */
+export type UpdateItemId = 'app' | 'pwsh' | 'psmux' | 'claude';
+/** 업데이트 실행 단계(실행 순서 고정: claude → psmux → pwsh). app은 릴리스 페이지만 연다. */
+export type UpdateStepId = 'claude' | 'psmux' | 'pwsh';
+/** 행 상태: 확인 전 / 확인 중 / 최신 / 업데이트 가능 / 미설치 / 확인 실패. */
+export type UpdateRowStatus = 'unknown' | 'checking' | 'latest' | 'available' | 'notInstalled' | 'failed';
+/** 확인 실패 사유(렌더러가 about.reason.*로 번역). */
+export type UpdateFailReason = 'timeout' | 'network' | 'rateLimited' | 'wingetMissing' | 'unexpected';
+
+/** 업데이트 표 한 행. 버전이 없으면 null(— 표시). */
+export interface UpdateRowDto {
+  id: UpdateItemId;
+  installed: string | null;
+  latest: string | null;
+  status: UpdateRowStatus;
+  reason?: UpdateFailReason;
+}
+
+/** 실행 단계 하나의 상태. */
+export interface UpdateStepDto {
+  id: UpdateStepId;
+  status: 'pending' | 'running' | 'ok' | 'failed' | 'skipped';
+}
+
+/** 업데이트 실행(한 번에 하나). stopped = 사용자가 중지. */
+export interface UpdateRunDto {
+  status: 'running' | 'done' | 'stopped';
+  steps: UpdateStepDto[];
+  ok: number;
+  fail: number;
+}
+
+/** 업데이트 확인·실행 상태(main이 가진 값, 대화상자를 닫았다 열어도 유지). */
+export interface UpdateStateDto {
+  rows: UpdateRowDto[];
+  /** 확인 진행 중(행 하나라도). */
+  checking: boolean;
+  /** 업데이트 시작 처리 중(psmux 세션 닫는 중). 이 동안 확인·업데이트 버튼은 비활성. */
+  starting: boolean;
+  /** 마지막 확인 완료 시각(ms, 캐시 포함). 없으면 null. */
+  checkedAt: number | null;
+  /** 진행 중이거나 마지막으로 끝난 실행. 없으면 null. */
+  run: UpdateRunDto | null;
+  /** Claude Code 업데이트가 이번 실행에서 성공했는지(재확인 뒤 "재시작 후 적용" 안내). */
+  claudeUpdated: boolean;
+  /** 시작 시 확인에서 찾은 업데이트 수(설정 켬일 때만, 시작 시 확인 전·실패면 null). 배너 기준. */
+  startupAvailable: number | null;
+}
+
+/** 업데이트 시작 결과. busy = 이미 실행 중, closeFailed = 세션을 닫지 못해 시작하지 않음, invalid = 실행할 수 없는 항목. */
+export interface UpdateStartDto {
+  ok: boolean;
+  error?: 'busy' | 'closeFailed' | 'invalid';
+}
+
 type Unsub = () => void;
 
 /** preload API. */
@@ -373,4 +430,19 @@ export interface CtdApi {
   getLeadCommand(): Promise<string>;
   /** 계정 상태가 바뀌었을 때(로그인 탭 성공 등). */
   onAccount(cb: (a: AccountDto) => void): Unsub;
+  /** 업데이트 표·실행 상태(24시간 캐시가 있으면 그 결과 포함). 네트워크·명령 호출 없음. */
+  updateState(): Promise<UpdateStateDto>;
+  /** 업데이트 확인(캐시 무시, 4개 항목 병렬). 진행 중이면 같은 확인을 기다린다. */
+  checkUpdates(): Promise<UpdateStateDto>;
+  /** 업데이트 전에 닫아야 하는 psmux 세션 수("열린 psmux 세션…" 목록 전체, 앱 밖 세션 포함). 조회 실패면 ok=false. */
+  updateSessionCount(): Promise<{ ok: boolean; count: number }>;
+  /** 체크한 단계 실행 시작(PowerShell 7·psmux가 있으면 main이 먼저 모든 psmux 세션을 닫는다). */
+  startUpdate(steps: UpdateStepId[]): Promise<UpdateStartDto>;
+  /** 실행 중지: 현재 프로세스 종료, 남은 단계 미실행. */
+  stopUpdate(): void;
+  /** Rich psmux 릴리스 페이지를 기본 브라우저로(주소는 main 고정값). */
+  openReleasePage(): Promise<boolean>;
+  onUpdateState(cb: (s: UpdateStateDto) => void): Unsub;
+  /** 업데이트 명령 출력(stdout·stderr 바이트 그대로). */
+  onUpdateOutput(cb: (data: Uint8Array) => void): Unsub;
 }

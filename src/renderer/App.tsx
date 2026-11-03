@@ -3,21 +3,23 @@
 
 import { useEffect, useRef, useState } from 'preact/hooks';
 
-import type { AccountDto, DetachedSessionDto, HistoryDto, HistoryItemDto, OpenResult, RunningDto, TabStateDto, UsageDto } from '../shared/api';
+import type { AccountDto, DetachedSessionDto, HistoryDto, HistoryItemDto, OpenResult, RunningDto, TabStateDto, UpdateItemId, UpdateStateDto, UsageDto } from '../shared/api';
 import { leadAgentName } from '../shared/agents';
 import { getLang, stripEndPunct, type Lang, type MsgKey } from '../shared/i18n';
 import { clampSidebarWidth, SIDEBAR_DEFAULT_W } from '../shared/sidebar';
 import { addDirCommand, DragHoverTracker, INSERT_EVENT, mentionsFor, type InsertDetail } from '../shared/attach';
+import { AboutDialog } from './components/AboutDialog';
 import { AccountArea } from './components/AccountArea';
 import { AgentsDialog } from './components/AgentsDialog';
 import { CardGrid } from './components/CardGrid';
 import { LanguageDialog } from './components/LanguageDialog';
 import { EndSessionDialog, LogoutDialog, RenameDialog, stopSessionMessage, TrashDialog } from './components/MenuDialogs';
-import { AboutDialog, SessionsDialog } from './components/SessionsDialog';
+import { SessionsDialog } from './components/SessionsDialog';
 import { SettingsDialog } from './components/SettingsDialog';
 import { Sidebar } from './components/Sidebar';
 import { SidebarHandle } from './components/SidebarHandle';
 import { TabBar } from './components/TabBar';
+import { UpdateCard } from './components/UpdateCard';
 import { UsageArea } from './components/UsageArea';
 import { useDialogKeys } from './dialog';
 import { DEFAULT_FILTER, displayTitle, isFreshTab, originalTitle, parseFilter, stopTarget, tabConversationId, type HistoryFilter, type StopTarget } from './history';
@@ -28,7 +30,8 @@ import { errorNotice, type ErrorNotice } from './notice';
 import { updateSlots, type Slot } from './slots';
 import { addDirLeadPane, ctrlWAllowed, insertByCreatedAt, nextActiveAfterClose, normalizeSavedTabUi, tabAcceptsInput, toSavedTabUi } from './tabs';
 import { applyTheme } from './theme';
-import { disposeTab, disposeTerminal, isAppShortcut, setActiveTab, setTerminalFont, wireTerminalEvents } from './terminals';
+import { disposeTab, disposeTerminal, isAppShortcut, resetUpdateTerminal, setActiveTab, setTerminalFont, wireTerminalEvents } from './terminals';
+import { cardState, UPDATE_TAB } from './update';
 
 const INFO_LABELS: Record<string, MsgKey> = {
   session: 'info.session', folder: 'info.folder', pane: 'info.pane', window: 'info.window', size: 'info.size', command: 'info.command',
@@ -97,6 +100,19 @@ export function App() {
   /** 탭 없는 앱 세션: 있을 때만 사이드바 맨 위 그룹. */
   const [detached, setDetached] = useState<DetachedSessionDto[]>([]);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  /** 업데이트 확인·실행 상태(main 원본). */
+  const [upd, setUpd] = useState<UpdateStateDto | null>(null);
+  /** 업데이트 표 체크(확인이 끝날 때마다 업데이트 가능 행으로 다시 계산, 그 사이 사용자가 바꾼 값은 유지). */
+  const [updChecked, setUpdChecked] = useState<Set<UpdateItemId>>(new Set());
+  const updCheckedAt = useRef<number | null | undefined>(undefined);
+  /** @update 카드가 있는 탭(세션 탭 ID 또는 UPDATE_TAB). 없으면 null. */
+  const [updHost, setUpdHost] = useState<string | null>(null);
+  const updHostRef = useRef<string | null>(null);
+  updHostRef.current = updHost;
+  /** 시작 시 업데이트 배너를 닫았는지(이번 실행 동안). */
+  const [updBannerDone, setUpdBannerDone] = useState(false);
+  /** Update 탭 ×: 카드 [닫기]와 같은 처리(실행 중이면 중단 확인)를 카드에 요청하는 횟수. */
+  const [updCloseReq, setUpdCloseReq] = useState(0);
   const panesSeen = useRef<Record<string, Set<string>>>({});
   // 탭별 카드 자리(생성 순서 고정·동명 팀원 자리 재사용). 탭 상태와 같은 렌더에서 함께 반영됨
   const slots = useRef<Record<string, Slot[]>>({});
@@ -149,7 +165,13 @@ export function App() {
     delete slots.current[tabId];
     delete lastSaved.current[tabId];
     const { order: o, active: a } = live.current;
-    setActive(nextActiveAfterClose(o, tabId, a));
+    // @update 카드가 있던 탭이 닫히면(업데이트 전 세션 정리 등) 카드는 Update 탭으로 옮긴다(D8)
+    if (updHostRef.current === tabId) {
+      setUpdHost(UPDATE_TAB);
+      setActive(UPDATE_TAB);
+    } else {
+      setActive(nextActiveAfterClose(o, tabId, a));
+    }
     setOrder((x) => x.filter((id) => id !== tabId));
     setTabs((t) => {
       const n = { ...t };
@@ -363,6 +385,8 @@ export function App() {
       offs.push(window.ctd.onUsage(setUsage));
       offs.push(window.ctd.onAccount(setAccount));
       wireTerminalEvents();
+      void safeIpc(() => window.ctd.updateState(), null).then((s) => { if (s) setUpd(s); });
+      offs.push(window.ctd.onUpdateState(setUpd));
       setRecent(init.recentFolders);
       setHomeDir(init.homeDir);
       saved.current = init.uiState.tabs;
@@ -457,6 +481,30 @@ export function App() {
   useDialogKeys(!!confirmEnd, () => setConfirmEnd(null), CANCEL_BTN);
   // 칸 정보 창도 같은 처리(동적 autoFocus는 Chromium이 무시)
   useDialogKeys(!!info, () => setInfo(null));
+
+  // 업데이트 확인이 끝날 때마다(캐시 포함) 체크를 업데이트 가능 행으로 다시 맞춘다(D4 기본 체크)
+  useEffect(() => {
+    if (!upd || updCheckedAt.current === upd.checkedAt) return;
+    updCheckedAt.current = upd.checkedAt;
+    setUpdChecked(new Set(upd.rows.filter((r) => r.status === 'available').map((r) => r.id)));
+  }, [upd?.checkedAt]);
+
+  /**
+   * 업데이트 시작됨: 앱 정보를 닫고 @update 카드를 연다. psmux·PowerShell 7 실행은 세션을 모두 닫았으므로 항상 Update 탭(§9.2-4,
+   * tab:closed 반영 순서에 기대지 않음). Claude Code만이면 활성 세션 탭 그리드 맨 뒤, 탭이 없으면 Update 탭(D8).
+   */
+  const openUpdateCard = (needsClose: boolean): void => {
+    setDialog(null);
+    const a = live.current.active;
+    const host = !needsClose && a && live.current.tabs[a] ? a : UPDATE_TAB;
+    setUpdHost(host);
+    setActive(host);
+  };
+  const closeUpdateCard = (): void => {
+    setUpdHost(null);
+    resetUpdateTerminal();
+    if (live.current.active === UPDATE_TAB) setActive(live.current.order[0] ?? null);
+  };
 
   // 활성 탭만 터미널에 그린다(비활성 탭은 버퍼만)
   useEffect(() => setActiveTab(active), [active]);
@@ -568,6 +616,9 @@ export function App() {
     return it ? displayTitle(it, now) : null;
   };
   const endTab = confirmEnd ? tabs[confirmEnd] : undefined;
+  const updCard = updHost ? <UpdateCard run={upd?.run ?? null} onClose={closeUpdateCard} closeRequest={updCloseReq} /> : null;
+  const updTabState = cardState(upd?.run ?? null);
+  const updBanner = !updBannerDone && (upd?.startupAvailable ?? 0) > 0;
   /** 리드 카드 배너: 로그인 탭 실패 안내 또는 이어가기 안내(팀원은 복원되지 않음). */
   const cardBanner = (tab: TabStateDto, dismissed: boolean): string | null => {
     if (tab.purpose === 'login') return tab.loginFailed && !dismissed ? t('banner.loginFailed') : null;
@@ -604,7 +655,9 @@ export function App() {
           <TabBar tabs={tabList} active={active} titleOf={titleOf} onSelect={setActive} onNew={() => void startSession()}
             recent={recent} homeDir={homeDir} busy={busy} onNewPlain={(f) => void startSession(f, true)}
             onDetach={detach} onTerminate={setConfirmEnd} isFresh={(tb) => isFreshTab(tb, history.items)} onExpand={sidebarHidden ? toggleSidebar : null}
-            layout={cur ? (ui[cur.tabId] ?? DEFAULT_TAB_UI).layout : null} onLayout={(l) => { if (cur) setLayout(cur.tabId, l); }} />
+            layout={cur ? (ui[cur.tabId] ?? DEFAULT_TAB_UI).layout : null} onLayout={(l) => { if (cur) setLayout(cur.tabId, l); }}
+            extraTab={updHost === UPDATE_TAB ? { id: UPDATE_TAB, label: t('update.tabName'), kind: updTabState === 'running' ? 'working' : updTabState === 'failed' ? 'disconnected' : 'idle' } : null}
+            onCloseExtra={() => { setActive(UPDATE_TAB); setUpdCloseReq((n) => n + 1); }} />
           {notice && (
             <div class="error-banner" role="alert">
               <span>{notice.message}</span>
@@ -614,6 +667,15 @@ export function App() {
               </span>
             </div>
           )}
+          {/* 시작 시 업데이트 알림(토스트 아님, 포커스를 가져가지 않음). Tab 순서는 카드 그리드 앞 */}
+          {updBanner && (
+            <div class="update-banner" role="status" aria-live="polite">
+              <span class="card__banner-icon" aria-hidden="true">ℹ</span>
+              <span class="update-banner__text">{t('update.bannerText', { n: upd?.startupAvailable ?? 0 })}</span>
+              <button class="btn-secondary update-banner__view" onClick={() => { setUpdBannerDone(true); setDialog('about'); }}>{t('update.bannerView')}</button>
+              <button class="icon-btn icon-btn--24" title={t('update.bannerDismiss')} aria-label={t('update.bannerDismiss')} onClick={() => setUpdBannerDone(true)}>×</button>
+            </div>
+          )}
           {tabList.map((t) => (
             <div key={t.tabId} class="tab-page" data-tab={t.tabId} role="tabpanel" style={t.tabId === cur?.tabId ? undefined : { display: 'none' }}>
               <CardGrid tab={t} slots={slots.current[t.tabId]} ui={ui[t.tabId] ?? DEFAULT_TAB_UI} onUi={(u) => setUi((x) => ({ ...x, [t.tabId]: u }))}
@@ -621,10 +683,16 @@ export function App() {
                 banner={cardBanner(t, !!bannerDone[t.tabId])}
                 onDismissBanner={() => setBannerDone((b) => ({ ...b, [t.tabId]: true }))}
                 dropPane={drop && drop.tabId === t.tabId ? drop.pane : null} onError={setError}
-                onAddDir={addDirLeadPane(t) ? () => void addDir(t.tabId) : null} />
+                onAddDir={addDirLeadPane(t) ? () => void addDir(t.tabId) : null}
+                extra={updHost === t.tabId ? updCard : null} />
             </div>
           ))}
-          {ready && !tabList.length && (
+          {updHost === UPDATE_TAB && (
+            <div class="tab-page" data-tab={UPDATE_TAB} role="tabpanel" style={active === UPDATE_TAB ? undefined : { display: 'none' }}>
+              <div class="grid-wrap"><div class="grid lay-1 no-main">{updCard}</div></div>
+            </div>
+          )}
+          {ready && !tabList.length && updHost !== UPDATE_TAB && (
             <div class="welcome">
               <h1>Rich psmux</h1>
               <p>{tx('app.welcome', { cmd: <code>{leadCommand ?? 'claude --agent ceo'}</code> })}</p>
@@ -663,7 +731,10 @@ export function App() {
             void runOpen(() => window.ctd.openAppSession(name));
           }} />
         )}
-        {dialog === 'about' && <AboutDialog onClose={() => setDialog(null)} />}
+        {dialog === 'about' && (
+          <AboutDialog state={upd} checked={updChecked} onClose={() => setDialog(null)} onStarted={openUpdateCard}
+            onToggle={(id, on) => setUpdChecked((c) => { const n = new Set(c); if (on) n.add(id); else n.delete(id); return n; })} />
+        )}
         {renaming && <RenameDialog item={renaming} original={originalTitle(renaming, now)} onSave={(t) => saveRename(renaming, t)} onClose={() => setRenaming(null)} />}
         {trashing && <TrashDialog title={displayTitle(trashing.item, now)} extra={trashing.extra} folders={trashing.folders} busy={trashing.busy} onConfirm={() => void doTrash()} onClose={() => setTrashing(null)} />}
         {logoutOpen && <LogoutDialog openTabs={tabList.filter((t) => t.purpose !== 'login').length} busy={logoutOpen.busy} onConfirm={() => void doLogout()} onClose={() => setLogoutOpen(null)} />}

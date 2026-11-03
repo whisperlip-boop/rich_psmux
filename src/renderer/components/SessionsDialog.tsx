@@ -70,27 +70,3 @@ export function SessionsDialog({ onOpen, onClose }: SessionsDialogProps) {
   );
 }
 
-/** 앱 정보 대화상자. */
-export function AboutDialog({ onClose }: { onClose: () => void }) {
-  const [info, setInfo] = useState<{ version: string; electron: string; chrome: string } | null>(null);
-  useDialogKeys(true, onClose);
-  useEffect(() => {
-    void safeIpc(() => window.ctd.appInfo(), null).then(setInfo);
-  }, []);
-  return (
-    <div class="modal" onClick={onClose}>
-      <div class="modal__box" role="dialog" aria-modal="true" aria-label={t('about.title')} onClick={(e) => e.stopPropagation()}>
-        <h2>Rich psmux</h2>
-        <table>
-          <tbody>
-            <tr><th>{t('about.version')}</th><td>{info?.version ?? '-'}</td></tr>
-            <tr><th>Electron</th><td>{info ? `${info.electron} (Chromium ${info.chrome})` : '-'}</td></tr>
-            <tr><th>{t('about.license')}</th><td>MIT</td></tr>
-          </tbody>
-        </table>
-        <p class="about__note">{t('about.note')}</p>
-        <button class="btn-secondary" autoFocus onClick={onClose}>{t('common.close')}</button>
-      </div>
-    </div>
-  );
-}

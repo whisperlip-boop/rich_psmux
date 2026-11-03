@@ -11,7 +11,7 @@ const CLAUDE_IMAGES = new Set(['claude.exe', 'claude', 'node.exe', 'node']);
 /** 조상 확인에서 부모를 따라 올라가는 최대 단계(부모 pid 재사용으로 생길 수 있는 순환 차단). */
 const MAX_ANCESTOR_HOPS = 64;
 
-const system32 = (...p: string[]): string => join(process.env.SystemRoot ?? 'C:\Windows', 'System32', ...p);
+const system32 = (...p: string[]): string => join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', ...p);
 
 /** 종료 판정에 쓰는 대상 프로세스 정보(Win32_Process). */
 export interface ProcessInfo {

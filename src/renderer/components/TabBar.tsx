@@ -6,7 +6,7 @@ import type { TabStateDto } from '../../shared/api';
 import { t } from '../i18n';
 import { folderName, LAYOUTS, layoutTooltip, tabTitles, type LayoutId } from '../layout';
 import { tabStatus, workingTabCount } from '../tabs';
-import { StatusDot, statusLabel } from './StatusDot';
+import { StatusDot, statusLabel, type StatusKind } from './StatusDot';
 
 interface TabBarProps {
   tabs: TabStateDto[];
@@ -30,10 +30,13 @@ interface TabBarProps {
   /** 활성 탭의 레이아웃(탭이 없으면 null → 선택기 비활성). */
   layout: LayoutId | null;
   onLayout: (id: LayoutId) => void;
+  /** 세션이 아닌 앱 탭(@update 카드만 두는 "Update" 탭). 없으면 null. ×는 카드 [닫기]와 같다. */
+  extraTab?: { id: string; label: string; kind: StatusKind } | null;
+  onCloseExtra?: () => void;
 }
 
 /** 탭 목록. */
-export function TabBar({ tabs, active, titleOf, onSelect, onNew, onNewPlain, recent, homeDir, busy, onDetach, onTerminate, isFresh, onExpand, layout, onLayout }: TabBarProps) {
+export function TabBar({ tabs, active, titleOf, onSelect, onNew, onNewPlain, recent, homeDir, busy, onDetach, onTerminate, isFresh, onExpand, layout, onLayout, extraTab = null, onCloseExtra }: TabBarProps) {
   const titles = tabTitles(tabs.map((t) => t.folder));
   const norm = (f: string): string => f.replace(/[\\/]+$/, '').toLowerCase();
   const plainRecent = recent.filter((f) => norm(f) !== norm(homeDir));
@@ -117,7 +120,8 @@ export function TabBar({ tabs, active, titleOf, onSelect, onNew, onNewPlain, rec
       e.preventDefault();
       const r = els[i].getBoundingClientRect();
       const id = els[i].dataset.tab;
-      if (id) setMenu({ id, x: r.left, y: r.bottom });
+      // 세션 탭만 분리·종료 메뉴가 있다(Update 탭 제외)
+      if (id && tabs.some((x) => x.tabId === id)) setMenu({ id, x: r.left, y: r.bottom });
     }
   };
 
@@ -148,6 +152,15 @@ export function TabBar({ tabs, active, titleOf, onSelect, onNew, onNewPlain, rec
             </div>
           );
         })}
+        {extraTab && (
+          <div role="tab" aria-selected={extraTab.id === active} tabIndex={extraTab.id === active ? 0 : -1} data-tab={extraTab.id}
+            class={`tab${extraTab.id === active ? ' is-active' : ''} tab--system`} onClick={() => onSelect(extraTab.id)} title={extraTab.label}>
+            <StatusDot kind={extraTab.kind} />
+            <span class="tab__name">{extraTab.label}</span>
+            <button class="tab__close" tabIndex={-1} title={t('common.close')} aria-label={t('common.close')}
+              onClick={(e) => { e.stopPropagation(); onCloseExtra?.(); }}>×</button>
+          </div>
+        )}
       </div>
       <div class="tab-new-wrap" ref={moreRef}>
         <button class="tab-new" title={t('tab.newTip')} aria-label={t('tab.new')} onClick={() => { setMore(false); onNew(); }}>+</button>

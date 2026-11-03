@@ -7,7 +7,7 @@ import { app, BrowserWindow, clipboard, dialog, ipcMain, nativeImage, nativeThem
 
 import type {
   AccountDto, AgentsDto, AppearanceDto, DetachedSessionDto, EditableSettings, HistoryDto, HistoryStopDto, LogoutResultDto, OpenResult, PsmuxSessionDto, RunningDto, SaveSettingsResult, SettingsView,
-  SetLanguageResultDto, TrashPreviewDto, TrashResultDto, UsageDto,
+  SetLanguageResultDto, TrashPreviewDto, TrashResultDto, UpdateStateDto, UsageDto,
 } from '../shared/api';
 import { AGENT_NAME_RE, AGENT_TEMPLATE, leadCommandFor, PLAIN_LEAD_COMMAND } from '../shared/agents';
 import { pickClipImage } from '../shared/attach';
@@ -31,12 +31,13 @@ import {
 } from './history/running';
 import { errMsg, initLogger, log } from './logger';
 import { hasSession, listSessionNames, psmuxCli } from './psmux/cli';
-import { asarUnpackedPath, probeDir, probeExecutable, resolveClaude, resolveNode, resolvePsmux, unreachableMsg, unreachableReason } from './psmux/env';
+import { asarUnpackedPath, probeDir, probeExecutable, resolveClaude, resolveNode, resolvePsmux, resolveWinget, unreachableMsg, unreachableReason } from './psmux/env';
 import { TabSession, type TabState } from './psmux/sessionManager';
 import { classifySessions, isAppSessionName, parseListSessions, selectRestorable, staleSessions } from './psmux/sessionName';
 import { DEFAULT_SETTINGS, leadCommandError, pushRecent, SettingsStore, validateSettings, type Settings } from './settings';
 import { movableSummary, moveToTrash, planTrash, trashOrder } from './trash';
 import { autoRefreshUsage, UsageTracker } from './usage';
+import { RELEASE_PAGE_URL, UpdateService } from './update/service';
 import { USAGE_FILE } from './usageFile';
 
 // 앱 데이터 = %APPDATA%\rich-psmux (package.json name과 같음, 명시적으로 고정)
@@ -102,6 +103,17 @@ let detachedJson = '';
 /** refreshDetached 세대 번호: 겹친 호출 중 마지막 것만 결과를 보낸다. */
 let detachedGen = 0;
 const DETACHED_POLL_MS = 10_000;
+/**
+ * 업데이트 확인·실행(앱 정보). 결과는 <앱 데이터>/cache/update-check.json에 24시간 캐시. 시작 시 확인은 설정이 켜져 있을 때만(app ready 뒤).
+ * psmux·PowerShell 7 단계가 있으면 실행 전에 모든 psmux 세션을 닫고, 실행이 끝날 때까지 psmux를 실행하는 기능을 막는다(교체 중인 exe를 잠그지 않게).
+ */
+const updates = new UpdateService({
+  appVersion: app.getVersion(), cacheFile: join(dataDir, 'cache', 'update-check.json'),
+  resolveClaude, resolveWinget, closeSessions: () => closeAllSessionsForUpdate(),
+  onState: (s: UpdateStateDto) => send('update:state', s), onOutput: (d: Uint8Array) => send('update:output', d),
+});
+/** 업데이트가 psmux를 쓰지 못하게 막는 동안의 안내(현재 UI 언어). */
+const updateBusyError = (): string => tr('update.busy');
 
 // 검증 자동화용(개발 전용) 환경변수: 지정 폴더로 세션 자동 생성, 프롬프트 1회 입력, 스크린샷 저장, 자동 종료
 // 설치본(app.isPackaged)에서는 무시: 환경변수만으로 세션이 종료되거나 명령이 바뀌지 않게 함
@@ -200,6 +212,7 @@ async function startTab(t: TabSession, what: string): Promise<OpenResult> {
  * plain이면 설정의 리드 명령 대신 `claude`만 실행한다(에이전트 없음).
  */
 async function newSession(folder: string, resumeSessionId?: string, plain = false): Promise<OpenResult> {
+  if (updates.sessionsLocked) return { ok: false, error: updateBusyError() };
   const s = settings.get();
   // 끊긴 네트워크 폴더가 main을 멈추지 않게 비동기 + 시간 제한
   const dir = folder ? await probeDir(folder) : 'missing';
@@ -242,6 +255,7 @@ async function newSession(folder: string, resumeSessionId?: string, plain = fals
 async function attachSession(name: string): Promise<OpenResult> {
   const existing = tabs.get(name);
   if (existing) return { ok: true, tabId: existing.tabId };
+  if (updates.sessionsLocked) return { ok: false, error: updateBusyError() };
   if (stopping.has(name)) return { ok: false, error: tr('open.stopping') };
   const meta = readSessionMeta(dataDir, name);
   const psmux = await resolvePsmux(settings.get().psmuxPath);
@@ -373,6 +387,8 @@ async function refreshDetached(): Promise<void> {
 
 /** refreshDetached 본체. 겹쳐 불리면 마지막 호출만 결과를 보낸다(세대 번호). */
 async function refreshDetachedInner(): Promise<void> {
+  // 업데이트 중에는 psmux를 실행하지 않는다(교체 중인 psmux.exe를 잠그지 않게). 지난 목록을 그대로 둔다
+  if (updates.sessionsLocked) return;
   const gen = ++detachedGen;
   const metas = listMetaSessions(dataDir);
   let out: DetachedSessionDto[] = [];
@@ -404,6 +420,7 @@ async function refreshDetachedInner(): Promise<void> {
 
 /** 탭 없는 앱 세션 끊기: 대화 기록이 없으니 리드에 종료 요청 문장을 보내지 않고(보내면 그 문장으로 대화가 생긴다) 바로 kill-session. */
 async function stopOrphan(name: string): Promise<HistoryStopDto> {
+  if (updates.sessionsLocked) return { ok: false, error: updateBusyError() };
   const fail = (code: StopFailCode): HistoryStopDto => {
     log('warn', `detached stop ${name} refused: ${code}`);
     return { ok: false, error: stopFailMessage(code) };
@@ -445,6 +462,66 @@ async function stopOrphan(name: string): Promise<HistoryStopDto> {
   return job.done;
 }
 
+/**
+ * 업데이트(psmux·PowerShell 7) 전 정리: "열린 psmux 세션…" 목록에 보이는 세션 전부(앱 탭·탭 없는 앱 세션·앱 밖 세션)를 닫고
+ * psmux 서버를 멈춘다. 종료 요청 문장은 보내지 않는다(대화 기록 .jsonl은 그대로 남는다). 다 닫혔는지 목록으로 다시 확인한다.
+ *
+ * Returns:
+ *   남은 세션이 없으면 true. 목록 조회 실패·남은 세션이 있으면 false(업데이트를 시작하지 않음).
+ */
+async function closeAllSessionsForUpdate(): Promise<boolean> {
+  // 탭(로그인 탭 포함): 재연결 루프가 서버를 다시 띄우지 않게 먼저 연결을 끊고 세션을 끝낸다
+  for (const t of orderedTabs()) {
+    try {
+      await t.kill();
+    } catch (e) {
+      log('warn', `[${t.session}] kill for update failed: ${errMsg(e)}`);
+    }
+    uiStore.removeTab(t.session);
+    if (tabs.get(t.tabId) === t) tabs.delete(t.tabId);
+    send('tab:closed', t.tabId);
+    log('info', `[${t.session}] tab closed for update`);
+  }
+  // 히스토리 "세션 끊기…" 중이던 탭 없는 연결(-CC 프로세스)도 끊는다
+  for (const j of stopping.values()) j.conn?.detach();
+  const psmux = await resolvePsmux(settings.get().psmuxPath);
+  if (!psmux) {
+    log('info', 'update: psmux not found; no sessions to close');
+    return true;
+  }
+  const r = await psmuxCli(psmux, ['list-sessions', '-F', '#{session_name}']);
+  const live = parseListSessions(r.code, r.out, r.err);
+  if (live === null) {
+    log('warn', `update: session list failed (code ${r.code}); not closing`);
+    return false;
+  }
+  for (const n of live) {
+    const k = await psmuxCli(psmux, ['kill-session', '-t', n]);
+    log('info', `update: kill-session ${n} code=${k.code}${isAppSessionName(n) ? '' : ' (external)'}`);
+  }
+  // 세션이 0개여도 서버가 남아 있을 수 있다(기본 소켓만: 목록에 보이지 않는 다른 -L 이름공간 서버는 건드리지 않는다)
+  const ks = await psmuxCli(psmux, ['kill-server']);
+  log('info', `update: kill-server code=${ks.code}`);
+  const after = await psmuxCli(psmux, ['list-sessions', '-F', '#{session_name}']);
+  const left = parseListSessions(after.code, after.out, after.err);
+  if (left === null || left.length) {
+    log('warn', `update: sessions still open after close (${left === null ? `list failed code ${after.code}` : left.join(', ')})`);
+    return false;
+  }
+  for (const n of live) {
+    if (!isAppSessionName(n)) continue;
+    removeSessionFiles(dataDir, n);
+    uiStore.removeTab(n);
+  }
+  // 서버 프로세스가 끝나며 exe 잠금이 풀릴 시간
+  await new Promise((res) => setTimeout(res, 1000));
+  void refreshRunning();
+  detached = [];
+  detachedJson = '[]';
+  send('session:detached', detached);
+  return true;
+}
+
 /** 탭 순서: 세션 생성 시각 순(복원 후에도 같은 순서). */
 function orderedTabs(): TabSession[] {
   return [...tabs.values()].sort((a, b) => a.state().createdAt - b.state().createdAt);
@@ -461,7 +538,7 @@ async function settingsView(): Promise<SettingsView> {
   const s = settings.get();
   psmuxDetected ??= await resolvePsmux('');
   return {
-    values: { psmuxPath: s.psmuxPath, pwshPath: s.pwshPath, leadCommand: s.leadCommand, historyDir: s.historyDir, fontFamily: s.fontFamily, fontSize: s.fontSize, theme: s.theme, showSdkSessions: s.showSdkSessions },
+    values: { psmuxPath: s.psmuxPath, pwshPath: s.pwshPath, leadCommand: s.leadCommand, historyDir: s.historyDir, fontFamily: s.fontFamily, fontSize: s.fontSize, theme: s.theme, showSdkSessions: s.showSdkSessions, checkUpdatesOnStartup: s.checkUpdatesOnStartup },
     defaults: {
       psmuxDetected, historyDir: join(claudeHomeDir(), 'projects'),
       leadCommand: DEFAULT_SETTINGS.leadCommand, fontFamily: DEFAULT_SETTINGS.fontFamily, fontSize: DEFAULT_SETTINGS.fontSize,
@@ -618,6 +695,7 @@ function loginTab(): TabSession | undefined {
 async function openLogin(): Promise<OpenResult> {
   const existing = loginTab();
   if (existing) return { ok: true, tabId: existing.tabId };
+  if (updates.sessionsLocked) return { ok: false, error: updateBusyError() };
   const s = settings.get();
   const cli = await resolveClaude();
   if (!cli) return { ok: false, error: tr('main.noCli') };
@@ -736,6 +814,7 @@ async function trashConversation(sessionId: string): Promise<TrashResultDto> {
 
 /** psmux 세션 목록(계정 메뉴): 앱 세션(메타 있음)은 탭 전환·재연결 대상, 그 밖은 이름만. */
 async function listPsmuxSessions(): Promise<{ ok: boolean; sessions: PsmuxSessionDto[]; error?: string }> {
+  if (updates.sessionsLocked) return { ok: false, sessions: [], error: updateBusyError() };
   const psmux = await resolvePsmux(settings.get().psmuxPath);
   if (!psmux) return { ok: false, sessions: [], error: tr('psmux.notFound') };
   const r = await psmuxCli(psmux, ['list-sessions', '-F', '#{session_name}']);
@@ -783,6 +862,7 @@ const eqi = (a: string | null | undefined, b: string): boolean => !!a && a.toLow
  * 대화 클릭: 이미 탭이면 전환 → 앱 세션에서 실행 중이면 재연결 → 다른 곳에서 실행 중이면 거부 → 아니면 새 탭에서 -r.
  */
 async function openHistory(sessionId: string, force: boolean): Promise<OpenResult> {
+  if (updates.sessionsLocked) return { ok: false, error: updateBusyError() };
   const open = [...tabs.values()].find((t) => { const st = t.state(); return eqi(st.leadSessionId, sessionId) || eqi(st.resumeSessionId, sessionId); });
   if (open) return { ok: true, tabId: open.tabId };
   const r = findRunning(await refreshRunning(), sessionId);
@@ -829,6 +909,7 @@ async function findDetachedResumeSession(sessionId: string): Promise<string | nu
  * 렌더러가 보낸 대화 ID로 main이 실행 목록에서 직접 찾고 실행 직전에 다시 확인한다. 같은 대상(alias 행 포함)의 요청은 같은 작업을 기다린다.
  */
 async function stopDetached(sessionId: string): Promise<HistoryStopDto> {
+  if (updates.sessionsLocked) return { ok: false, error: updateBusyError() };
   const sid = sessionId.slice(0, 8);
   const fail = (code: StopFailCode): HistoryStopDto => {
     log('warn', `history stop ${sid} refused: ${code}`);
@@ -1139,6 +1220,29 @@ function registerIpc(): void {
     return !r;
   });
   ipcMain.handle('agents:leadCommand', () => settings.get().leadCommand);
+
+  // 업데이트 확인(앱 정보). 상태는 main이 갖고 update:state로 보낸다. 단계 목록은 main이 다시 검사한다
+  ipcMain.handle('update:state', () => updates.state());
+  ipcMain.handle('update:check', () => updates.check());
+  ipcMain.handle('update:sessionCount', async () => {
+    // psmux를 찾지 못하면 열린 세션도 없다(번역된 오류 문구로 판단하지 않는다)
+    if (!(await resolvePsmux(settings.get().psmuxPath))) return { ok: true, count: 0 };
+    const r = await listPsmuxSessions();
+    return { ok: r.ok, count: r.sessions.length };
+  });
+  ipcMain.handle('update:start', (_e, steps: unknown) => updates.start(steps));
+  ipcMain.on('update:stop', () => updates.stop());
+  // 주소는 고정값(응답의 html_url 등 외부 값을 열지 않는다)
+  ipcMain.handle('update:openRelease', async () => {
+    try {
+      await shell.openExternal(RELEASE_PAGE_URL);
+      log('info', 'update: release page opened');
+      return true;
+    } catch (e) {
+      log('warn', `update: release page open failed: ${errMsg(e)}`);
+      return false;
+    }
+  });
   // 히스토리 항목 메뉴(키·ID는 main에서 형식 검증)
   // 인덱스에 있는 대화의 키만 받는다(없는 키로 저장소가 불어나지 않게)
   const indexedKey = (key: unknown): boolean => typeof key === 'string' && indexer.items().some((i) => i.key === key);
@@ -1169,6 +1273,7 @@ function registerIpc(): void {
     if (!isStr(name, 200) || !isAppSessionName(name)) return { ok: false, error: tr('ipc.appSessionOnly') };
     const existing = tabs.get(name);
     if (existing) return { ok: true, tabId: existing.tabId };
+    if (updates.sessionsLocked) return { ok: false, error: updateBusyError() };
     const psmux = await resolvePsmux(settings.get().psmuxPath);
     // 없는 이름으로 연결하면 psmux가 새 세션을 만든다 → 먼저 확인
     if (!psmux || !(await hasSession(psmux, name))) return { ok: false, error: tr('ipc.sessionGone', { name }) };
@@ -1406,6 +1511,8 @@ if (!app.requestSingleInstanceLock()) {
     registerIpc();
     cleanupClips(dataDir);
     createWindow();
+    // 설정이 꺼져 있으면 아무 호출도 하지 않는다(캐시 파일만 읽어 둠)
+    updates.startup(settings.get().checkUpdatesOnStartup);
     log('info', `app ready (data=${dataDir}, sessionData=${app.getPath('sessionData')})`);
   });
 }
@@ -1413,7 +1520,17 @@ if (!app.requestSingleInstanceLock()) {
 let quitting = false;
 /** 검증 자동화(CTD_AUTOSTART_FOLDER)로 이번 실행이 만든 탭. */
 const autoTabs = new Set<string>();
+/** 업데이트 실행 중 종료: 현재 단계 프로세스를 끝내는 처리를 한 번만 한다. */
+let updateQuitHandled = false;
 app.on('before-quit', (e) => {
+  if (updates.running && !updateQuitHandled) {
+    // 숨은 winget·claude 자식 프로세스를 남기지 않게 중지와 같은 방식으로 끝낸 뒤(최대 수 초) 다시 종료
+    updateQuitHandled = true;
+    e.preventDefault();
+    log('info', 'quit requested during update run; ending current step');
+    void updates.shutdown().finally(() => app.quit());
+    return;
+  }
   if (quitting) return;
   quitting = true;
   indexer.stop();

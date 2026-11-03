@@ -91,7 +91,7 @@ export function setTerminalFont(size: number, family: string): void {
   font = { size, family };
   if (!changed) return;
   // 설정 변경: 열린 터미널에도 즉시 적용. 글자 크기가 바뀌면 열·행 수가 달라지므로 카드가 다시 맞추게 알린다
-  for (const pt of terms.values()) {
+  for (const pt of [...terms.values(), ...(updateTerm ? [updateTerm] : [])]) {
     pt.term.options.fontSize = size;
     pt.term.options.fontFamily = family;
   }
@@ -191,8 +191,60 @@ export function getTerminal(tabId: string, pane: string): PaneTerm | undefined {
   return terms.get(key(tabId, pane));
 }
 
+// @update 카드(앱 정보 → 업데이트)의 읽기 전용 터미널 1개. psmux 칸이 아니라 main이 직접 실행한 명령(winget·claude update)의
+// stdout·stderr를 그대로 보여 준다. 키 입력은 보내지 않고(disableStdin) Tab·Esc는 브라우저·앱이 처리한다(칸 터미널 규칙의 예외).
+let updateTerm: PaneTerm | null = null;
+/** 카드가 아직 없을 때 온 업데이트 출력(카드를 열면 기록). */
+const updatePending: Uint8Array[] = [];
+
+/**
+ * 업데이트 카드 터미널을 만들거나(이미 있으면 재사용) container에 붙인다. 카드가 다른 탭으로 옮겨져도 내용이 유지된다.
+ *
+ * Args:
+ *   container: 터미널을 넣을 요소.
+ */
+export function attachUpdateTerminal(container: HTMLElement): PaneTerm {
+  if (!updateTerm) {
+    const host = document.createElement('div');
+    host.className = 'xterm-host';
+    const term = new Terminal({
+      cols: 80, rows: 24, allowProposedApi: true, fontSize: font.size, fontFamily: font.family, lineHeight: 1.2, scrollback: 10000,
+      theme: TERM_THEME, cursorBlink: false, cursorInactiveStyle: 'none', disableStdin: true, convertEol: true,
+    });
+    const fit = new FitAddon();
+    term.loadAddon(fit);
+    term.loadAddon(new Unicode11Addon());
+    term.unicode.activeVersion = '11';
+    swallowQueries(term);
+    term.open(host);
+    // Tab 순서에서 뺀다(업데이트 카드의 Tab 대상은 [닫기]만). 마우스 선택·복사는 그대로
+    if (term.textarea) term.textarea.tabIndex = -1;
+    term.attachCustomKeyEventHandler((e) => {
+      if (e.type === 'keydown' && e.ctrlKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'c' && term.hasSelection()) {
+        void navigator.clipboard.writeText(term.getSelection());
+        term.clearSelection();
+      }
+      return false; // 키는 xterm이 처리하지 않는다(Tab·Esc·단축키는 브라우저·앱으로)
+    });
+    updateTerm = { term, fit, host, lastSent: null };
+    for (const d of updatePending.splice(0)) term.write(d);
+  }
+  if (updateTerm.host.parentElement !== container) container.appendChild(updateTerm.host);
+  return updateTerm;
+}
+
+/** 업데이트 카드 터미널 비우기(새 실행 시작·카드 닫기). */
+export function resetUpdateTerminal(): void {
+  updatePending.length = 0;
+  updateTerm?.term.reset();
+}
+
 /** main 이벤트를 터미널에 연결한다(앱 시작 시 1회). */
 export function wireTerminalEvents(): void {
+  window.ctd.onUpdateOutput((data) => {
+    if (updateTerm) updateTerm.term.write(data);
+    else if (updatePending.length < MAX_PENDING_CHUNKS) updatePending.push(data);
+  });
   window.ctd.onOutput((tabId, pane, data) => {
     const k = key(tabId, pane);
     const pt = terms.get(k);

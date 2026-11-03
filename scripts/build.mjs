@@ -1,6 +1,6 @@
 // 재현 가능한 빌드: esbuild로 main·preload·hook·renderer·통합 테스트를 out/에 번들한다.
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,7 +12,15 @@ const out = join(root, 'out');
 // --prod(npm run dist): 소스맵 없이 렌더러 압축. 환경변수 대신 인자로 받는다(Windows cmd에서 VAR=값 문법 불가)
 const prod = process.env.NODE_ENV === 'production' || process.argv.includes('--prod');
 
-rmSync(out, { recursive: true, force: true });
+// out/ 루트가 다른 프로세스의 작업 디렉터리로 잡혀 있으면(EPERM) 내용물만 비우고 계속한다
+try {
+  rmSync(out, { recursive: true, force: true });
+} catch (e) {
+  if (!existsSync(out)) throw e;
+  for (const name of readdirSync(out)) rmSync(join(out, name), { recursive: true, force: true });
+  if (readdirSync(out).length) throw e;
+  console.warn('out/ root is held by another process; emptied it in place');
+}
 
 /**
  * 제목줄 로고(리뷰 이월 C-1): 원본 logo1.png(700px·268KB)를 그대로 CSS에 넣지 않고 40×40으로 줄여 data URL로 렌더러에 넣는다.

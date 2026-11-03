@@ -173,6 +173,19 @@ export function resolveClaude(): Promise<string | null> {
   return where('claude', (p) => /\.(exe|cmd)$/i.test(p));
 }
 
+/**
+ * winget(App Installer): PATH의 winget.exe → 앱 실행 별칭 기본 위치(%LOCALAPPDATA%\Microsoft\WindowsApps\winget.exe). 없으면 null.
+ * 업데이트 확인·실행은 이 exe를 셸 없이 직접 실행한다(교체 대상인 pwsh를 거치지 않게).
+ */
+export async function resolveWinget(): Promise<string | null> {
+  const onPath = await where('winget', (p) => /\.exe$/i.test(p));
+  if (onPath) return onPath;
+  const local = process.env.LOCALAPPDATA;
+  if (!local) return null;
+  const p = join(local, 'Microsoft', 'WindowsApps', 'winget.exe');
+  return (await probeExecutable(p)) === 'ok' ? p : null;
+}
+
 /** asar 안 경로를 asarUnpack 사본 경로로 바꾼다(…\app.asar\… → …\app.asar.unpacked\…). asar 밖 경로는 그대로. */
 export function asarUnpackedPath(p: string): string {
   return p.replace(/([\\/])app\.asar(?=[\\/])/i, '$1app.asar.unpacked');

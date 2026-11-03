@@ -22,6 +22,7 @@ What it does **not** do:
 
 - It does not call the Anthropic API directly and has no conversation engine of its own. It does not handle authentication or billing itself.
   - Exceptions: a usage query (`GET /api/oauth/usage`) once at startup (when logged in) and when you click the usage **↻** button, and login/logout, which simply runs the Claude Code CLI (`claude auth login/logout/status`).
+- No other network access, except the update check (see **Check for Updates** below): only when you click **Check for Updates** or turn on **Check for updates at startup**, the app reads the latest version string from the npm registry (Claude Code) and GitHub Releases (Rich psmux) and runs `winget list` locally. No tokens or user data are sent.
 - Files under `~/.claude` are **read only** (conversation history, team configuration, account email/organization, and the login token when usage is queried). The token is never stored, logged, or refreshed.
   - Exception: **deleting** a conversation (after confirmation) moves its `.jsonl` file and conversation folder to the Windows Recycle Bin (never a permanent delete).
 
@@ -47,7 +48,14 @@ What it does **not** do:
 
 <img src="docs/usage.png" alt="Usage bars" width="25%">
 
-- **31 UI languages** — see below.
+- **Check for Updates** — account **⋯** → **About** shows a table of Rich psmux, PowerShell 7, psmux and Claude Code with the installed version, the latest version and a status (**Up to date** / **Update available** / **Not installed** / **Check failed**).
+  - **Check for Updates** checks all four at once (30 seconds per item, results cached for 24 hours). Rows that are **Update available** are checked by default; **Update** runs the checked items one at a time in a fixed order (Claude Code → psmux → PowerShell 7) and keeps going if one fails.
+  - The commands (`claude update`, `winget upgrade --id … --exact`) run in a visible read-only **@update** terminal card, so you can see winget output, administrator (UAC) prompts and errors. **Stop** ends the current step and skips the rest.
+  - Updating PowerShell 7 or psmux requires closing **all** running psmux sessions, including ones opened outside the app; the app asks first ("Close and Continue") and conversation history is kept.
+  - After a Claude Code update, open sessions use the new version only after they restart.
+  - The Rich psmux row only opens the GitHub release page in your browser; the app does not download or install itself.
+  - Optional **Check for updates at startup** (Settings → **Updates**, off by default): checks once at startup and shows a banner when updates are available. It connects to the npm registry and GitHub Releases and runs winget; nothing else.
+- **31 UI languages** (unchanged) — see below.
 
 ## Supported languages
 
@@ -68,6 +76,7 @@ English · 한국어 · 日本語 · 中文（简体） · 中文（繁體） ·
 | Claude Code | CLI installed and logged in. Environment variable `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`, setting `teammateMode: auto` | `claude --version`, `claude auth status` |
 | Agent definitions | `~/.claude/agents/*.md` (e.g. ceo, pm, developer …). If the lead command is `claude --agent ceo`, a `ceo` definition must exist | `Get-ChildItem ~/.claude/agents/*.md` |
 | Node.js (recommended) | The hook that detects "waiting for permission approval" runs with `node` from PATH. Without it, a fallback is used that is not verified | `node --version` |
+| winget (App Installer, for **Check for Updates**) | Needed to check and update PowerShell 7 and psmux from **About**. Without it those two rows show **Check failed** (Claude Code and Rich psmux still work) | `winget --version` |
 
 The **Agent Settings** dialog also shows whether the team feature is on and where the flag was found.
 
@@ -141,7 +150,7 @@ Then run the generated installer.
 
 ### App data
 
-`%APPDATA%\rich-psmux`: `settings.json`, `ui-state.json`, `sessions\`, `hooks\`, `clips\` (pasted images, deleted after 7 days), `logs\app.log`.
+`%APPDATA%\rich-psmux`: `settings.json`, `ui-state.json`, `sessions\`, `hooks\`, `clips\` (pasted images, deleted after 7 days), `cache\update-check.json` (last update check, 24 hours), `logs\app.log`.
 
 ## Settings
 
@@ -159,6 +168,7 @@ Account area **⋯** → **Settings…**
 | Lead command | `claude --agent ceo` (empty = default) | From the next new session |
 | History path | `~/.claude/projects` | Reloaded as soon as you save. The app only reads this folder. A drive root is rejected |
 | Show SDK (sdk-cli) conversations | Off | Immediately |
+| Check for updates at startup (**Updates**) | Off | From the next start. When on, checks once at startup (reuses a result younger than 24 hours) and shows a banner if updates are available |
 | Terminal font / size | `"D2Coding", "Cascadia Mono", Consolas, "Malgun Gothic", monospace` / 13 | Immediately |
 | Theme | Light | Immediately (System follows Windows). The terminal area is black in both themes |
 | Language (account **⋯** → **Language…**) | Windows display language, matched to a supported language, otherwise English | Immediately, including open dialogs, tabs and app messages |
@@ -241,6 +251,8 @@ Requirements: Node.js LTS and npm, plus the [Prerequisites](#prerequisites) to r
 - psmux sessions not created by the app appear by name only in **Running psmux Sessions…** and cannot be attached.
 - Deleting a conversation moves the conversation and teammate `.jsonl` files and conversation folders to the Recycle Bin. Conversations that are open in a tab or running cannot be deleted.
 - Log In / Log Out use `claude` from PATH (.exe, or .cmd from an npm install). If it cannot be found, the menu items are disabled.
+- Check for Updates reads winget output by the package Id row and exit code only (it works with any Windows display language). Anything it cannot read is shown as **Check failed**, never as **Up to date**. PowerShell 7 / psmux installed outside winget show **Check failed**.
+- An elevated installer started by winget (after a UAC prompt) may keep running after **Stop**; the step is still marked failed.
 
 </details>
 
@@ -271,7 +283,8 @@ Rich psmux는 psmux에서 돌아가는 Claude Code **Agent Teams**를 데스크�
 
 - Anthropic API를 직접 부르지 않고 자체 대화 엔진도 없습니다. 예외: 사용량 조회 `GET /api/oauth/usage`(기동 시 1회 + ↻ 클릭 시), 로그인·로그아웃은 `claude auth login/logout/status` CLI 실행.
 - `~/.claude`는 읽기만 합니다. 예외: 대화 삭제 시 확인 후 `.jsonl`과 대화 폴더를 Windows 휴지통으로 옮김(영구 삭제 없음).
-- UI 언어 31개 지원: 계정 ⋯ → **언어…**에서 선택하면 재시작 없이 바로 바뀝니다(기본값은 Windows 표시 언어).
+- 그 밖의 네트워크 접속은 업데이트 확인뿐입니다: **업데이트 확인**을 누르거나 **시작 시 업데이트 확인**을 켰을 때만 npm registry(Claude Code)·GitHub Releases(Rich psmux)에서 최신 버전 문자열을 읽고 `winget list`를 실행합니다(토큰·사용자 데이터 전송 없음).
+- UI 언어 31개 지원(변경 없음): 계정 ⋯ → **언어…**에서 선택하면 재시작 없이 바로 바뀝니다(기본값은 Windows 표시 언어).
 
 ### 사전 준비
 
@@ -280,6 +293,7 @@ Rich psmux는 psmux에서 돌아가는 Claude Code **Agent Teams**를 데스크�
 - Claude Code CLI 설치·로그인, `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`, `teammateMode: auto`
 - 에이전트 정의 `~/.claude/agents/*.md` — 리드 명령이 `claude --agent ceo`면 `ceo` 정의 필요
 - Node.js 권장 — 권한 승인 대기 감지 hook을 PATH의 `node`로 실행
+- winget(앱 설치 관리자) — 앱 정보의 업데이트 확인에서 PowerShell 7·psmux를 확인·업데이트할 때 필요(없으면 두 행은 "확인 실패")
 
 ### 설치
 
@@ -296,6 +310,7 @@ Rich psmux는 psmux에서 돌아가는 Claude Code **Agent Teams**를 데스크�
 4. 왼쪽 사이드바에서 대화 검색·필터·⋮ 메뉴(이름 변경·보관·세션 끊기·삭제), 클릭하면 새 탭에서 이어가기. 접기 Ctrl+Shift+B.
 5. 첨부: 드래그, 이미지 Ctrl+V, 리드에 `/add-dir`.
 6. 계정 ⋯ 메뉴: 설정, 에이전트 설정, 언어, 로그인·로그아웃. 사용량 막대는 자동 갱신, ↻로 수동 갱신(구독 계정만).
+7. 업데이트 확인: 계정 ⋯ → **앱 정보**에서 Rich psmux·PowerShell 7·psmux·Claude Code의 설치/최신 버전과 상태(최신·업데이트 가능·미설치·확인 실패)를 보고 **업데이트 확인** → **업데이트**. 업데이트 가능 항목은 기본 체크, Claude Code → psmux → PowerShell 7 순으로 하나씩 실행되며 출력은 읽기 전용 **@update** 카드에 보입니다(실패해도 다음 항목 진행, 중지 가능). PowerShell 7·psmux 업데이트는 앱 밖 세션을 포함한 모든 psmux 세션을 닫아야 하며(확인 후 진행, 대화 기록은 남음), Claude Code는 열린 세션을 재시작해야 새 버전이 적용됩니다. Rich psmux 행은 GitHub 릴리스 페이지를 브라우저로 열기만 합니다. 설정 → **업데이트**의 **시작 시 업데이트 확인**(기본 꺼짐)을 켜면 시작할 때 한 번 확인하고 업데이트가 있으면 배너를 띄웁니다.
 
 설정·알려진 제약·개발 구조의 상세 내용은 위 영어 섹션을 참고하세요.
 
