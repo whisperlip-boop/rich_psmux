@@ -486,4 +486,7 @@ export const te: Dict = {
   'settings.secUpdates': 'నవీకరణలు',
   'settings.checkUpdates': 'ప్రారంభంలో నవీకరణల కోసం తనిఖీ చేయి',
   'settings.checkUpdatesHint': 'యాప్ ప్రారంభమైనప్పుడు ఒకసారి తనిఖీ చేస్తుంది. దీని కోసం నెట్‌వర్క్‌కు కనెక్ట్ అవుతుంది.',
+
+  'settings.showInputBar': 'ప్రతి కార్డ్ కింద ఇన్‌పుట్ బాక్స్‌ను చూపు',
+  'settings.showInputBarHint': 'ఆఫ్‌లో ఉన్నప్పుడు టెర్మినల్‌లో నేరుగా టైప్ చేయండి. జతచేసే బటన్‌లు, Send, కార్డ్ మెనూ దాచబడతాయి.',
 };

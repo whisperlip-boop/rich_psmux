@@ -489,4 +489,7 @@ export const nb: Dict = {
   'settings.secUpdates': 'Oppdateringer',
   'settings.checkUpdates': 'Se etter oppdateringer ved oppstart',
   'settings.checkUpdatesHint': 'Ser etter nye versjoner én gang når appen starter. Appen kobler seg da til nettverket.',
+
+  'settings.showInputBar': 'Vis inndatafelt under hvert kort',
+  'settings.showInputBarHint': 'Når dette er slått av, skriver du direkte i terminalen. Vedlegg, Send-knappen og kortmenyen skjules.',
 };

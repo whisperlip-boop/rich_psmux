@@ -133,6 +133,8 @@ export interface EditableSettings {
   showSdkSessions: boolean;
   /** 시작 시 업데이트 확인(기본 꺼짐: 켜야만 시작 시 네트워크·명령 호출). */
   checkUpdatesOnStartup: boolean;
+  /** 카드 아래 입력 막대 표시(끄면 터미널에 직접 입력). */
+  showInputBar: boolean;
 }
 
 /** 항목별 오류(현재 UI 언어). */
@@ -158,6 +160,7 @@ export interface AppearanceDto {
   fontSize: number;
   fontFamily: string;
   theme: ThemeMode;
+  showInputBar: boolean;
 }
 
 /** 계정 영역: 읽기 전용 표시값만. */
@@ -259,6 +262,7 @@ export interface InitDto {
   fontSize: number;
   fontFamily: string;
   theme: ThemeMode;
+  showInputBar: boolean;
   account: AccountDto;
   recentFolders: string[];
   /** 사용자 홈 폴더(탭 바 ▾ 메뉴 "홈"). */

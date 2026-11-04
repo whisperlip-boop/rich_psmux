@@ -501,4 +501,6 @@ export const ko = {
   'settings.secUpdates': '업데이트',
   'settings.checkUpdates': '시작 시 업데이트 확인',
   'settings.checkUpdatesHint': '켜 두면 앱을 시작할 때 새 버전을 한 번 확인합니다. 네트워크에 접속합니다.',
+  'settings.showInputBar': '각 카드 아래에 입력창 표시',
+  'settings.showInputBarHint': '끄면 터미널에 직접 입력합니다. 첨부·Send·카드 메뉴는 숨겨집니다.',
 } satisfies Record<string, Entry>;

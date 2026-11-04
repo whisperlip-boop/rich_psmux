@@ -480,4 +480,6 @@ export const id: Dict = {
   'settings.secUpdates': 'Pembaruan',
   'settings.checkUpdates': 'Periksa pembaruan saat aplikasi dimulai',
   'settings.checkUpdatesHint': 'Jika diaktifkan, aplikasi memeriksa versi baru satu kali saat dimulai. Fitur ini terhubung ke jaringan.',
+  'settings.showInputBar': 'Tampilkan kotak input di bawah setiap kartu',
+  'settings.showInputBarHint': 'Jika dinonaktifkan, ketik langsung di terminal. Tombol lampiran, Send, dan menu kartu disembunyikan.',
 };

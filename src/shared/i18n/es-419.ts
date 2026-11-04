@@ -504,4 +504,6 @@ export const es419: Dict = {
   'settings.secUpdates': 'Actualizaciones',
   'settings.checkUpdates': 'Buscar actualizaciones al iniciar',
   'settings.checkUpdatesHint': 'Si está activada, la aplicación busca una nueva versión una vez al iniciarse. Para ello, se conecta a la red.',
+  'settings.showInputBar': 'Mostrar cuadro de entrada en cada tarjeta',
+  'settings.showInputBarHint': 'Si está desactivada, escribe directamente en la terminal. Se ocultan las opciones para adjuntar, el botón Send y el menú de la tarjeta.',
 };

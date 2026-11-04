@@ -494,4 +494,6 @@ export const gu: Dict = {
   'settings.secUpdates': 'અપડેટ્સ',
   'settings.checkUpdates': 'ઍપ શરૂ થાય ત્યારે અપડેટ્સ ચકાસો',
   'settings.checkUpdatesHint': 'ચાલુ હોય તો ઍપ શરૂ થતાં જ નવું સંસ્કરણ છે કે નહીં તે એક વાર ચકાસે છે. આ માટે નેટવર્ક સાથે કનેક્ટ થાય છે.',
+  'settings.showInputBar': 'દરેક કાર્ડ નીચે ઇનપુટ બૉક્સ બતાવો',
+  'settings.showInputBarHint': 'બંધ હોય તો સીધું ટર્મિનલમાં ટાઇપ કરો. જોડાણો, Send અને કાર્ડ મેનૂ છુપાવવામાં આવે છે.',
 };

@@ -502,4 +502,7 @@ export const fil: Dict = {
   'settings.secUpdates': 'Mga update',
   'settings.checkUpdates': 'Suriin kung may update kapag nagsimula ang app',
   'settings.checkUpdatesHint': 'Kapag naka-on, susuriin ng app ang bagong bersyon nang isang beses sa pagsisimula. Kumokonekta ito sa network.',
+
+  'settings.showInputBar': 'Ipakita ang input box sa ilalim ng bawat card',
+  'settings.showInputBarHint': 'Kapag naka-off, direktang mag-type sa terminal. Nakatago ang mga attachment, Send, at menu ng card.',
 };

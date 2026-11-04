@@ -492,4 +492,7 @@ export const fi: Dict = {
   'settings.secUpdates': 'Päivitykset',
   'settings.checkUpdates': 'Tarkista päivitykset käynnistettäessä',
   'settings.checkUpdatesHint': 'Kun asetus on käytössä, uudet versiot tarkistetaan kerran sovelluksen käynnistyessä. Tämä muodostaa verkkoyhteyden.',
+
+  'settings.showInputBar': 'Näytä syöteruutu jokaisen kortin alla',
+  'settings.showInputBarHint': 'Kun asetus ei ole käytössä, kirjoitat suoraan päätteeseen. Liitteet, Send-painike ja korttivalikko piilotetaan.',
 };

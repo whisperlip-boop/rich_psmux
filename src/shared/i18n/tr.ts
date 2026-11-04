@@ -487,4 +487,7 @@ export const tr: Dict = {
   'settings.secUpdates': 'Güncelleştirmeler',
   'settings.checkUpdates': 'Başlangıçta güncelleştirmeleri denetle',
   'settings.checkUpdatesHint': 'Açıksa, uygulama başlarken yeni sürüm bir kez denetlenir. Bu işlem için ağa bağlanılır.',
+
+  'settings.showInputBar': 'Her kartın altında girdi kutusunu göster',
+  'settings.showInputBarHint': 'Kapalıysa, doğrudan terminale yazın. Ekler, Send ve kart menüsü gizlenir.',
 };

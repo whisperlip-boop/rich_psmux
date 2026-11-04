@@ -490,4 +490,7 @@ export const de: Dict = {
   'settings.secUpdates': 'Updates',
   'settings.checkUpdates': 'Beim Start auf Updates prüfen',
   'settings.checkUpdatesHint': 'Wenn aktiviert, prüft die App beim Start einmal, ob eine neue Version verfügbar ist. Dabei wird eine Verbindung zum Netzwerk hergestellt.',
+
+  'settings.showInputBar': 'Eingabeleiste unter jeder Karte anzeigen',
+  'settings.showInputBarHint': 'Wenn deaktiviert, geben Sie Text direkt im Terminal ein. Die Schaltflächen zum Anhängen, Send und das Kartenmenü werden ausgeblendet.',
 };

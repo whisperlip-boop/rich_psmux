@@ -9,7 +9,7 @@ vi.mock('../../src/main/logger', () => ({ log: () => undefined, errMsg: (e: unkn
 
 const valid = {
   psmuxPath: '', pwshPath: '', leadCommand: DEFAULT_SETTINGS.leadCommand, historyDir: '',
-  fontFamily: DEFAULT_SETTINGS.fontFamily, fontSize: 13, theme: 'light', showSdkSessions: false, checkUpdatesOnStartup: false,
+  fontFamily: DEFAULT_SETTINGS.fontFamily, fontSize: 13, theme: 'light', showSdkSessions: false, checkUpdatesOnStartup: false, showInputBar: true,
 };
 
 /** 끝나는 시점을 테스트가 정하는 확인(멈춘 UNC stat 흉내). */

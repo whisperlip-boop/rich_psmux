@@ -27,6 +27,8 @@ interface CardGridProps {
   /** 파일 드래그 중 놓을 대상 카드(없으면 null). */
   dropPane: string | null;
   onError: (msg: string) => void;
+  /** 카드 아래 입력 막대 표시(설정). */
+  showInputBar: boolean;
   /** 폴더 추가(리드 카드가 없으면 null). */
   onAddDir: (() => void) | null;
   /** 그리드 맨 뒤에 붙일 카드(@update). 리드 자리는 차지하지 않는다(레이아웃 3·4에서도 나머지 묶음 끝). */
@@ -59,7 +61,7 @@ function pointerRatio(grid: HTMLElement, handle: HTMLElement, layout: MainLayout
 }
 
 /** 탭 하나의 카드 그리드. */
-export function CardGrid({ tab, slots, ui, onUi, onInfo, banner, onDismissBanner, dropPane, onError, onAddDir, extra = null }: CardGridProps) {
+export function CardGrid({ tab, slots, ui, onUi, onInfo, banner, onDismissBanner, dropPane, onError, showInputBar, onAddDir, extra = null }: CardGridProps) {
   const gridRef = useRef<HTMLDivElement>(null);
   const drag = useRef<SplitDrag | null>(null);
   const disconnected = tab.status === 'reconnecting' || tab.status === 'ended' || tab.status === 'error';
@@ -119,7 +121,7 @@ export function CardGrid({ tab, slots, ui, onUi, onInfo, banner, onDismissBanner
     return (
       <Card key={id} tabId={tab.tabId} pane={p} active={activePane === id} disconnected={disconnected} locked={tab.terminating}
         banner={id === main ? banner : null} onDismissBanner={onDismissBanner}
-        dropTarget={dropPane === id} onError={onError} onAddDir={onAddDir}
+        dropTarget={dropPane === id} onError={onError} showInputBar={showInputBar} onAddDir={onAddDir}
         onActivate={() => { if (ui.activePane !== id) onUi({ ...ui, activePane: id }); }}
         onInfo={onInfo} onReconnect={() => window.ctd.reconnect(tab.tabId)} />
     );

@@ -491,4 +491,6 @@ export const pa: Dict = {
   'settings.secUpdates': 'ਅੱਪਡੇਟ',
   'settings.checkUpdates': 'ਐਪ ਸ਼ੁਰੂ ਹੋਣ ਵੇਲੇ ਅੱਪਡੇਟਾਂ ਲਈ ਜਾਂਚੋ',
   'settings.checkUpdatesHint': 'ਚਾਲੂ ਹੋਣ ਉੱਤੇ, ਐਪ ਸ਼ੁਰੂ ਹੋਣ ਵੇਲੇ ਇੱਕ ਵਾਰ ਨਵੇਂ ਵਰਜ਼ਨ ਦੀ ਜਾਂਚ ਕਰਦਾ ਹੈ। ਇਸ ਜਾਂਚ ਲਈ ਨੈੱਟਵਰਕ ਨਾਲ ਕਨੈਕਟ ਕੀਤਾ ਜਾਂਦਾ ਹੈ।',
+  'settings.showInputBar': 'ਹਰੇਕ ਕਾਰਡ ਦੇ ਹੇਠਾਂ ਇਨਪੁੱਟ ਬਾਕਸ ਦਿਖਾਓ',
+  'settings.showInputBarHint': 'ਬੰਦ ਹੋਣ ਉੱਤੇ, ਸਿੱਧਾ ਟਰਮੀਨਲ ਵਿੱਚ ਟਾਈਪ ਕਰੋ। ਨੱਥੀ ਕਰਨ ਵਾਲੇ ਬਟਨ, Send ਅਤੇ ਕਾਰਡ ਮੀਨੂ ਲੁਕੇ ਰਹਿੰਦੇ ਹਨ।',
 };

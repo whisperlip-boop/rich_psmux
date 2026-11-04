@@ -481,4 +481,6 @@ export const vi: Dict = {
   'settings.secUpdates': 'Cập nhật',
   'settings.checkUpdates': 'Kiểm tra bản cập nhật khi khởi động',
   'settings.checkUpdatesHint': 'Khi bật, ứng dụng sẽ kết nối mạng để kiểm tra phiên bản mới một lần lúc khởi động.',
+  'settings.showInputBar': 'Hiển thị ô nhập dưới mỗi khung',
+  'settings.showInputBarHint': 'Khi tắt, bạn nhập trực tiếp vào terminal. Nút đính kèm, nút Send và menu của khung sẽ bị ẩn.',
 };

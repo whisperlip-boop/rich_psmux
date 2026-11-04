@@ -482,4 +482,6 @@ export const sv: Dict = {
   'settings.secUpdates': 'Uppdateringar',
   'settings.checkUpdates': 'Sök efter uppdateringar vid start',
   'settings.checkUpdatesHint': 'Söker efter nya versioner en gång när appen startar. Appen ansluter då till nätverket.',
+  'settings.showInputBar': 'Visa inmatningsruta under varje kort',
+  'settings.showInputBarHint': 'När alternativet är avstängt skriver du direkt i terminalen. Knapparna för att bifoga, Send-knappen och kortmenyn döljs.',
 };

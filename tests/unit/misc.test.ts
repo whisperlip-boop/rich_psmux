@@ -24,6 +24,14 @@ describe('settings', () => {
     expect(s.fontSize).toBe(DEFAULT_SETTINGS.fontSize);
     expect(s.recentFolders).toEqual(['a', 'b']);
     expect(s.useHooks).toBe(false);
+    // 입력 막대: 기본 표시, boolean이 아니면 기본값
+    expect(DEFAULT_SETTINGS.showInputBar).toBe(true);
+    expect(normalizeSettings({ showInputBar: false }).showInputBar).toBe(false);
+    expect(normalizeSettings({ showInputBar: 'false' }).showInputBar).toBe(true);
+    expect(normalizeSettings({ showInputBar: null }).showInputBar).toBe(true);
+    expect(normalizeSettings({}).showInputBar).toBe(true);
+    expect(diffFromDefaults(normalizeSettings({ showInputBar: false }))).toEqual({ showInputBar: false });
+    expect('showInputBar' in diffFromDefaults({ ...DEFAULT_SETTINGS, showInputBar: true })).toBe(false);
   });
   it('migrates the legacy font default and saves only non-default values', () => {
     expect(normalizeSettings({ fontFamily: "'Cascadia Mono', Consolas, 'D2Coding', 'Malgun Gothic', monospace" }).fontFamily).toBe(DEFAULT_SETTINGS.fontFamily);

@@ -12,6 +12,7 @@ export const esES: Dict = {
   'account.notLoggedIn': 'No has iniciado sesión',
   'settings.psmuxNotFound': 'No se encontró automáticamente — introduce una ruta',
   'settings.fontFamily': 'Fuente del terminal',
+  'settings.showInputBarHint': 'Si está desactivada, escribe directamente en el terminal. Se ocultan las opciones para adjuntar, el botón Send y el menú de la tarjeta.',
   'agents.copied': 'Se ha copiado la plantilla de ejemplo al portapapeles.',
   'agents.teamsOffHelp': 'Desactivados: añade "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1" a "env" en ~/.claude/settings.json o establece en 1 una variable de entorno de usuario con el mismo nombre y luego vuelve a abrir la aplicación.',
   'card.addDir': 'Añadir carpeta…',

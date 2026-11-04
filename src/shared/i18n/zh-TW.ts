@@ -483,4 +483,6 @@ export const zhTW: Dict = {
   'settings.secUpdates': '更新',
   'settings.checkUpdates': '啟動時檢查更新',
   'settings.checkUpdatesHint': '開啟後，應用程式啟動時會檢查一次是否有新版本。此功能會連線至網路。',
+  'settings.showInputBar': '在每張卡片下方顯示輸入方塊',
+  'settings.showInputBarHint': '關閉後，請直接在終端機中輸入。附件按鈕、Send 與卡片功能表將會隱藏。',
 };

@@ -513,4 +513,7 @@ export const fr: Dict = {
   'settings.secUpdates': 'Mises à jour',
   'settings.checkUpdates': 'Vérifier les mises à jour au démarrage',
   'settings.checkUpdatesHint': "Si cette option est activée, l'application vérifie une fois au démarrage si de nouvelles versions sont disponibles. Elle se connecte alors au réseau.",
+
+  'settings.showInputBar': 'Afficher la barre de saisie sous chaque carte',
+  'settings.showInputBarHint': 'Si cette option est désactivée, vous tapez directement dans le terminal. Les boutons de pièce jointe, Send et le menu de la carte sont masqués.',
 };

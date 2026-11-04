@@ -512,4 +512,7 @@ export const it: Dict = {
   'settings.secUpdates': 'Aggiornamenti',
   'settings.checkUpdates': "Verifica aggiornamenti all'avvio",
   'settings.checkUpdatesHint': "Se l'opzione è attiva, l'app verifica una volta all'avvio se sono disponibili nuove versioni. In questo caso si connette alla rete.",
+
+  'settings.showInputBar': 'Mostra la barra di input sotto ogni card',
+  'settings.showInputBarHint': "Se l'opzione è disattivata, digiti direttamente nel terminale. I pulsanti per allegare, Send e il menu della card sono nascosti.",
 };

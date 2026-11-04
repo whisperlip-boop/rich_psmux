@@ -483,4 +483,6 @@ export const zhCN: Dict = {
   'settings.secUpdates': '更新',
   'settings.checkUpdates': '启动时检查更新',
   'settings.checkUpdatesHint': '开启后，应用启动时会检查一次新版本。此操作会连接网络。',
+  'settings.showInputBar': '在每张卡片下方显示输入框',
+  'settings.showInputBarHint': '关闭后，请直接在终端中输入。附件、Send 和卡片菜单将隐藏。',
 };

@@ -479,4 +479,6 @@ export const ja: Dict = {
   'settings.secUpdates': 'アップデート',
   'settings.checkUpdates': '起動時にアップデートを確認',
   'settings.checkUpdatesHint': 'オンにすると、アプリの起動時に新しいバージョンを1回確認します。ネットワークに接続します。',
+  'settings.showInputBar': '各カードの下に入力欄を表示',
+  'settings.showInputBarHint': 'オフにすると、ターミナルに直接入力します。添付・Send・カードのメニューは非表示になります。',
 };

@@ -481,4 +481,6 @@ export const en: Dict = {
   'settings.secUpdates': 'Updates',
   'settings.checkUpdates': 'Check for updates at startup',
   'settings.checkUpdatesHint': 'Checks once when the app starts. This connects to the network.',
+  'settings.showInputBar': 'Show input bar under each card',
+  'settings.showInputBarHint': 'When off, type directly in the terminal. Attachments, Send and the card menu are hidden.',
 };

@@ -485,4 +485,7 @@ export const mr: Dict = {
   'settings.secUpdates': 'अपडेट',
   'settings.checkUpdates': 'ॲप सुरू होताना अपडेट तपासा',
   'settings.checkUpdatesHint': 'हे चालू असल्यास ॲप सुरू होताना नवीन आवृत्ती एकदा तपासली जाते. यासाठी नेटवर्कशी कनेक्ट केले जाते.',
+
+  'settings.showInputBar': 'प्रत्येक कार्डखाली इनपुट बॉक्स दाखवा',
+  'settings.showInputBarHint': 'हे बंद असल्यास थेट टर्मिनलमध्ये टाइप करा. संलग्नके, Send आणि कार्ड मेनू दिसत नाहीत.',
 };

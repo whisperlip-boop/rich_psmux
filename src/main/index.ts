@@ -538,7 +538,7 @@ async function settingsView(): Promise<SettingsView> {
   const s = settings.get();
   psmuxDetected ??= await resolvePsmux('');
   return {
-    values: { psmuxPath: s.psmuxPath, pwshPath: s.pwshPath, leadCommand: s.leadCommand, historyDir: s.historyDir, fontFamily: s.fontFamily, fontSize: s.fontSize, theme: s.theme, showSdkSessions: s.showSdkSessions, checkUpdatesOnStartup: s.checkUpdatesOnStartup },
+    values: { psmuxPath: s.psmuxPath, pwshPath: s.pwshPath, leadCommand: s.leadCommand, historyDir: s.historyDir, fontFamily: s.fontFamily, fontSize: s.fontSize, theme: s.theme, showSdkSessions: s.showSdkSessions, checkUpdatesOnStartup: s.checkUpdatesOnStartup, showInputBar: s.showInputBar },
     defaults: {
       psmuxDetected, historyDir: join(claudeHomeDir(), 'projects'),
       leadCommand: DEFAULT_SETTINGS.leadCommand, fontFamily: DEFAULT_SETTINGS.fontFamily, fontSize: DEFAULT_SETTINGS.fontSize,
@@ -547,7 +547,7 @@ async function settingsView(): Promise<SettingsView> {
   };
 }
 
-/** 설정 저장: 검증 → 저장 → 즉시 적용(글꼴·테마·히스토리 경로·sdk 표시). psmux·pwsh·리드 명령은 다음 세션부터. */
+/** 설정 저장: 검증 → 저장 → 즉시 적용(글꼴·테마·입력 막대·히스토리 경로·sdk 표시). psmux·pwsh·리드 명령은 다음 세션부터. */
 function saveSettings(raw: unknown): Promise<SaveSettingsResult> {
   const p = saveChain.then(() => saveSettingsNow(raw));
   saveChain = p.catch(() => undefined);
@@ -568,8 +568,8 @@ async function saveSettingsNow(raw: unknown): Promise<SaveSettingsResult> {
     nativeTheme.themeSource = next.theme;
     applyWindowTheme();
   }
-  if (prev.theme !== next.theme || prev.fontSize !== next.fontSize || prev.fontFamily !== next.fontFamily) {
-    send('settings:appearance', { fontSize: next.fontSize, fontFamily: next.fontFamily, theme: next.theme } satisfies AppearanceDto);
+  if (prev.theme !== next.theme || prev.fontSize !== next.fontSize || prev.fontFamily !== next.fontFamily || prev.showInputBar !== next.showInputBar) {
+    send('settings:appearance', { fontSize: next.fontSize, fontFamily: next.fontFamily, theme: next.theme, showInputBar: next.showInputBar } satisfies AppearanceDto);
   }
   if (prev.historyDir !== next.historyDir) {
     history = { status: 'loading', items: [] };
@@ -1170,7 +1170,7 @@ function registerIpc(): void {
     await usageReady;
     const s = settings.get();
     const init = {
-      fontSize: s.fontSize, fontFamily: s.fontFamily, theme: s.theme, account: await loadAccount(), recentFolders: s.recentFolders, homeDir: app.getPath('home'),
+      fontSize: s.fontSize, fontFamily: s.fontFamily, theme: s.theme, showInputBar: s.showInputBar, account: await loadAccount(), recentFolders: s.recentFolders, homeDir: app.getPath('home'),
       tabs: orderedTabs().map((t) => t.state()), history, running: runningDto(), detached, uiState: uiStore.get(), usage: usage.get(),
     };
     // 기동 시 1회: 렌더러가 init 응답(현재 값)을 받은 뒤 결과가 usage:update로 간다(CLI 확인·네트워크를 기다리므로 응답보다 늦음)

@@ -27,6 +27,8 @@ export interface Settings {
   showSdkSessions: boolean;
   /** 시작 시 업데이트 확인(기본 꺼짐: 꺼져 있으면 시작 시 네트워크·명령 호출 0건). */
   checkUpdatesOnStartup: boolean;
+  /** 카드 아래 입력 막대(첨부·입력창·Send·⋮) 표시. 끄면 터미널에 직접 입력(psmux와 같은 방식). */
+  showInputBar: boolean;
   /** UI 언어. 빈 값 = 고르지 않음(Windows 표시 언어를 따름, 파일에 기록하지 않음). */
   language: Lang | '';
 }
@@ -44,6 +46,7 @@ export const DEFAULT_SETTINGS: Settings = {
   useHooks: true,
   showSdkSessions: false,
   checkUpdatesOnStartup: false,
+  showInputBar: true,
   language: '',
 };
 
@@ -66,6 +69,7 @@ export function normalizeSettings(raw: unknown): Settings {
   if (typeof o.useHooks === 'boolean') s.useHooks = o.useHooks;
   if (typeof o.showSdkSessions === 'boolean') s.showSdkSessions = o.showSdkSessions;
   if (typeof o.checkUpdatesOnStartup === 'boolean') s.checkUpdatesOnStartup = o.checkUpdatesOnStartup;
+  if (typeof o.showInputBar === 'boolean') s.showInputBar = o.showInputBar;
   // 알 수 없는 언어 값은 버리고 기본값(시스템 언어)을 쓴다
   if (isLang(o.language)) s.language = o.language;
   else if (o.language !== undefined && o.language !== '') log('warn', `settings: unknown language ignored (${JSON.stringify(o.language).slice(0, 40)})`);
@@ -194,10 +198,11 @@ export async function validateSettings(raw: unknown, fsx: PathChecks = FS_CHECKS
   if (theme !== 'light' && theme !== 'dark' && theme !== 'system') errors.theme = tr('set.theme');
   if (typeof o.showSdkSessions !== 'boolean') errors.showSdkSessions = tr('set.invalid');
   if (typeof o.checkUpdatesOnStartup !== 'boolean') errors.checkUpdatesOnStartup = tr('set.invalid');
+  if (typeof o.showInputBar !== 'boolean') errors.showInputBar = tr('set.invalid');
   if (Object.keys(errors).length) return { values: null, errors };
   return {
     values: { psmuxPath, pwshPath, leadCommand, historyDir, fontFamily, fontSize, theme: theme as ThemeMode, showSdkSessions: o.showSdkSessions as boolean,
-      checkUpdatesOnStartup: o.checkUpdatesOnStartup as boolean },
+      checkUpdatesOnStartup: o.checkUpdatesOnStartup as boolean, showInputBar: o.showInputBar as boolean },
     errors,
   };
 }

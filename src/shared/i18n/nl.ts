@@ -487,4 +487,7 @@ export const nl: Dict = {
   'settings.secUpdates': 'Updates',
   'settings.checkUpdates': 'Bij opstarten op updates controleren',
   'settings.checkUpdatesHint': 'Als deze optie is ingeschakeld, controleert de app bij het opstarten eenmaal of er een nieuwe versie is. Hiervoor wordt verbinding gemaakt met het netwerk.',
+
+  'settings.showInputBar': 'Invoerbalk onder elke kaart tonen',
+  'settings.showInputBarHint': 'Als deze optie is uitgeschakeld, typ je rechtstreeks in de terminal. Bijlagen, Send en het kaartmenu zijn verborgen.',
 };

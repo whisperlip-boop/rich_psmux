@@ -121,6 +121,12 @@ export function SettingsDialog({ onClose }: SettingsDialogProps) {
                     ))}
                   </div>
                 </div>
+                <label class="check">
+                  <input type="checkbox" name="showInputBar" checked={form.showInputBar} aria-describedby="hint-showInputBar"
+                    onChange={(e) => set('showInputBar', (e.target as HTMLInputElement).checked)} />
+                  {t('settings.showInputBar')}
+                </label>
+                <div class="field__hint" id="hint-showInputBar">{t('settings.showInputBarHint')}</div>
               </fieldset>
               <fieldset>
                 <legend>{t('settings.secUpdates')}</legend>

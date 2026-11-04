@@ -66,6 +66,8 @@ export function App() {
   const [confirmForce, setConfirmForce] = useState<string | null>(null);
   /** 파일 드래그 중 놓을 대상 카드(활성 탭 안). */
   const [drop, setDrop] = useState<{ tabId: string; pane: string } | null>(null);
+  /** 카드 아래 입력 막대 표시(설정). 끄면 터미널에 직접 입력하고 파일 드롭 첨부는 받지 않는다. */
+  const [showInputBar, setShowInputBar] = useState(true);
   const [info, setInfo] = useState<Record<string, string | number | null> | null>(null);
   const [confirmEnd, setConfirmEnd] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -122,8 +124,8 @@ export function App() {
   const closed = useRef<Set<string>>(new Set());
   const createdAt = useRef<Record<string, number>>({});
   // 키 처리기에서 최신 값을 쓰기 위한 참조
-  const live = useRef({ order, active, ui, busy, tabs });
-  live.current = { order, active, ui, busy, tabs };
+  const live = useRef({ order, active, ui, busy, tabs, showInputBar });
+  live.current = { order, active, ui, busy, tabs, showInputBar };
 
   const applyTab = (s: TabStateDto): void => {
     if (closed.current.has(s.tabId)) return; // 닫은 탭의 늦은 상태
@@ -380,6 +382,7 @@ export function App() {
       if (!init) return;
       setTerminalFont(init.fontSize, init.fontFamily);
       applyTheme(init.theme);
+      setShowInputBar(init.showInputBar);
       setAccount(init.account);
       setUsage(init.usage);
       offs.push(window.ctd.onUsage(setUsage));
@@ -405,10 +408,11 @@ export function App() {
       offs.push(window.ctd.onHistory(setHistory));
       offs.push(window.ctd.onRunning(setRunning));
       offs.push(window.ctd.onDetached(setDetached));
-      // 설정 저장 즉시 적용: 글꼴·크기·테마
+      // 설정 저장 즉시 적용: 글꼴·크기·테마·입력 막대(카드 본문이 커지면 카드의 ResizeObserver가 fit)
       offs.push(window.ctd.onAppearance((a) => {
         setTerminalFont(a.fontSize, a.fontFamily);
         applyTheme(a.theme);
+        setShowInputBar(a.showInputBar);
       }));
       setReady(true);
     });
@@ -432,7 +436,8 @@ export function App() {
       e.preventDefault(); // 기본 동작(파일 열기·이동) 막기
       hover.over();
       const a = live.current.active;
-      const pane = a ? targetPane(a, hoveredPane(e, a)) : null;
+      // 입력 막대를 숨기면 드롭 첨부를 받지 않는다(기본 동작만 막고 드롭 표시 없음)
+      const pane = a && live.current.showInputBar ? targetPane(a, hoveredPane(e, a)) : null;
       if (e.dataTransfer) e.dataTransfer.dropEffect = pane ? 'copy' : 'none';
       setDrop((d) => (pane && a ? (d && d.tabId === a && d.pane === pane ? d : { tabId: a, pane }) : null));
     };
@@ -445,6 +450,7 @@ export function App() {
       if (!isFiles(e)) return;
       e.preventDefault();
       hover.reset();
+      if (!live.current.showInputBar) return;
       const a = live.current.active;
       const pane = a ? targetPane(a, hoveredPane(e, a)) : null;
       if (!a || !pane) {
@@ -593,8 +599,9 @@ export function App() {
       () => {
         const page = a ? document.querySelector<HTMLElement>(`.tab-page[data-tab="${CSS.escape(a)}"]`) : null;
         const pane = a ? u[a]?.activePane : null;
-        const card = (pane && page?.querySelector<HTMLElement>(`.card[data-pane="${CSS.escape(pane)}"]`)) || page?.querySelector<HTMLElement>('.card');
-        return card?.querySelector<HTMLElement>('.composer textarea') ?? null; // 카드 안 첫 textarea는 xterm 내부 입력용
+        const card = (pane && page?.querySelector<HTMLElement>(`.card[data-pane="${CSS.escape(pane)}"]`)) || page?.querySelector<HTMLElement>('.card:not(.card--update)');
+        // 카드 안 첫 textarea는 xterm 내부 입력용. 입력 막대를 숨기면 그 터미널 입력으로 간다(@update 터미널은 입력을 받지 않아 제외)
+        return card?.querySelector<HTMLElement>('.composer textarea') ?? card?.querySelector<HTMLElement>('.card__term textarea') ?? null;
       },
     ];
     const cur = document.activeElement as HTMLElement | null;
@@ -682,7 +689,7 @@ export function App() {
                 onInfo={(p) => void showInfo(t.tabId, p)}
                 banner={cardBanner(t, !!bannerDone[t.tabId])}
                 onDismissBanner={() => setBannerDone((b) => ({ ...b, [t.tabId]: true }))}
-                dropPane={drop && drop.tabId === t.tabId ? drop.pane : null} onError={setError}
+                dropPane={drop && drop.tabId === t.tabId ? drop.pane : null} onError={setError} showInputBar={showInputBar}
                 onAddDir={addDirLeadPane(t) ? () => void addDir(t.tabId) : null}
                 extra={updHost === t.tabId ? updCard : null} />
             </div>

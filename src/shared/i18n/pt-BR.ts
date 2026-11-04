@@ -216,7 +216,7 @@ export const ptBR: Dict = {
   'agents.badName': 'Nome de agente inválido.',
 
   'card.noInput': 'Este cartão não pode receber entradas no momento.',
-  'card.clearLeadFirst': 'Primeiro, limpe a caixa de entrada do líder. Os comandos só funcionam quando são a mensagem inteira.',
+  'card.clearLeadFirst': 'Primeiro, limpe o campo de entrada do líder. Os comandos só funcionam quando são a mensagem inteira.',
   'card.disconnected': 'Desconectado',
   'card.reconnect': 'Reconectar',
   'card.attachImage': 'Anexar imagem',
@@ -504,4 +504,6 @@ export const ptBR: Dict = {
   'settings.secUpdates': 'Atualizações',
   'settings.checkUpdates': 'Verificar atualizações ao iniciar',
   'settings.checkUpdatesHint': 'Quando esta opção está ativada, o aplicativo verifica uma vez, ao iniciar, se há uma nova versão. Para isso, ele se conecta à rede.',
+  'settings.showInputBar': 'Mostrar o campo de entrada em cada cartão',
+  'settings.showInputBarHint': 'Quando esta opção está desativada, você digita diretamente no terminal. As opções de anexar, o botão Send e o menu do cartão ficam ocultos.',
 };

@@ -49,8 +49,12 @@ describe('settings validation', () => {
     expect((await check({ ...valid, historyDir: 'C:\\h' }, fsx(['C:\\h'], []))).errors.historyDir).toMatch(/찾을 수 없습니다/); // 파일은 폴더가 아님
   });
   it('rejects bad lead command, font, size, theme and flag', async () => {
-    const e = (await check({ ...valid, leadCommand: 'claude\n--x', fontFamily: 'x;}', fontSize: 7.5, theme: 'blue', showSdkSessions: 'yes' })).errors;
-    expect(Object.keys(e).sort()).toEqual(['fontFamily', 'fontSize', 'leadCommand', 'showSdkSessions', 'theme']);
+    const e = (await check({ ...valid, leadCommand: 'claude\n--x', fontFamily: 'x;}', fontSize: 7.5, theme: 'blue', showSdkSessions: 'yes', showInputBar: 'no' })).errors;
+    expect(Object.keys(e).sort()).toEqual(['fontFamily', 'fontSize', 'leadCommand', 'showInputBar', 'showSdkSessions', 'theme']);
+    // 입력 막대 끄기는 그대로 저장값으로
+    expect((await check({ ...valid, showInputBar: false })).values?.showInputBar).toBe(false);
+    const { showInputBar: _omit, ...noBar } = valid;
+    expect((await check(noBar)).errors.showInputBar).toBeDefined(); // 빠지면 거부(대화상자는 항상 보냄)
     // 빈 값은 기본값으로
     const blank = (await check({ ...valid, leadCommand: '   ', fontFamily: '', fontSize: Number.NaN })).values;
     expect(blank).toMatchObject({ leadCommand: DEFAULT_SETTINGS.leadCommand, fontFamily: DEFAULT_SETTINGS.fontFamily, fontSize: DEFAULT_SETTINGS.fontSize });

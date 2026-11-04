@@ -1,5 +1,5 @@
 // 카드 = 칸 1개: [헤더 40: @라벨·상태·⋮][본문 xterm][툴바 52: 첨부·입력창·Send].
-// 입력창은 위쪽으로 커져 터미널 영역 크기는 바뀌지 않는다. 레이아웃 선택은 탭 바 선택기가 맡는다(카드에는 레이아웃 버튼·최대화 없음).
+// 입력창은 위쪽으로 커져 터미널 영역 크기는 바뀌지 않는다. 설정에서 입력 막대를 끄면 툴바 없이 본문만(터미널에 직접 입력). 레이아웃 선택은 탭 바 선택기가 맡는다(카드에는 레이아웃 버튼·최대화 없음).
 
 import { useEffect, useRef, useState } from 'preact/hooks';
 
@@ -29,6 +29,8 @@ interface CardProps {
   dropTarget: boolean;
   /** 사용자에게 보일 오류(현재 언어). */
   onError: (msg: string) => void;
+  /** 입력 막대(툴바) 표시. false면 툴바를 그리지 않고 카드를 누르면 터미널에 포커스. */
+  showInputBar: boolean;
   /** ⋮ "폴더 추가…": 리드 카드 입력창에 /add-dir. 리드 카드가 없으면 null(비활성). */
   onAddDir: (() => void) | null;
 }
@@ -38,13 +40,15 @@ const RESIZE_DEBOUNCE_MS = 150;
 
 /** 팀원 카드. */
 export function Card(props: CardProps) {
-  const { tabId, pane, active, disconnected } = props;
+  const { tabId, pane, active, disconnected, showInputBar } = props;
   const noInput = disconnected || props.locked;
   const bodyRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const menuBtnRef = useRef<HTMLButtonElement>(null);
   const [text, setText] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
+  // 입력 막대를 숨기면 ⋮ 메뉴를 닫는다(키보드로 연 메뉴가 다시 켤 때 열린 채로 나타나지 않게)
+  useEffect(() => { if (!showInputBar) setMenuOpen(false); }, [showInputBar]);
   const [sending, setSending] = useState(false);
   const paneId = pane.paneId;
   // 이벤트·비동기 경로에서 최신 값을 쓰기 위한 참조
@@ -70,8 +74,10 @@ export function Card(props: CardProps) {
   useEffect(() => {
     const ta = inputRef.current;
     const c = caretAfter.current;
-    if (!ta || c === null) return;
+    if (c === null) return;
+    // 입력창이 없을 때(입력 막대 숨김) 남은 커서 위치가 다시 켠 뒤에 적용되지 않게 먼저 비운다
     caretAfter.current = null;
+    if (!ta) return;
     ta.focus();
     ta.setSelectionRange(c, c);
   }, [text]);
@@ -192,11 +198,11 @@ export function Card(props: CardProps) {
   useEffect(() => {
     const slot = inputRef.current?.closest('.composer-slot');
     if (!slot) return;
-    // 슬롯 높이는 36 고정이라 입력창 높이를 바꿔도 다시 호출되지 않는다
+    // 슬롯 높이는 36 고정이라 입력창 높이를 바꿔도 다시 호출되지 않는다. 입력 막대를 다시 켜면 새 슬롯을 관찰
     const ro = new ResizeObserver(fitInput);
     ro.observe(slot);
     return () => ro.disconnect();
-  }, []);
+  }, [showInputBar]);
 
   const empty = !text.trim();
   const send = async (): Promise<void> => {
@@ -229,8 +235,16 @@ export function Card(props: CardProps) {
   // 이름표 태그는 aria-hidden이라 상태(승인 대기·작업 중)는 카드 이름에 붙여 읽힌다(헤더의 상태 점이 하던 역할)
   const cardName = `${temp ? paneId : `@${label.name}`}${status ? `, ${statusLabel(status)}` : ''}`;
 
+  // 입력 막대가 없으면 카드 어디를 눌러도 바로 터미널에 입력되게 한다. pointerdown 뒤 mousedown 기본 동작이
+  // 포커스를 다시 정하므로(빈 곳은 포커스 해제) 그 뒤에 맞춘다. 버튼(배너 ×·다시 연결)은 그 버튼의 동작을 따른다
+  const activate = (e: PointerEvent): void => {
+    props.onActivate();
+    if (showInputBar || (e.target as Element | null)?.closest('button')) return;
+    window.setTimeout(() => getTerminal(tabId, paneId)?.term.focus(), 0);
+  };
+
   return (
-    <section class={`card${active ? ' is-active' : ''}${pane.waiting ? ' card--waiting' : ''}${props.dropTarget ? ' is-drop-target' : ''}`} data-pane={paneId} onPointerDown={props.onActivate} aria-label={cardName}>
+    <section class={`card${active ? ' is-active' : ''}${pane.waiting ? ' card--waiting' : ''}${showInputBar ? '' : ' card--bare'}${props.locked ? ' card--locked' : ''}${props.dropTarget ? ' is-drop-target' : ''}`} data-pane={paneId} onPointerDown={activate} aria-label={cardName}>
       {props.banner && (
         <div class="card__banner" role="note">
           <span class="card__banner-icon" aria-hidden="true">ℹ</span>
@@ -248,36 +262,38 @@ export function Card(props: CardProps) {
           </div>
         )}
       </div>
-      <footer class="card__toolbar">
-        <div class="composer-slot">
-          <div class="composer">
-            <button class="icon-btn icon-btn--32" title={t('card.attachImage')} aria-label={t('card.attachImage')} disabled={noInput} onClick={() => void attach('image')}><Icon d="M4 5h16v14H4zM4 16l5-5 4 4 2-2 5 5M15 9h.01" /></button>
-            <button class="icon-btn icon-btn--32" title={t('card.attachFile')} aria-label={t('card.attachFile')} disabled={noInput} onClick={() => void attach('any')}><Icon d="M20 11.5l-7.8 7.8a5 5 0 01-7-7l8.5-8.5a3.3 3.3 0 014.7 4.7l-8.5 8.5a1.7 1.7 0 01-2.4-2.4l7.8-7.8" /></button>
-            <textarea ref={inputRef} rows={1} placeholder="Use Shift+Enter to add new line" value={text} disabled={noInput}
-              onFocus={props.onActivate} onInput={(e) => setText((e.target as HTMLTextAreaElement).value)} onKeyDown={onKeyDown} onPaste={onPaste} />
-            {/* 이름표: 입력 박스 윗선 위로 솟은 탭(오른쪽 끝에서 20 안쪽, psmux 칸 라벨처럼). 입력 박스가 위로 커지면 함께 올라간다.
-                클릭은 아래 터미널로 통과(pointer-events: none), 터미널 hover 중엔 반투명 */}
-            <div class={`card__tag${label.isLead ? ' card__tag--lead' : temp ? ' card__tag--temp' : ' card__tag--mate'}`} style={tagStyle} aria-hidden="true">
-              {status && <StatusDot kind={status} />}
-              <span class="card__tag-name">{temp ? paneId : `@${label.name}`}</span>
+      {showInputBar && (
+        <footer class="card__toolbar">
+          <div class="composer-slot">
+            <div class="composer">
+              <button class="icon-btn icon-btn--32" title={t('card.attachImage')} aria-label={t('card.attachImage')} disabled={noInput} onClick={() => void attach('image')}><Icon d="M4 5h16v14H4zM4 16l5-5 4 4 2-2 5 5M15 9h.01" /></button>
+              <button class="icon-btn icon-btn--32" title={t('card.attachFile')} aria-label={t('card.attachFile')} disabled={noInput} onClick={() => void attach('any')}><Icon d="M20 11.5l-7.8 7.8a5 5 0 01-7-7l8.5-8.5a3.3 3.3 0 014.7 4.7l-8.5 8.5a1.7 1.7 0 01-2.4-2.4l7.8-7.8" /></button>
+              <textarea ref={inputRef} rows={1} placeholder="Use Shift+Enter to add new line" value={text} disabled={noInput}
+                onFocus={props.onActivate} onInput={(e) => setText((e.target as HTMLTextAreaElement).value)} onKeyDown={onKeyDown} onPaste={onPaste} />
+              {/* 이름표: 입력 박스 윗선 위로 솟은 탭(오른쪽 끝에서 20 안쪽, psmux 칸 라벨처럼). 입력 박스가 위로 커지면 함께 올라간다.
+                  클릭은 아래 터미널로 통과(pointer-events: none), 터미널 hover 중엔 반투명 */}
+              <div class={`card__tag${label.isLead ? ' card__tag--lead' : temp ? ' card__tag--temp' : ' card__tag--mate'}`} style={tagStyle} aria-hidden="true">
+                {status && <StatusDot kind={status} />}
+                <span class="card__tag-name">{temp ? paneId : `@${label.name}`}</span>
+              </div>
             </div>
           </div>
-        </div>
-        <button class="send-btn" disabled={sending || empty || noInput} onClick={() => void send()}>Send <span class="send-btn__key" aria-hidden="true">↵</span></button>
-        <div class="menu">
-          <button ref={menuBtnRef} class="icon-btn" title={t('card.menu')} aria-label={t('card.menu')} aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>
-            <Icon d="M12 5h.01M12 12h.01M12 19h.01" width={3} />
-          </button>
-          {menuOpen && (
-            <div class="menu__list" role="menu" onMouseLeave={() => setMenuOpen(false)}>
-              {menuItem(t('card.stopMate'), () => void safeIpc(() => window.ctd.requestStop(tabId, paneId, label.name), false, props.onError, t('action.requestStop')), label.isLead || temp || disconnected)}
-              {menuItem(t('card.clearOutput'), () => getTerminal(tabId, paneId)?.term.clear())}
-              {menuItem(t('info.title'), () => props.onInfo(paneId))}
-              {menuItem(t('card.addDir'), () => props.onAddDir?.(), !props.onAddDir)}
-            </div>
-          )}
-        </div>
-      </footer>
+          <button class="send-btn" disabled={sending || empty || noInput} onClick={() => void send()}>Send <span class="send-btn__key" aria-hidden="true">↵</span></button>
+          <div class="menu">
+            <button ref={menuBtnRef} class="icon-btn" title={t('card.menu')} aria-label={t('card.menu')} aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>
+              <Icon d="M12 5h.01M12 12h.01M12 19h.01" width={3} />
+            </button>
+            {menuOpen && (
+              <div class="menu__list" role="menu" onMouseLeave={() => setMenuOpen(false)}>
+                {menuItem(t('card.stopMate'), () => void safeIpc(() => window.ctd.requestStop(tabId, paneId, label.name), false, props.onError, t('action.requestStop')), label.isLead || temp || disconnected)}
+                {menuItem(t('card.clearOutput'), () => getTerminal(tabId, paneId)?.term.clear())}
+                {menuItem(t('info.title'), () => props.onInfo(paneId))}
+                {menuItem(t('card.addDir'), () => props.onAddDir?.(), !props.onAddDir)}
+              </div>
+            )}
+          </div>
+        </footer>
+      )}
       {props.dropTarget && <div class="drop-hint" aria-hidden="true">{t('card.dropHint')}</div>}
     </section>
   );

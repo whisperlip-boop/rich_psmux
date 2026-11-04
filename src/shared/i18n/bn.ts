@@ -485,4 +485,7 @@ export const bn: Dict = {
   'settings.secUpdates': 'আপডেট',
   'settings.checkUpdates': 'অ্যাপ শুরু হওয়ার সময় আপডেট যাচাই করুন',
   'settings.checkUpdatesHint': 'এটি চালু রাখলে অ্যাপ শুরু হওয়ার সময় একবার নতুন সংস্করণ যাচাই করা হয়। এর জন্য নেটওয়ার্কে সংযোগ করা হয়।',
+
+  'settings.showInputBar': 'প্রতিটি কার্ডের নিচে ইনপুট বাক্স দেখান',
+  'settings.showInputBarHint': 'এটি বন্ধ থাকলে সরাসরি টার্মিনালে টাইপ করুন। সংযুক্তি, Send ও কার্ডের মেনু লুকানো থাকবে।',
 };

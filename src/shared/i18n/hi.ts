@@ -484,4 +484,7 @@ export const hi: Dict = {
   'settings.secUpdates': 'अपडेट',
   'settings.checkUpdates': 'प्रारंभ होने पर अपडेट के लिए जाँचें',
   'settings.checkUpdatesHint': 'यह विकल्प चालू रहने पर ऐप प्रारंभ होते समय एक बार नए संस्करण की जाँच करता है। इसके लिए ऐप नेटवर्क से कनेक्ट होता है।',
+
+  'settings.showInputBar': 'प्रत्येक कार्ड के नीचे इनपुट बॉक्स दिखाएँ',
+  'settings.showInputBarHint': 'यह विकल्प बंद रहने पर सीधे टर्मिनल में टाइप करें। अनुलग्नक, Send और कार्ड मेनू छिपे रहते हैं।',
 };

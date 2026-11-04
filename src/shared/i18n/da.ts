@@ -488,4 +488,6 @@ export const da: Dict = {
   'settings.secUpdates': 'Opdateringer',
   'settings.checkUpdates': 'Søg efter opdateringer ved start',
   'settings.checkUpdatesHint': 'Når indstillingen er slået til, søger appen efter en ny version én gang, når den starter. Appen opretter forbindelse til netværket.',
+  'settings.showInputBar': 'Vis inputfelt under hvert kort',
+  'settings.showInputBarHint': 'Når indstillingen er slået fra, skriver du direkte i terminalen. Knapperne til vedhæftning, Send-knappen og kortmenuen skjules.',
 };
