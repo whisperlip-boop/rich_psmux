@@ -503,4 +503,12 @@ export const ko = {
   'settings.checkUpdatesHint': '켜 두면 앱을 시작할 때 새 버전을 한 번 확인합니다. 네트워크에 접속합니다.',
   'settings.showInputBar': '각 카드 아래에 입력창 표시',
   'settings.showInputBarHint': '끄면 터미널에 직접 입력합니다. 첨부·Send·카드 메뉴는 숨겨집니다.',
+
+  'hist.folderMenu': '폴더 메뉴',
+  'hist.folderMenuTip': '폴더 메뉴 (Shift+F10)',
+  'trash.groupMessage': { other: '\'{folder}\'의 대화 {n}개를 휴지통으로 이동합니다.' },
+  'trash.groupSkipped': { other: '열려 있거나 실행 중이거나 옮길 수 없는 대화 {n}개는 건너뜁니다.' },
+  'trash.groupPartial': { other: '대화 {total}개 중 {n}개를 휴지통으로 옮기지 못했거나 일부만 옮겼습니다(열림·실행 중·사용 중이거나 안전하지 않은 경로).' },
+  'trash.groupNote': 'Windows 휴지통에서 되살릴 수 있습니다.',
+  'trash.groupNoteFolders': '대화 폴더(도구 결과 등)도 함께 옮깁니다. Windows 휴지통에서 되살릴 수 있습니다.',
 } satisfies Record<string, Entry>;

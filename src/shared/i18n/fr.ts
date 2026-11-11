@@ -516,4 +516,12 @@ export const fr: Dict = {
 
   'settings.showInputBar': 'Afficher la barre de saisie sous chaque carte',
   'settings.showInputBarHint': 'Si cette option est désactivée, vous tapez directement dans le terminal. Les boutons de pièce jointe, Send et le menu de la carte sont masqués.',
+
+  'hist.folderMenu': 'Menu du dossier',
+  'hist.folderMenuTip': 'Menu du dossier (Shift+F10)',
+  'trash.groupMessage': { one: '{n} conversation du dossier « {folder} » sera déplacée vers la Corbeille.', many: '{n} de conversations du dossier « {folder} » seront déplacées vers la Corbeille.', other: '{n} conversations du dossier « {folder} » seront déplacées vers la Corbeille.' },
+  'trash.groupSkipped': { one: "{n} conversation ouverte, en cours d'exécution ou impossible à déplacer sera ignorée.", many: "{n} de conversations ouvertes, en cours d'exécution ou impossibles à déplacer seront ignorées.", other: "{n} conversations ouvertes, en cours d'exécution ou impossibles à déplacer seront ignorées." },
+  'trash.groupPartial': { one: "{n} conversation sur {total} n'a pas été entièrement déplacée vers la Corbeille (ouverte, en cours d'exécution ou d'utilisation, ou chemin non sûr).", many: "{n} de conversations sur {total} n'ont pas été entièrement déplacées vers la Corbeille (ouvertes, en cours d'exécution ou d'utilisation, ou chemin non sûr).", other: "{n} conversations sur {total} n'ont pas été entièrement déplacées vers la Corbeille (ouvertes, en cours d'exécution ou d'utilisation, ou chemin non sûr)." },
+  'trash.groupNote': 'Vous pourrez les restaurer depuis la Corbeille de Windows.',
+  'trash.groupNoteFolders': 'Les dossiers des conversations (résultats des outils, etc.) seront également déplacés. Vous pourrez les restaurer depuis la Corbeille de Windows.',
 };

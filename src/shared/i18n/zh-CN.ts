@@ -485,4 +485,12 @@ export const zhCN: Dict = {
   'settings.checkUpdatesHint': '开启后，应用启动时会检查一次新版本。此操作会连接网络。',
   'settings.showInputBar': '在每张卡片下方显示输入框',
   'settings.showInputBarHint': '关闭后，请直接在终端中输入。附件、Send 和卡片菜单将隐藏。',
+
+  'hist.folderMenu': '文件夹菜单',
+  'hist.folderMenuTip': '文件夹菜单（Shift+F10）',
+  'trash.groupMessage': { other: '“{folder}”中的 {n} 个对话将被移至回收站。' },
+  'trash.groupSkipped': { other: '{n} 个对话已打开、正在运行或无法移动，将被跳过。' },
+  'trash.groupPartial': { other: '{total} 个对话中有 {n} 个未能完全移至回收站（已打开、正在运行、正在使用，或路径不安全）。' },
+  'trash.groupNote': '可以从 Windows 回收站还原这些对话。',
+  'trash.groupNoteFolders': '这些对话的文件夹（工具结果等）也会一并移动。可以从 Windows 回收站还原。',
 };

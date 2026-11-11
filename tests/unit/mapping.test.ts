@@ -1,10 +1,10 @@
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { findLeadSessionId, readTeamConfig, resolveSafe, setClaudeHomeForTest } from '../../src/main/claudeHome';
+import { findLeadSessionId, findTeamConfig, readTeamConfig, resolveSafe, scanTranscriptTeam, setClaudeHomeForTest } from '../../src/main/claudeHome';
 import { applyHookRecord, emptyHookState, parseHookLine } from '../../src/main/teams/hookState';
 import { colorFor, hashColor, LEAD_COLOR, leadNameFromCommand, matchesLeadTmux, PALETTE, resolveLabels, sanitizeConfig, teamNameFor, textColorFor } from '../../src/main/teams/paneMapper';
 
@@ -127,6 +127,9 @@ describe('claudeHome (read-only layer)', () => {
     writeFileSync(join(dir, 'sessions', '222.json'), JSON.stringify({ sessionId: '2bff0bfd-c982', tmux: 'ctd-x-abc123:@1.%1', updatedAt: 9 }));
     writeFileSync(join(dir, 'sessions', '222.deadbeef.key'), 'SECRET');
     writeFileSync(join(dir, 'sessions', '333.json'), '{truncated');
+    // 리드 칸 환경을 물려받은 SDK 관찰자: 더 최근이어도 리드가 아니다
+    writeFileSync(join(dir, 'sessions', '444.json'), JSON.stringify({ sessionId: 'cccc3333-obs', tmux: 'ctd-x-abc123:@1.%1', updatedAt: 99, entrypoint: 'sdk-cli' }));
+    writeFileSync(join(dir, 'sessions', '555.json'), JSON.stringify({ sessionId: 'dddd4444-cli', tmux: 'ctd-y-abc123:@1.%1', updatedAt: 1, entrypoint: 'cli' }));
     writeFileSync(join(dir, 'teams', 'session-2bff0bfd', 'config.json'), JSON.stringify(RAW_CONFIG));
     setClaudeHomeForTest(dir);
   });
@@ -147,5 +150,46 @@ describe('claudeHome (read-only layer)', () => {
     expect(cfg?.members.map((m) => m.name)).toEqual(['team-lead', 'pm', 'dev-tagfinder']);
     expect(await readTeamConfig('../escape')).toBeNull();
     expect(await readTeamConfig('session-missing')).toBeNull();
+  });
+  it('accepts only CLI sessions as the lead (SDK observers on the lead pane are skipped)', async () => {
+    expect(await findLeadSessionId('ctd-x-abc123', '%1')).toBe('2bff0bfd-c982');
+    expect(await findLeadSessionId('ctd-y-abc123', '%1')).toBe('dddd4444-cli');
+  });
+  it('finds the team config under an earlier lead session id after the id changed', async () => {
+    expect((await findTeamConfig(['2bff0bfd-c982', 'eeee5555-new']))?.name).toBe('session-2bff0bfd');
+    expect((await findTeamConfig(['2bff0bfd-c982']))?.config.members.map((m) => m.name)).toEqual(['team-lead', 'pm', 'dev-tagfinder']);
+    expect(await findTeamConfig(['eeee5555-new', 'x'])).toBeNull();
+    expect(await findTeamConfig([])).toBeNull();
+  });
+  it('reads the team name from the lead transcript when the creator id is not in the lead id history', async () => {
+    // 리드 ID 이력(appendLeadId 50개)에 팀을 만든 ID가 없어도 기록의 toolUseResult.team_name으로 찾는다
+    const sid = '1550642e-f26e-40b0-8e48-f1b506e3b5cc';
+    mkdirSync(join(dir, 'projects', 'D--work'), { recursive: true });
+    const file = join(dir, 'projects', 'D--work', `${sid}.jsonl`);
+    writeFileSync(file, [
+      JSON.stringify({ type: 'system', tools: { team_name: { description: 'Deprecated; ignored.', type: 'string' } } }),
+      JSON.stringify({ type: 'assistant', message: { content: [{ type: 'tool_use', input: { name: 'dev', team_name: 'ignored-input' } }] } }),
+      JSON.stringify({ type: 'user', toolUseResult: { name: 'dev', color: 'blue', team_name: 'session-2bff0bfd' } }),
+      JSON.stringify({ type: 'user', toolUseResult: { team_name: '../escape' } }),
+      '{"type":"user","toolUseResult":{"team_name":"session-partial"',
+    ].join('\n'));
+    expect(await findTeamConfig(['eeee5555-new', sid])).toBeNull();
+    const first = await scanTranscriptTeam(sid, null);
+    expect(first).toMatchObject({ dir: 'D--work', name: 'session-2bff0bfd' });
+    expect(await readTeamConfig(first?.name ?? '')).not.toBeNull();
+    // 쓰는 도중의 마지막 줄은 다음 호출에서 이어 읽는다
+    appendFileSync(file, '}}\n');
+    expect(await scanTranscriptTeam(sid, first)).toMatchObject({ name: 'session-partial' });
+    expect(await scanTranscriptTeam('2bff0bfd-c982', null)).toBeNull();
+    // 처음 읽기는 파일 전체: 끝에서 2MB보다 앞에 있는 팀 이름도 찾는다(긴 줄은 잘려 건너뛰어도 다음 줄은 읽는다)
+    const big = 'aaaaaaaa-0000-4000-8000-000000000001';
+    writeFileSync(join(dir, 'projects', 'D--work', `${big}.jsonl`), [
+      JSON.stringify({ type: 'user', toolUseResult: { team_name: 'session-far-back' } }),
+      JSON.stringify({ type: 'user', pad: 'x'.repeat(3 * 1024 * 1024) }),
+      JSON.stringify({ type: 'assistant', message: { content: 'no team here' } }),
+      '',
+    ].join('\n'));
+    expect(await scanTranscriptTeam(big, null)).toMatchObject({ name: 'session-far-back' });
+    expect(await scanTranscriptTeam('00000000-0000-0000-0000-000000000000', null)).toBeNull();
   });
 });

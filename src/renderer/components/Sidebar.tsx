@@ -33,6 +33,8 @@ interface SidebarProps {
   onRename: (item: HistoryItemDto) => void;
   onArchive: (item: HistoryItemDto, archived: boolean) => void;
   onTrash: (item: HistoryItemDto) => void;
+  /** 폴더 그룹 삭제 확인 열기: 지금 보이는 대화(필터·검색 적용 후, 접혀 있어도). */
+  onTrashGroup: (name: string, items: HistoryItemDto[]) => void;
   /** 세션 끊기 확인 열기: 실행 중이고 탭이 없는 대화. */
   onStop: (item: HistoryItemDto) => void;
   /** 끊는 중인 대상 키(psmux 세션 이름 또는 `pid:<n>`). */
@@ -52,6 +54,9 @@ interface SidebarProps {
   /** 탭 없는 세션 끊기 확인 열기. */
   onStopDetached: (d: DetachedSessionDto) => void;
 }
+
+/** 폴더 그룹 메뉴 키 접두사(대화 키·세션 이름과 겹치지 않게). */
+const GROUP_MENU_PREFIX = '<group>';
 
 /** 탭 없는 세션 그룹의 접기 키(폴더 키는 경로라 '<'로 시작하지 않고 날짜 키는 `<date:…>`라 겹치지 않음). */
 const DETACHED_GROUP_KEY = '<detached>';
@@ -182,6 +187,35 @@ function HistRow(p: HistRowProps) {
   );
 }
 
+/** 폴더 그룹 머리(head()가 그린 버튼) + ⋮ 메뉴(삭제…). HistRow와 같은 구조로, 메뉴 키 처리는 Sidebar의 효과가 맡는다. */
+function FolderHead(p: { children: ComponentChildren; busy: boolean; menuOpen: boolean; trashBlocked: string | null; onMenu: (open: boolean) => void; onTrash: () => void }) {
+  const moreRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const pos = useMenuPos(p.menuOpen, moreRef, menuRef);
+  // 메뉴 항목은 닫히면서 사라지므로 머리 버튼에 먼저 포커스를 둔다(대화상자가 닫힌 뒤 여기로 돌아옴)
+  const pickTrash = (): void => {
+    p.onMenu(false);
+    moreRef.current?.parentElement?.querySelector<HTMLElement>('[data-nav]')?.focus();
+    p.onTrash();
+  };
+  return (
+    <div class={`hist-item${p.menuOpen ? ' is-menu' : ''}`} onContextMenu={(e) => { e.preventDefault(); if (!p.busy) p.onMenu(true); }}>
+      {p.children}
+      <button ref={moreRef} class="icon-btn icon-btn--24 hist-row__more" tabIndex={-1} title={t('hist.folderMenuTip')} aria-label={t('hist.folderMenu')} aria-haspopup="menu"
+        aria-expanded={p.menuOpen} disabled={p.busy} onClick={() => p.onMenu(!p.menuOpen)}>
+        <MoreIcon />
+      </button>
+      {p.menuOpen && (
+        <div ref={menuRef} class="menu__list hist-menu" role="menu" aria-label={t('hist.folderMenu')} style={menuStyle(pos)}>
+          <button role="menuitem" class="is-danger" disabled={!!p.trashBlocked} onClick={pickTrash}>
+            <span class="ico ico--delete" aria-hidden="true" />{t('hist.delete')}{p.trashBlocked && <span class="menu__reason">{t('common.withReason', { reason: p.trashBlocked })}</span>}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface DetachedRowProps {
   d: DetachedSessionDto;
   now: Date;
@@ -259,7 +293,7 @@ export function Sidebar(props: SidebarProps) {
         e.preventDefault();
         e.stopPropagation();
         setMenuKey(null);
-        b.querySelector<HTMLElement>('.hist-row')?.focus();
+        b.querySelector<HTMLElement>('[data-nav]')?.focus();
         return;
       }
       if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
@@ -334,6 +368,10 @@ export function Sidebar(props: SidebarProps) {
       } else if (e.key === 'ArrowLeft' && key) {
         focus(els.find((x) => x.dataset.nav === 'group' && x.dataset.group === key));
       }
+    } else if ((e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) && !busy && cur.dataset.nav === 'group' && cur.dataset.group && cur.parentElement?.classList.contains('hist-item')) {
+      // 폴더 그룹 머리만 .hist-item(FolderHead) 안에 있다
+      e.preventDefault();
+      setMenuKey(GROUP_MENU_PREFIX + cur.dataset.group);
     }
   };
 
@@ -415,9 +453,16 @@ export function Sidebar(props: SidebarProps) {
         {groups.map((g) => {
           if (g.kind === 'none') return <div key={g.key} class="hist-group hist-group--flat" role="group">{g.items.map((it) => row(it, g.key, it.folderName))}</div>;
           const open = searching || !collapsed.has(g.key);
+          const header = head(g.key, g.name, g.items.length, open, g.path ?? g.name);
+          const menuId = GROUP_MENU_PREFIX + g.key;
+          // 모두 막혀 있으면 행 메뉴처럼 항목을 비활성으로 두고 첫 사유를 붙인다(main이 미리보기·이동 때 다시 확인)
+          const reasons = g.kind === 'folder' ? g.items.map((it) => trashBlockedReason(it.sessionId, tabs, running)) : [];
           return (
             <div key={g.key} class="hist-group" role="group">
-              {head(g.key, g.name, g.items.length, open, g.path ?? g.name)}
+              {g.kind === 'folder' ? (
+                <FolderHead busy={busy} menuOpen={menuKey === menuId} trashBlocked={reasons.every(Boolean) ? reasons[0] : null}
+                  onMenu={(o) => setMenuKey(o ? menuId : null)} onTrash={() => props.onTrashGroup(g.name, g.items)}>{header}</FolderHead>
+              ) : header}
               {open && g.items.map((it) => row(it, g.key, g.kind === 'folder' ? g.name : it.folderName))}
             </div>
           );

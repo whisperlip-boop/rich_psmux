@@ -13,7 +13,7 @@ import { AccountArea } from './components/AccountArea';
 import { AgentsDialog } from './components/AgentsDialog';
 import { CardGrid } from './components/CardGrid';
 import { LanguageDialog } from './components/LanguageDialog';
-import { EndSessionDialog, LogoutDialog, RenameDialog, stopSessionMessage, TrashDialog } from './components/MenuDialogs';
+import { EndSessionDialog, LogoutDialog, RenameDialog, stopSessionMessage, TrashDialog, trashMessage } from './components/MenuDialogs';
 import { SessionsDialog } from './components/SessionsDialog';
 import { SettingsDialog } from './components/SettingsDialog';
 import { Sidebar } from './components/Sidebar';
@@ -81,7 +81,8 @@ export function App() {
   const [leadCommand, setLeadCommand] = useState<string | null>(null);
   /** 히스토리 항목 메뉴 대화상자. */
   const [renaming, setRenaming] = useState<HistoryItemDto | null>(null);
-  const [trashing, setTrashing] = useState<{ item: HistoryItemDto; extra: number; folders: number; busy: boolean } | null>(null);
+  /** 삭제 확인: item = 대화 하나, group = 폴더 그룹(지울 대화 ID·건너뛸 수). */
+  const [trashing, setTrashing] = useState<{ item: HistoryItemDto | null; group: { name: string; ids: string[]; skipped: number } | null; extra: number; folders: number; busy: boolean } | null>(null);
   /** 세션 끊기 확인 대상과 끊는 중인 대상 키(alias로 묶인 두 행이 같은 세션이라 세션 이름·pid 기준). */
   const [stopAsk, setStopAsk] = useState<StopAsk | null>(null);
   const [stopping, setStopping] = useState<ReadonlySet<string>>(new Set());
@@ -268,13 +269,24 @@ export function App() {
       setError(p.error ?? t('app.cantDelete'));
       return;
     }
-    setTrashing({ item, extra: p.extra, folders: p.folders, busy: false });
+    setTrashing({ item, group: null, extra: p.extra, folders: p.folders, busy: false });
+  };
+  /** 폴더 그룹 삭제: 보이는 대화 중 지울 수 있는 것만 main이 고른다. 하나도 없으면 사유를 오류 줄로 알린다. */
+  const askTrashGroup = async (name: string, items: HistoryItemDto[]): Promise<void> => {
+    const p = await safeIpc(() => window.ctd.trashGroupPreview(items.map((it) => it.sessionId)), null, setError, t('action.trashPreview'));
+    if (!p) return;
+    if (!p.ok || !p.sessionIds?.length) {
+      setError(p.error ?? t('app.cantDelete'));
+      return;
+    }
+    setTrashing({ item: null, group: { name, ids: p.sessionIds, skipped: p.skipped ?? 0 }, extra: p.extra, folders: p.folders, busy: false });
   };
   const doTrash = async (): Promise<void> => {
     const cur = trashing;
     if (!cur || cur.busy) return;
     setTrashing({ ...cur, busy: true });
-    const r = await safeIpc(() => window.ctd.trashHistory(cur.item.sessionId), null, setError, t('action.trash'));
+    const { item, group } = cur;
+    const r = await safeIpc(() => (group ? window.ctd.trashGroup(group.ids) : window.ctd.trashHistory(item?.sessionId ?? '')), null, setError, t('action.trash'));
     setTrashing(null);
     if (r && !r.ok) setError(r.error ?? t('app.trashFailed'));
     // 지운 행(대화상자를 연 요소)이 사라지면 포커스가 body로 가므로 목록의 첫 항목으로 옮긴다
@@ -645,7 +657,7 @@ export function App() {
         <Sidebar history={history} running={running} tabs={tabList} activeConversation={cur ? tabConversationId(cur) : null}
           collapsed={collapsed} onToggle={toggleGroup} onOpen={openConversation} onNew={(f) => void startSession(f)}
           onRetry={() => window.ctd.refreshHistory()} recent={recent} busy={busy}
-          onRename={setRenaming} onArchive={setArchived} onTrash={(it) => void askTrash(it)} onStop={askStop} stopping={stopping}
+          onRename={setRenaming} onArchive={setArchived} onTrash={(it) => void askTrash(it)} onTrashGroup={(name, items) => void askTrashGroup(name, items)} onStop={askStop} stopping={stopping}
           detached={detached} onAttachDetached={attachDetached} onStopDetached={setStopDetachedAsk}
           hidden={sidebarHidden} onCollapse={toggleSidebar}
           filter={historyFilter} onFilter={(f) => { setHistoryFilter(f); window.ctd.saveHistoryFilter(f); }}
@@ -743,7 +755,8 @@ export function App() {
             onToggle={(id, on) => setUpdChecked((c) => { const n = new Set(c); if (on) n.add(id); else n.delete(id); return n; })} />
         )}
         {renaming && <RenameDialog item={renaming} original={originalTitle(renaming, now)} onSave={(t) => saveRename(renaming, t)} onClose={() => setRenaming(null)} />}
-        {trashing && <TrashDialog title={displayTitle(trashing.item, now)} extra={trashing.extra} folders={trashing.folders} busy={trashing.busy} onConfirm={() => void doTrash()} onClose={() => setTrashing(null)} />}
+        {trashing && <TrashDialog text={trashing.group ? t('trash.groupMessage', { n: trashing.group.ids.length, folder: trashing.group.name }) : trashMessage(displayTitle(trashing.item as HistoryItemDto, now), trashing.extra)}
+          count={trashing.group?.ids.length} skipped={trashing.group?.skipped} folders={trashing.folders} busy={trashing.busy} onConfirm={() => void doTrash()} onClose={() => setTrashing(null)} />}
         {logoutOpen && <LogoutDialog openTabs={tabList.filter((t) => t.purpose !== 'login').length} busy={logoutOpen.busy} onConfirm={() => void doLogout()} onClose={() => setLogoutOpen(null)} />}
         {endTab && (
           <EndSessionDialog label={t('app.endTab')} message={t('app.endTabConfirm')} sub={endTab.folder}

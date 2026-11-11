@@ -490,4 +490,12 @@ export const tr: Dict = {
 
   'settings.showInputBar': 'Her kartın altında girdi kutusunu göster',
   'settings.showInputBarHint': 'Kapalıysa, doğrudan terminale yazın. Ekler, Send ve kart menüsü gizlenir.',
+
+  'hist.folderMenu': 'Klasör menüsü',
+  'hist.folderMenuTip': 'Klasör menüsü (Shift+F10)',
+  'trash.groupMessage': { one: '"{folder}" klasöründeki {n} sohbet Geri Dönüşüm Kutusu\'na taşınacak.', other: '"{folder}" klasöründeki {n} sohbet Geri Dönüşüm Kutusu\'na taşınacak.' },
+  'trash.groupSkipped': { one: 'Açık, çalışan veya taşınamayan {n} sohbet atlanacak.', other: 'Açık, çalışan veya taşınamayan {n} sohbet atlanacak.' },
+  'trash.groupPartial': { one: '{total} sohbetten {n} tanesi Geri Dönüşüm Kutusu\'na taşınamadı veya yalnızca kısmen taşındı (açık, çalışıyor, kullanımda ya da yolu güvenli değil).', other: '{total} sohbetten {n} tanesi Geri Dönüşüm Kutusu\'na taşınamadı veya yalnızca kısmen taşındı (açık, çalışıyor, kullanımda ya da yolu güvenli değil).' },
+  'trash.groupNote': 'Sohbetleri Windows Geri Dönüşüm Kutusu\'ndan geri yükleyebilirsiniz.',
+  'trash.groupNoteFolders': 'Sohbet klasörleri (araç sonuçları vb.) de taşınacak. Sohbetleri ve klasörlerini Windows Geri Dönüşüm Kutusu\'ndan geri yükleyebilirsiniz.',
 };

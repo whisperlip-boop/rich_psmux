@@ -481,4 +481,12 @@ export const ja: Dict = {
   'settings.checkUpdatesHint': 'オンにすると、アプリの起動時に新しいバージョンを1回確認します。ネットワークに接続します。',
   'settings.showInputBar': '各カードの下に入力欄を表示',
   'settings.showInputBarHint': 'オフにすると、ターミナルに直接入力します。添付・Send・カードのメニューは非表示になります。',
+
+  'hist.folderMenu': 'フォルダーメニュー',
+  'hist.folderMenuTip': 'フォルダーメニュー（Shift+F10）',
+  'trash.groupMessage': { other: '「{folder}」の会話{n}件をごみ箱に移動します。' },
+  'trash.groupSkipped': { other: '開いている・実行中・移動できない会話{n}件はスキップします。' },
+  'trash.groupPartial': { other: '会話{total}件のうち{n}件は、ごみ箱に移動できなかったか、一部しか移動できませんでした（開いている・実行中・使用中、または安全でないパス）。' },
+  'trash.groupNote': 'Windowsのごみ箱から復元できます。',
+  'trash.groupNoteFolders': '会話フォルダー（ツールの実行結果など）も一緒に移動します。Windowsのごみ箱から復元できます。',
 };

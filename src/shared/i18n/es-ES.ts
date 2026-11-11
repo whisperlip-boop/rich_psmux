@@ -43,6 +43,7 @@ export const esES: Dict = {
   'trash.partial': 'La conversación se ha movido a la Papelera de reciclaje, pero algunos registros relacionados no: {parts}.',
   'trash.partFailed': { one: '{n} no se ha podido mover', many: '{n} no se han podido mover', other: '{n} no se han podido mover' },
   'trash.partRefused': { one: '{n} se ha omitido porque su ruta no es segura', many: '{n} se han omitido porque sus rutas no son seguras', other: '{n} se han omitido porque sus rutas no son seguras' },
+  'trash.groupPartial': { one: '{n} de {total} conversaciones no se ha movido por completo a la Papelera de reciclaje (abierta, en ejecución, en uso o con una ruta que no es segura).', many: '{n} de {total} conversaciones no se han movido por completo a la Papelera de reciclaje (abiertas, en ejecución, en uso o con una ruta que no es segura).', other: '{n} de {total} conversaciones no se han movido por completo a la Papelera de reciclaje (abiertas, en ejecución, en uso o con una ruta que no es segura).' },
   'trash.unsafe': 'No se ha movido porque la ruta no es segura (es un enlace o una unión, o está fuera de la carpeta del historial de conversaciones).',
   'agents.errNotFile': 'Error de formato: no es un archivo (enlace o carpeta)',
   'usage.badFormat': 'No se ha podido leer el uso porque ha cambiado el formato de la respuesta.',

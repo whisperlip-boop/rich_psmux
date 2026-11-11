@@ -483,4 +483,12 @@ export const en: Dict = {
   'settings.checkUpdatesHint': 'Checks once when the app starts. This connects to the network.',
   'settings.showInputBar': 'Show input bar under each card',
   'settings.showInputBarHint': 'When off, type directly in the terminal. Attachments, Send and the card menu are hidden.',
+
+  'hist.folderMenu': 'Folder menu',
+  'hist.folderMenuTip': 'Folder menu (Shift+F10)',
+  'trash.groupMessage': { one: '{n} conversation in \'{folder}\' will be moved to the Recycle Bin.', other: '{n} conversations in \'{folder}\' will be moved to the Recycle Bin.' },
+  'trash.groupSkipped': { one: '{n} conversation is open, running, or can\'t be moved, and will be skipped.', other: '{n} conversations are open, running, or can\'t be moved, and will be skipped.' },
+  'trash.groupPartial': { one: '{n} of {total} conversations wasn\'t fully moved to the Recycle Bin (open, running, in use, or the path isn\'t safe).', other: '{n} of {total} conversations weren\'t fully moved to the Recycle Bin (open, running, in use, or the path isn\'t safe).' },
+  'trash.groupNote': 'You can restore them from the Windows Recycle Bin.',
+  'trash.groupNoteFolders': 'The conversation folders (tool results, etc.) will be moved too. You can restore them from the Windows Recycle Bin.',
 };

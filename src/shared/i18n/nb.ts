@@ -492,4 +492,12 @@ export const nb: Dict = {
 
   'settings.showInputBar': 'Vis inndatafelt under hvert kort',
   'settings.showInputBarHint': 'Når dette er slått av, skriver du direkte i terminalen. Vedlegg, Send-knappen og kortmenyen skjules.',
+
+  'hist.folderMenu': 'Mappemeny',
+  'hist.folderMenuTip': 'Mappemeny (Shift+F10)',
+  'trash.groupMessage': { one: '{n} samtale i «{folder}» flyttes til papirkurven.', other: '{n} samtaler i «{folder}» flyttes til papirkurven.' },
+  'trash.groupSkipped': { one: '{n} samtale hoppes over fordi den er åpen, kjører eller ikke kan flyttes.', other: '{n} samtaler hoppes over fordi de er åpne, kjører eller ikke kan flyttes.' },
+  'trash.groupPartial': { one: '{n} av {total} samtaler ble ikke fullstendig flyttet til papirkurven (åpen, kjører, i bruk eller banen er ikke trygg).', other: '{n} av {total} samtaler ble ikke fullstendig flyttet til papirkurven (åpne, kjører, i bruk eller banen er ikke trygg).' },
+  'trash.groupNote': 'Du kan gjenopprette dem fra papirkurven i Windows.',
+  'trash.groupNoteFolders': 'Samtalemappene (verktøyresultater osv.) flyttes også. Du kan gjenopprette dem fra papirkurven i Windows.',
 };

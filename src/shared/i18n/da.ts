@@ -490,4 +490,12 @@ export const da: Dict = {
   'settings.checkUpdatesHint': 'Når indstillingen er slået til, søger appen efter en ny version én gang, når den starter. Appen opretter forbindelse til netværket.',
   'settings.showInputBar': 'Vis inputfelt under hvert kort',
   'settings.showInputBarHint': 'Når indstillingen er slået fra, skriver du direkte i terminalen. Knapperne til vedhæftning, Send-knappen og kortmenuen skjules.',
+
+  'hist.folderMenu': 'Mappemenu',
+  'hist.folderMenuTip': 'Mappemenu (Shift+F10)',
+  'trash.groupMessage': { one: '{n} samtale i "{folder}" flyttes til papirkurven.', other: '{n} samtaler i "{folder}" flyttes til papirkurven.' },
+  'trash.groupSkipped': { one: '{n} samtale springes over, fordi den er åben, kører eller ikke kan flyttes.', other: '{n} samtaler springes over, fordi de er åbne, kører eller ikke kan flyttes.' },
+  'trash.groupPartial': { one: '{n} af {total} samtaler blev ikke flyttet fuldt ud til papirkurven (åben, kører, i brug, eller stien er ikke sikker).', other: '{n} af {total} samtaler blev ikke flyttet fuldt ud til papirkurven (åbne, kører, i brug, eller stien er ikke sikker).' },
+  'trash.groupNote': 'Du kan gendanne dem fra papirkurven i Windows.',
+  'trash.groupNoteFolders': 'Samtalernes mapper (værktøjsresultater osv.) flyttes også. Du kan gendanne dem fra papirkurven i Windows.',
 };

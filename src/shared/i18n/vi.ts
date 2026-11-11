@@ -483,4 +483,12 @@ export const vi: Dict = {
   'settings.checkUpdatesHint': 'Khi bật, ứng dụng sẽ kết nối mạng để kiểm tra phiên bản mới một lần lúc khởi động.',
   'settings.showInputBar': 'Hiển thị ô nhập dưới mỗi khung',
   'settings.showInputBarHint': 'Khi tắt, bạn nhập trực tiếp vào terminal. Nút đính kèm, nút Send và menu của khung sẽ bị ẩn.',
+
+  'hist.folderMenu': 'Menu thư mục',
+  'hist.folderMenuTip': 'Menu thư mục (Shift+F10)',
+  'trash.groupMessage': { other: '{n} cuộc trò chuyện trong "{folder}" sẽ được chuyển vào Thùng rác.' },
+  'trash.groupSkipped': { other: '{n} cuộc trò chuyện đang mở, đang chạy hoặc không thể chuyển sẽ bị bỏ qua.' },
+  'trash.groupPartial': { other: '{n} trong số {total} cuộc trò chuyện chưa được chuyển hết vào Thùng rác (đang mở, đang chạy, đang được sử dụng hoặc đường dẫn không an toàn).' },
+  'trash.groupNote': 'Bạn có thể khôi phục từ Thùng rác của Windows.',
+  'trash.groupNoteFolders': 'Thư mục của các cuộc trò chuyện (kết quả công cụ, v.v.) cũng sẽ được chuyển đi. Bạn có thể khôi phục từ Thùng rác của Windows.',
 };

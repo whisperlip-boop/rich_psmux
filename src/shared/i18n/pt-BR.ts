@@ -506,4 +506,12 @@ export const ptBR: Dict = {
   'settings.checkUpdatesHint': 'Quando esta opção está ativada, o aplicativo verifica uma vez, ao iniciar, se há uma nova versão. Para isso, ele se conecta à rede.',
   'settings.showInputBar': 'Mostrar o campo de entrada em cada cartão',
   'settings.showInputBarHint': 'Quando esta opção está desativada, você digita diretamente no terminal. As opções de anexar, o botão Send e o menu do cartão ficam ocultos.',
+
+  'hist.folderMenu': 'Menu da pasta',
+  'hist.folderMenuTip': 'Menu da pasta (Shift+F10)',
+  'trash.groupMessage': { one: '{n} conversa de "{folder}" será movida para a Lixeira.', many: '{n} de conversas de "{folder}" serão movidas para a Lixeira.', other: '{n} conversas de "{folder}" serão movidas para a Lixeira.' },
+  'trash.groupSkipped': { one: '{n} conversa está aberta, em execução ou não pode ser movida e será ignorada.', many: '{n} de conversas estão abertas, em execução ou não podem ser movidas e serão ignoradas.', other: '{n} conversas estão abertas, em execução ou não podem ser movidas e serão ignoradas.' },
+  'trash.groupPartial': { one: '{n} de {total} conversas não foi movida por completo para a Lixeira (aberta, em execução, em uso ou com um caminho que não é seguro).', many: '{n} de {total} conversas não foram movidas por completo para a Lixeira (abertas, em execução, em uso ou com um caminho que não é seguro).', other: '{n} de {total} conversas não foram movidas por completo para a Lixeira (abertas, em execução, em uso ou com um caminho que não é seguro).' },
+  'trash.groupNote': 'Você pode restaurá-las pela Lixeira do Windows.',
+  'trash.groupNoteFolders': 'As pastas das conversas (resultados de ferramentas etc.) também serão movidas. Você pode restaurá-las pela Lixeira do Windows.',
 };

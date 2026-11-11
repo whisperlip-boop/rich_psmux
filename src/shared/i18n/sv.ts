@@ -484,4 +484,12 @@ export const sv: Dict = {
   'settings.checkUpdatesHint': 'Söker efter nya versioner en gång när appen startar. Appen ansluter då till nätverket.',
   'settings.showInputBar': 'Visa inmatningsruta under varje kort',
   'settings.showInputBarHint': 'När alternativet är avstängt skriver du direkt i terminalen. Knapparna för att bifoga, Send-knappen och kortmenyn döljs.',
+
+  'hist.folderMenu': 'Mappmeny',
+  'hist.folderMenuTip': 'Mappmeny (Shift+F10)',
+  'trash.groupMessage': { one: '{n} konversation i ”{folder}” flyttas till Papperskorgen.', other: '{n} konversationer i ”{folder}” flyttas till Papperskorgen.' },
+  'trash.groupSkipped': { one: '{n} konversation hoppas över eftersom den är öppen, körs eller inte kan flyttas.', other: '{n} konversationer hoppas över eftersom de är öppna, körs eller inte kan flyttas.' },
+  'trash.groupPartial': { one: '{n} av {total} konversationer flyttades inte fullständigt till Papperskorgen (öppen, körs, används eller sökvägen är inte säker).', other: '{n} av {total} konversationer flyttades inte fullständigt till Papperskorgen (öppna, körs, används eller sökvägen är inte säker).' },
+  'trash.groupNote': 'Du kan återställa dem från Papperskorgen i Windows.',
+  'trash.groupNoteFolders': 'Konversationsmapparna (verktygsresultat m.m.) flyttas också. Du kan återställa dem från Papperskorgen i Windows.',
 };

@@ -482,4 +482,12 @@ export const id: Dict = {
   'settings.checkUpdatesHint': 'Jika diaktifkan, aplikasi memeriksa versi baru satu kali saat dimulai. Fitur ini terhubung ke jaringan.',
   'settings.showInputBar': 'Tampilkan kotak input di bawah setiap kartu',
   'settings.showInputBarHint': 'Jika dinonaktifkan, ketik langsung di terminal. Tombol lampiran, Send, dan menu kartu disembunyikan.',
+
+  'hist.folderMenu': 'Menu folder',
+  'hist.folderMenuTip': 'Menu folder (Shift+F10)',
+  'trash.groupMessage': { other: '{n} percakapan di "{folder}" akan dipindahkan ke Keranjang Sampah.' },
+  'trash.groupSkipped': { other: '{n} percakapan akan dilewati karena terbuka, sedang berjalan, atau tidak dapat dipindahkan.' },
+  'trash.groupPartial': { other: '{n} dari {total} percakapan tidak sepenuhnya berhasil dipindahkan ke Keranjang Sampah (terbuka, sedang berjalan, sedang digunakan, atau jalurnya tidak aman).' },
+  'trash.groupNote': 'Anda dapat memulihkan semuanya dari Keranjang Sampah Windows.',
+  'trash.groupNoteFolders': 'Folder masing-masing percakapan (hasil alat, dll.) juga akan dipindahkan. Anda dapat memulihkan semuanya dari Keranjang Sampah Windows.',
 };

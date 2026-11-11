@@ -490,4 +490,12 @@ export const nl: Dict = {
 
   'settings.showInputBar': 'Invoerbalk onder elke kaart tonen',
   'settings.showInputBarHint': 'Als deze optie is uitgeschakeld, typ je rechtstreeks in de terminal. Bijlagen, Send en het kaartmenu zijn verborgen.',
+
+  'hist.folderMenu': 'Mapmenu',
+  'hist.folderMenuTip': 'Mapmenu (Shift+F10)',
+  'trash.groupMessage': { one: "{n} gesprek in '{folder}' wordt naar de Prullenbak verplaatst.", other: "{n} gesprekken in '{folder}' worden naar de Prullenbak verplaatst." },
+  'trash.groupSkipped': { one: '{n} gesprek wordt overgeslagen omdat het is geopend, wordt uitgevoerd of niet kan worden verplaatst.', other: '{n} gesprekken worden overgeslagen omdat ze zijn geopend, worden uitgevoerd of niet kunnen worden verplaatst.' },
+  'trash.groupPartial': { one: '{n} van {total} gesprekken is niet volledig naar de Prullenbak verplaatst (geopend, wordt uitgevoerd, in gebruik of pad niet veilig).', other: '{n} van {total} gesprekken zijn niet volledig naar de Prullenbak verplaatst (geopend, worden uitgevoerd, in gebruik of pad niet veilig).' },
+  'trash.groupNote': 'Je kunt ze terugzetten vanuit de Prullenbak van Windows.',
+  'trash.groupNoteFolders': 'De mappen van de gesprekken (resultaten van tools enzovoort) worden ook verplaatst. Je kunt alles terugzetten vanuit de Prullenbak van Windows.',
 };

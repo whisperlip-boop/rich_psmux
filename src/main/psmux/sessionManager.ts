@@ -10,7 +10,7 @@ import { isPlainLeadCommand } from '../../shared/agents';
 import { msg, resolveMsg, tr, type Msg } from '../../shared/i18n';
 import { SESSION_ID_RE } from '../../shared/ids';
 import { appendLeadId, readSessionMeta, removeSessionFiles, sessionFiles, writeSessionMeta } from '../appData';
-import { findLeadSessionId, readTeamConfig } from '../claudeHome';
+import { findLeadSessionId, findTeamConfig, readTeamConfig, scanTranscriptTeam, type TranscriptTeam } from '../claudeHome';
 import { ControlClient, type CommandResult } from '../controlMode/client';
 import { assertSafeToken, inputToCommands, splitSubmit, tokensToCommands, xtermDataToTokens } from '../controlMode/quote';
 import { errMsg, log } from '../logger';
@@ -134,6 +134,10 @@ export class TabSession extends EventEmitter {
   private leadSessionIds: string[] = [];
   private teamName: string | null = null;
   private teamConfig: TeamConfig | null = null;
+  /** 리드 대화 기록에서 이어 읽은 팀 이름(대화 ID별). */
+  private transcriptTeam: { sid: string; scan: TranscriptTeam } | null = null;
+  /** pollTeam 실행 중(겹침 방지). */
+  private teamPolling = false;
   private lastOutput = new Map<string, number>();
   private quietUntil = new Map<string, number>();
   /** 칸별 마지막 출력 도착 시각(재동기화 전 무출력 대기용, quietUntil과 무관하게 항상 갱신). */
@@ -817,7 +821,18 @@ export class TabSession extends EventEmitter {
     return this.sendInput(this.leadPaneId, `Please shut down the teammate named ${l.name}.`);
   }
 
+  /** 팀 매핑 갱신. 첫 기록 읽기가 길어져도 다음 회차와 겹쳐 오래된 결과가 나중에 쓰이지 않게 한 번에 하나만 돈다. */
   private async pollTeam(): Promise<void> {
+    if (this.teamPolling) return;
+    this.teamPolling = true;
+    try {
+      await this.pollTeamOnce();
+    } finally {
+      this.teamPolling = false;
+    }
+  }
+
+  private async pollTeamOnce(): Promise<void> {
     // 매핑이 확정되면 ~/.claude 전수 파싱을 10초 간격으로 줄인다(새 칸이 생겨 %N이 보이면 다시 1.5초)
     const settled = this.leadSessionId !== null && this.panes.size > 0 && [...this.panes.keys()].every((p) => this.labels[p] && this.labels[p].source !== 'fallback');
     const now = Date.now();
@@ -828,20 +843,57 @@ export class TabSession extends EventEmitter {
       if (sid && sid !== this.leadSessionId) {
         this.leadSessionId = sid;
         this.leadSessionIds = appendLeadId(this.leadSessionIds, sid);
-        this.teamName = teamNameFor(sid);
+        // teamName은 여기서 바꾸지 않는다: /clear 뒤에도 팀 폴더는 팀을 만든 때의 이름 그대로라 아래 후보 확인이 정한다
         // 분리 뒤에도 메타로 이 세션의 대화 ID를 알 수 있게(탭 없는 세션 판정·히스토리 클릭 재연결)
         this.writeMeta();
-        log('info', `[${this.session}] lead session ${sid.slice(0, 8)} team=${this.teamName}`);
+        log('info', `[${this.session}] lead session ${sid.slice(0, 8)}`);
         this.emitState();
       }
-      const cfg = this.teamName ? await readTeamConfig(this.teamName) : null;
+      // 팀 폴더 이름은 팀을 만든 때의 리드 대화 ID라 지금 ID와 다를 수 있다. 후보를 매번 앞에서부터 확인해
+      // 새 팀 설정이 생기거나 한 번 읽기에 실패해도 다음 회차에 맞는 팀으로 돌아온다
+      const fromLog = await this.transcriptTeamName();
+      let cfg: TeamConfig | null = null;
+      let name: string | null = null;
+      for (const n of new Set([fromLog, this.leadSessionId ? teamNameFor(this.leadSessionId) : null, this.teamName])) {
+        cfg = n ? await readTeamConfig(n) : null;
+        if (cfg) {
+          name = n;
+          break;
+        }
+      }
+      if (!cfg && this.leadSessionId) {
+        const found = await findTeamConfig([...this.leadSessionIds, this.leadSessionId]);
+        if (found) ({ name, config: cfg } = found);
+      }
+      const renamed = name !== null && name !== this.teamName;
+      if (renamed) {
+        log('info', `[${this.session}] team=${name}${name === fromLog ? ' (lead transcript)' : ''}`);
+        this.teamName = name;
+      }
       if (JSON.stringify(cfg) !== JSON.stringify(this.teamConfig)) {
         this.teamConfig = cfg;
         this.relabel();
         this.emitState();
+      } else if (renamed) {
+        this.emitState();
       }
     } catch (e) {
       log('warn', `[${this.session}] team poll: ${errMsg(e)}`);
+    }
+  }
+
+  /** 리드 대화 기록에서 이어 읽은 팀 이름(대화 ID가 바뀌면 처음부터). 읽기 실패는 이번 회차만 지난 값으로 넘긴다. */
+  private async transcriptTeamName(): Promise<string | null> {
+    const sid = this.leadSessionId;
+    if (!sid) return null;
+    const prev = this.transcriptTeam?.sid === sid ? this.transcriptTeam.scan : null;
+    try {
+      const scan = await scanTranscriptTeam(sid, prev);
+      this.transcriptTeam = scan ? { sid, scan } : null;
+      return scan?.name ?? null;
+    } catch (e) {
+      log('warn', `[${this.session}] lead transcript read: ${errMsg(e)}`);
+      return prev?.name ?? null;
     }
   }
 

@@ -505,4 +505,21 @@ export const fil: Dict = {
 
   'settings.showInputBar': 'Ipakita ang input box sa ilalim ng bawat card',
   'settings.showInputBarHint': 'Kapag naka-off, direktang mag-type sa terminal. Nakatago ang mga attachment, Send, at menu ng card.',
+
+  'hist.folderMenu': 'Menu ng folder',
+  'hist.folderMenuTip': 'Menu ng folder (Shift+F10)',
+  'trash.groupMessage': {
+    one: "Ililipat sa Recycle Bin ang {n} usapan sa '{folder}'.",
+    other: "Ililipat sa Recycle Bin ang {n} usapan sa '{folder}'.",
+  },
+  'trash.groupSkipped': {
+    one: 'Lalaktawan ang {n} usapang bukas sa tab, tumatakbo, o hindi mailipat.',
+    other: 'Lalaktawan ang {n} usapang bukas sa tab, tumatakbo, o hindi mailipat.',
+  },
+  'trash.groupPartial': {
+    one: 'Hindi nailipat nang buo sa Recycle Bin ang {n} sa {total} usapan (bukas, tumatakbo, ginagamit, o hindi ligtas ang path).',
+    other: 'Hindi nailipat nang buo sa Recycle Bin ang {n} sa {total} usapan (bukas, tumatakbo, ginagamit, o hindi ligtas ang path).',
+  },
+  'trash.groupNote': 'Puwede mong i-restore ang mga ito mula sa Recycle Bin ng Windows.',
+  'trash.groupNoteFolders': 'Ililipat din ang mga folder ng mga usapan (mga resulta ng tool, atbp.). Puwede mong i-restore ang mga ito mula sa Recycle Bin ng Windows.',
 };

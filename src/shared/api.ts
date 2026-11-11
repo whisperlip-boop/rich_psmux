@@ -181,6 +181,9 @@ export interface TrashPreviewDto {
   /** 함께 이동할 대화 폴더 수(<대화 ID> 아래 서브에이전트 기록·도구 결과 등). */
   folders: number;
   error?: string;
+  /** 폴더 그룹 미리보기만: 건너뛸 대화 수(열림·실행 중·이동 불가), 지울 대화 ID. */
+  skipped?: number;
+  sessionIds?: string[];
 }
 
 /** 대화 삭제 결과. */
@@ -412,6 +415,10 @@ export interface CtdApi {
   trashPreview(sessionId: string): Promise<TrashPreviewDto>;
   /** 대화와 팀원·서브에이전트 기록을 휴지통으로 이동. */
   trashHistory(sessionId: string): Promise<TrashResultDto>;
+  /** 폴더 그룹 삭제 전 확인: 보이는 대화 중 지울 수 있는 것과 건너뛸 수. */
+  trashGroupPreview(sessionIds: string[]): Promise<TrashPreviewDto>;
+  /** 폴더 그룹의 대화들을 휴지통으로 이동(각각 이동 직전 다시 확인, 막힌 대화는 건너뜀). */
+  trashGroup(sessionIds: string[]): Promise<TrashResultDto>;
   /** 세션 끊기: 탭 없는 실행 중 대화를 끝낸다(앱 세션 = 팀 종료 요청 후 kill-session, 외부 psmux = kill-session, psmux 밖 = 프로세스 종료). 대상은 main이 찾고 실행 직전에 다시 확인한다. */
   terminateHistory(sessionId: string): Promise<HistoryStopDto>;
   /** 탭 없는 앱 세션에 다시 연결(새 탭). */

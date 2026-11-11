@@ -515,4 +515,12 @@ export const it: Dict = {
 
   'settings.showInputBar': 'Mostra la barra di input sotto ogni card',
   'settings.showInputBarHint': "Se l'opzione è disattivata, digiti direttamente nel terminale. I pulsanti per allegare, Send e il menu della card sono nascosti.",
+
+  'hist.folderMenu': 'Menu cartella',
+  'hist.folderMenuTip': 'Menu cartella (Shift+F10)',
+  'trash.groupMessage': { one: '{n} conversazione in "{folder}" verrà spostata nel Cestino.', many: '{n} di conversazioni in "{folder}" verranno spostate nel Cestino.', other: '{n} conversazioni in "{folder}" verranno spostate nel Cestino.' },
+  'trash.groupSkipped': { one: '{n} conversazione è aperta, in esecuzione o non può essere spostata e verrà saltata.', many: '{n} di conversazioni sono aperte, in esecuzione o non possono essere spostate e verranno saltate.', other: '{n} conversazioni sono aperte, in esecuzione o non possono essere spostate e verranno saltate.' },
+  'trash.groupPartial': { one: '{n} conversazione su {total} non è stata spostata completamente nel Cestino (aperta, in esecuzione, in uso o con percorso non sicuro).', many: '{n} di conversazioni su {total} non sono state spostate completamente nel Cestino (aperte, in esecuzione, in uso o con percorso non sicuro).', other: '{n} conversazioni su {total} non sono state spostate completamente nel Cestino (aperte, in esecuzione, in uso o con percorso non sicuro).' },
+  'trash.groupNote': 'Puoi ripristinarle dal Cestino di Windows.',
+  'trash.groupNoteFolders': 'Verranno spostate anche le cartelle delle conversazioni (risultati degli strumenti e altro). Puoi ripristinarle dal Cestino di Windows.',
 };

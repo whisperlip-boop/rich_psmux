@@ -1,6 +1,6 @@
 {
   "name": "rich-psmux",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Rich psmux - desktop GUI shell for Claude Code Agent Teams running in psmux (control mode client)",
   "private": true,
   "main": "out/main/index.js",

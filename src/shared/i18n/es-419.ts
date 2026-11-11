@@ -506,4 +506,12 @@ export const es419: Dict = {
   'settings.checkUpdatesHint': 'Si está activada, la aplicación busca una nueva versión una vez al iniciarse. Para ello, se conecta a la red.',
   'settings.showInputBar': 'Mostrar cuadro de entrada en cada tarjeta',
   'settings.showInputBarHint': 'Si está desactivada, escribe directamente en la terminal. Se ocultan las opciones para adjuntar, el botón Send y el menú de la tarjeta.',
+
+  'hist.folderMenu': 'Menú de la carpeta',
+  'hist.folderMenuTip': 'Menú de la carpeta (Shift+F10)',
+  'trash.groupMessage': { one: '{n} conversación de "{folder}" se moverá a la Papelera de reciclaje.', many: '{n} de conversaciones de "{folder}" se moverán a la Papelera de reciclaje.', other: '{n} conversaciones de "{folder}" se moverán a la Papelera de reciclaje.' },
+  'trash.groupSkipped': { one: 'Se omitirá {n} conversación que está abierta, en ejecución o que no se puede mover.', many: 'Se omitirán {n} de conversaciones que están abiertas, en ejecución o que no se pueden mover.', other: 'Se omitirán {n} conversaciones que están abiertas, en ejecución o que no se pueden mover.' },
+  'trash.groupPartial': { one: '{n} de {total} conversaciones no se movió por completo a la Papelera de reciclaje (abierta, en ejecución, en uso o con una ruta que no es segura).', many: '{n} de {total} conversaciones no se movieron por completo a la Papelera de reciclaje (abiertas, en ejecución, en uso o con una ruta que no es segura).', other: '{n} de {total} conversaciones no se movieron por completo a la Papelera de reciclaje (abiertas, en ejecución, en uso o con una ruta que no es segura).' },
+  'trash.groupNote': 'Puedes restaurarlas desde la Papelera de reciclaje de Windows.',
+  'trash.groupNoteFolders': 'También se moverán las carpetas de las conversaciones (resultados de herramientas, etc.). Puedes restaurarlas desde la Papelera de reciclaje de Windows.',
 };

@@ -485,4 +485,12 @@ export const zhTW: Dict = {
   'settings.checkUpdatesHint': '開啟後，應用程式啟動時會檢查一次是否有新版本。此功能會連線至網路。',
   'settings.showInputBar': '在每張卡片下方顯示輸入方塊',
   'settings.showInputBarHint': '關閉後，請直接在終端機中輸入。附件按鈕、Send 與卡片功能表將會隱藏。',
+
+  'hist.folderMenu': '資料夾功能表',
+  'hist.folderMenuTip': '資料夾功能表（Shift+F10）',
+  'trash.groupMessage': { other: '「{folder}」中的 {n} 個對話將移至資源回收筒。' },
+  'trash.groupSkipped': { other: '{n} 個對話已開啟、正在執行或無法移動，將會略過。' },
+  'trash.groupPartial': { other: '{total} 個對話中有 {n} 個未能完整移至資源回收筒（已開啟、執行中、使用中，或路徑不安全）。' },
+  'trash.groupNote': '可從 Windows 資源回收筒還原這些對話。',
+  'trash.groupNoteFolders': '這些對話的資料夾（工具結果等）也會一併移動。可從 Windows 資源回收筒還原。',
 };

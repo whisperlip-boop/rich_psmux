@@ -8,7 +8,9 @@ import { readdir, readFile, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
-import { matchesLeadTmux, sanitizeConfig, type TeamConfig } from './teams/paneMapper';
+import { SESSION_ID_RE } from '../shared/ids';
+import { JsonlSplitter } from './history/lineSplitter';
+import { matchesLeadTmux, sanitizeConfig, teamNameFor, type TeamConfig } from './teams/paneMapper';
 
 let rootOverride: string | null = null;
 let projectsOverride: string | null = null;
@@ -165,15 +167,107 @@ export async function findLeadSessionId(session: string, leadPaneId: string | nu
     if (!/^\d+\.json$/.test(f)) continue;
     const j = (await readJson('sessions', f)) as Record<string, unknown> | null;
     if (!j || !matchesLeadTmux(j.tmux, session, leadPaneId) || typeof j.sessionId !== 'string') continue;
+    // 리드 칸의 환경을 물려받은 SDK 하위 프로세스(예: 메모리 관찰자, entrypoint "sdk-cli")는 리드가 아니다. 필드가 없는 옛 버전은 그대로 받는다
+    if (j.entrypoint !== undefined && j.entrypoint !== 'cli') continue;
     const at = typeof j.updatedAt === 'number' ? j.updatedAt : typeof j.startedAt === 'number' ? j.startedAt : 0;
     if (!best || at >= best.at) best = { sid: j.sessionId, at };
   }
   return best?.sid ?? null;
 }
 
+/**
+ * 리드가 거친 대화 ID 중 팀 설정이 있는 가장 최근 것. 팀 폴더는 팀을 만든 때의 리드 대화 ID로 이름이 붙고 /clear 뒤에도 그대로라
+ * 지금 ID만으로는 못 찾을 수 있다.
+ *
+ * Args:
+ *   leadSessionIds: 리드에서 본 대화 ID(오래된 것부터).
+ *
+ * Returns:
+ *   팀 이름과 설정, 없으면 null.
+ */
+export async function findTeamConfig(leadSessionIds: string[]): Promise<{ name: string; config: TeamConfig } | null> {
+  for (const sid of [...leadSessionIds].reverse()) {
+    const name = teamNameFor(sid);
+    const config = name ? await readTeamConfig(name) : null;
+    if (name && config) return { name, config };
+  }
+  return null;
+}
+
+/** 리드 대화 기록에서 이어 읽은 팀 이름(scanTranscriptTeam 결과, 다음 호출에 그대로 넘긴다). */
+export interface TranscriptTeam {
+  /** 기록이 있는 프로젝트 폴더 이름. */
+  dir: string;
+  /** 다음에 이어 읽을 위치(마지막 완성 줄 끝). */
+  end: number;
+  /** 지금까지 본 마지막 팀 이름. 없으면 null. */
+  name: string | null;
+}
+
+const TEAM_NAME_RE = /^[A-Za-z0-9_-]+$/;
+
+/**
+ * 리드 대화 기록(projects/<폴더>/<sessionId>.jsonl)에서 Claude Code가 적은 팀 이름을 이어 읽는다.
+ * 팀원을 띄운 도구 결과(toolUseResult.team_name)가 실제 팀 폴더 이름이라, 팀을 만든 대화 ID를 이 탭이 본 적 없어도
+ * (다시 연결·앱이 꺼진 동안 /clear·ID 이력 밀림) 팀을 찾을 수 있다.
+ *
+ * Args:
+ *   sessionId: 리드 대화 ID.
+ *   prev: 같은 대화의 지난 결과(처음이면 null). 그 end부터 이어 읽는다. 처음에는 파일 전체를 청크로 훑는다
+ *     (실측: 마지막 team_name이 끝에서 6.7MB 앞인 기록도 있어 꼬리만 읽으면 놓친다).
+ *
+ * Returns:
+ *   다음 호출에 넘길 결과. 대화 ID가 형식에 안 맞거나 기록 파일이 없으면 null.
+ *
+ * Raises:
+ *   Error: 기록 파일을 읽다 실패했을 때.
+ */
+export async function scanTranscriptTeam(sessionId: string, prev: TranscriptTeam | null): Promise<TranscriptTeam | null> {
+  if (!SESSION_ID_RE.test(sessionId)) return null;
+  const file = `${sessionId}.jsonl`;
+  let dir = prev?.dir ?? null;
+  let st = dir ? await statProjectFile(dir, file) : null;
+  if (!st) {
+    dir = null;
+    let dirs: string[];
+    try {
+      dirs = await readdir(resolveProjects());
+    } catch {
+      return null;
+    }
+    for (const d of dirs) {
+      if (d.startsWith('.')) continue;
+      st = await statProjectFile(d, file);
+      if (st) {
+        dir = d;
+        break;
+      }
+    }
+  }
+  if (!dir || !st) return null;
+  // 파일이 줄었으면(다시 쓰임) 처음부터 다시 읽는다
+  const base = prev && prev.dir === dir && prev.end <= st.size ? prev : null;
+  const start = base?.end ?? 0;
+  let name = base?.name ?? null;
+  // shortcut: 256KB를 넘어 잘린 줄은 건너뛴다(팀원 생성 결과 줄은 작다). 놓치는 사례가 보이면 잘린 줄에서 toolUseResult만 찾는다
+  const sp = new JsonlSplitter(start, ({ text, truncated }) => {
+    if (truncated || !text.includes('"team_name":"') || !text.includes('"toolUseResult"')) return true;
+    try {
+      // 도구 입력의 team_name(무시되는 옛 매개변수)이 아니라 결과에 적힌 이름만 쓴다
+      const tn = (JSON.parse(text) as { toolUseResult?: { team_name?: unknown } } | null)?.toolUseResult?.team_name;
+      if (typeof tn === 'string' && TEAM_NAME_RE.test(tn)) name = tn;
+    } catch {
+      // 깨진 줄은 건너뛴다
+    }
+    return true;
+  });
+  await readProjectRange(dir, file, start, st.size, (b) => sp.push(b));
+  return { dir, end: sp.lastEnd >= 0 ? sp.lastEnd : start, name };
+}
+
 /** teams/<teamName>/config.json 을 읽어 정제한다. 없으면 null. */
 export async function readTeamConfig(teamName: string): Promise<TeamConfig | null> {
-  if (!/^[A-Za-z0-9_-]+$/.test(teamName)) return null;
+  if (!TEAM_NAME_RE.test(teamName)) return null;
   const raw = await readJson('teams', teamName, 'config.json');
   return raw === null ? null : sanitizeConfig(raw);
 }

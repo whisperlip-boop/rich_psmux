@@ -50,13 +50,14 @@ export function RenameDialog({ item, original, onSave, onClose }: { item: Histor
 }
 
 /** 휴지통 이동 확인. */
-export function TrashDialog({ title, extra, folders, busy, onConfirm, onClose }: { title: string; extra: number; folders: number; busy: boolean; onConfirm: () => void; onClose: () => void }) {
+export function TrashDialog({ text, count = 1, skipped = 0, folders, busy, onConfirm, onClose }: { text: string; count?: number; skipped?: number; folders: number; busy: boolean; onConfirm: () => void; onClose: () => void }) {
   useDialogKeys(true, onClose, '.modal__actions .btn-secondary');
   return (
     <div class="modal" onClick={onClose}>
       <div class="modal__box" role="alertdialog" aria-modal="true" aria-label={t('trash.title')} onClick={(e) => e.stopPropagation()}>
-        <p class="modal__text">{trashMessage(title, extra)}</p>
-        <p class="modal__note">{t(folders > 0 ? 'trash.noteFolders' : 'trash.note')}</p>
+        <p class="modal__text">{text}</p>
+        <p class="modal__note">{t(count >= 2 ? (folders > 0 ? 'trash.groupNoteFolders' : 'trash.groupNote') : (folders > 0 ? 'trash.noteFolders' : 'trash.note'))}</p>
+        {skipped > 0 && <p class="modal__note">{t('trash.groupSkipped', { n: skipped })}</p>}
         <div class="modal__actions">
           <button class="btn-secondary" onClick={onClose}>{t('common.cancel')}</button>
           <button class="btn-danger" disabled={busy} onClick={onConfirm}>{t(busy ? 'trash.moving' : 'trash.confirm')}</button>

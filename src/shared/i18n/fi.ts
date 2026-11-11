@@ -495,4 +495,12 @@ export const fi: Dict = {
 
   'settings.showInputBar': 'Näytä syöteruutu jokaisen kortin alla',
   'settings.showInputBarHint': 'Kun asetus ei ole käytössä, kirjoitat suoraan päätteeseen. Liitteet, Send-painike ja korttivalikko piilotetaan.',
+
+  'hist.folderMenu': 'Kansiovalikko',
+  'hist.folderMenuTip': 'Kansiovalikko (Shift+F10)',
+  'trash.groupMessage': { one: '{n} keskustelu kansiosta ”{folder}” siirretään Roskakoriin.', other: '{n} keskustelua kansiosta ”{folder}” siirretään Roskakoriin.' },
+  'trash.groupSkipped': { one: '{n} keskustelu ohitetaan, koska se on avoinna, käynnissä tai sitä ei voi siirtää.', other: '{n} keskustelua ohitetaan, koska ne ovat avoinna, käynnissä tai niitä ei voi siirtää.' },
+  'trash.groupPartial': { one: '{total} keskustelusta {n} ei siirtynyt kokonaan Roskakoriin (avoinna, käynnissä, käytössä tai polku ei ole turvallinen).', other: '{total} keskustelusta {n} ei siirtynyt kokonaan Roskakoriin (avoinna, käynnissä, käytössä tai polku ei ole turvallinen).' },
+  'trash.groupNote': 'Voit palauttaa ne Windowsin Roskakorista.',
+  'trash.groupNoteFolders': 'Myös keskustelukansiot (työkalujen tulokset ym.) siirretään. Voit palauttaa ne Windowsin Roskakorista.',
 };

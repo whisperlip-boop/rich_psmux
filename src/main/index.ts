@@ -774,6 +774,11 @@ function trashBlockReason(sessionIds: string[]): string | null {
 /** 삭제 전 확인: 함께 옮길 파일 수와 삭제 불가 사유. */
 async function trashPreview(sessionId: string): Promise<TrashPreviewDto> {
   await refreshRunning();
+  return previewOne(sessionId);
+}
+
+/** 대화 하나의 삭제 전 확인(실행 목록 갱신은 호출자가 한 번만). */
+async function previewOne(sessionId: string): Promise<TrashPreviewDto> {
   const plan = await planTrash(projectsDir(), indexer.items(), sessionId);
   if (!plan) return { ok: false, extra: 0, folders: 0, error: tr('trash.notFound') };
   const blocked = trashBlockReason(plan.sessionIds);
@@ -789,6 +794,14 @@ async function trashPreview(sessionId: string): Promise<TrashPreviewDto> {
  */
 async function trashConversation(sessionId: string): Promise<TrashResultDto> {
   await refreshRunning();
+  const r = await trashOne(sessionId);
+  // 이동을 시도했으면(moved + failed > 0) 목록을 다시 보낸다. 찾지 못함·삭제 불가로 끝났으면 그대로
+  if (r.moved + r.failed > 0) publishHistory();
+  return r;
+}
+
+/** 대화 하나를 휴지통으로(실행 목록 갱신·목록 다시 보내기는 호출자). 이동 직전에 삭제 불가 여부를 다시 확인한다. */
+async function trashOne(sessionId: string): Promise<TrashResultDto> {
   const root = projectsDir();
   const plan = await planTrash(root, indexer.items(), sessionId);
   if (!plan) return { ok: false, moved: 0, failed: 0, error: tr('trash.notFound') };
@@ -799,7 +812,6 @@ async function trashConversation(sessionId: string): Promise<TrashResultDto> {
   const gone = [plan.main, ...plan.mates].filter((x) => moved.has(x.path)).map((x) => x.key);
   indexer.removeFiles(gone);
   historyMeta.forget(gone);
-  publishHistory();
   const failed = out.failed.length + out.refused.length;
   log('info', `history trash: moved ${out.moved.length}, failed ${out.failed.length}, refused ${out.refused.length}`);
   // 안전상 거부(정션·심볼릭 링크·모양 불일치)와 이동 실패(잠김·권한)를 구분해 안내한다
@@ -810,6 +822,57 @@ async function trashConversation(sessionId: string): Promise<TrashResultDto> {
     return { ok: false, moved: out.moved.length, failed, error: tr('trash.partial', { parts: parts.join(tr('common.listSep')) }) };
   }
   return { ok: true, moved: out.moved.length, failed: 0 };
+}
+
+/**
+ * 폴더 그룹 삭제 전 확인: 보이는 대화 각각을 확인해 지울 수 있는 것만 모은다(실행 목록은 한 번만 갱신).
+ * skipped = 열림·실행 중·이동 불가로 건너뛸 수, sessionIds = 지울 대화. 하나도 없으면 ok: false + 첫 사유.
+ */
+async function trashGroupPreview(ids: string[]): Promise<TrashPreviewDto> {
+  await refreshRunning();
+  const r = { extra: 0, folders: 0, skipped: 0, sessionIds: [] as string[] };
+  let error: string | undefined;
+  for (const id of ids) {
+    const p = await previewOne(id);
+    if (!p.ok) {
+      r.skipped++;
+      error ??= p.error;
+      continue;
+    }
+    r.extra += p.extra;
+    r.folders += p.folders;
+    r.sessionIds.push(id);
+  }
+  return r.sessionIds.length ? { ok: true, ...r } : { ok: false, ...r, error: error ?? tr('trash.notFound') };
+}
+
+/** 폴더 그룹 삭제: 대화마다 trashOne(이동 직전 다시 확인, 그새 막힌 대화는 건너뜀). 실행 목록 갱신·목록 보내기는 한 번. */
+async function trashGroup(ids: string[]): Promise<TrashResultDto> {
+  await refreshRunning();
+  let done = 0;
+  let moved = 0;
+  let failed = 0;
+  let thrown = 0;
+  let lastError: string | undefined;
+  for (const id of ids) {
+    // 한 대화의 예외로 나머지·요약 로그를 건너뛰지 않는다(못 지운 것으로 센다)
+    try {
+      const r = await trashOne(id);
+      moved += r.moved;
+      failed += r.failed;
+      if (r.ok) done++;
+      else lastError = r.error;
+    } catch (e) {
+      thrown++;
+      lastError = tr('trash.moveFailed');
+      log('warn', `history trash group: one conversation failed (${errMsg(e)})`);
+    }
+  }
+  if (moved + failed + thrown > 0) publishHistory();
+  log('info', `history trash group: ${done}/${ids.length} conversations moved (files moved ${moved}, failed ${failed}, errors ${thrown})`);
+  // 1개짜리 그룹은 '1개 중 1개' 대신 한 줄 삭제와 같은 사유를 보여 준다
+  if (done < ids.length) return { ok: false, moved, failed, error: ids.length === 1 ? (lastError ?? tr('trash.moveFailed')) : tr('trash.groupPartial', { n: ids.length - done, total: ids.length }) };
+  return { ok: true, moved, failed };
 }
 
 /** psmux 세션 목록(계정 메뉴): 앱 세션(메타 있음)은 탭 전환·재연결 대상, 그 밖은 이름만. */
@@ -1149,6 +1212,9 @@ const isStr = (v: unknown, max = 100000): v is string => typeof v === 'string' &
 const isPane = (v: unknown): v is string => typeof v === 'string' && /^%\d+$/.test(v);
 const isInt = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v > 0 && v < 10000;
 const isSid = (v: unknown): v is string => typeof v === 'string' && SESSION_ID_RE.test(v);
+const isSidList = (v: unknown): v is string[] => Array.isArray(v) && v.length > 0 && v.length <= 10000 && v.every(isSid);
+/** 대소문자 무시 중복 제거(중복 ID가 거짓 "일부 실패"를 만들지 않게). */
+const uniqSids = (ids: string[]): string[] => [...new Map(ids.map((x) => [x.toLowerCase(), x])).values()];
 /** 폴더면 true(없거나 파일이면 false). */
 function isDirectory(p: string): boolean {
   try {
@@ -1260,6 +1326,10 @@ function registerIpc(): void {
     (isSid(sid) ? trashPreview(sid) : { ok: false, extra: 0, folders: 0, error: tr('ipc.badSessionId') }));
   ipcMain.handle('history:trash', (_e, sid: unknown): Promise<TrashResultDto> | TrashResultDto =>
     (isSid(sid) ? trashConversation(sid) : { ok: false, moved: 0, failed: 0, error: tr('ipc.badSessionId') }));
+  ipcMain.handle('history:trashGroupPreview', (_e, ids: unknown): Promise<TrashPreviewDto> | TrashPreviewDto =>
+    (isSidList(ids) ? trashGroupPreview(uniqSids(ids)) : { ok: false, extra: 0, folders: 0, error: tr('ipc.badSessionId') }));
+  ipcMain.handle('history:trashGroup', (_e, ids: unknown): Promise<TrashResultDto> | TrashResultDto =>
+    (isSidList(ids) ? trashGroup(uniqSids(ids)) : { ok: false, moved: 0, failed: 0, error: tr('ipc.badSessionId') }));
   // 세션 끊기: 렌더러는 대화 ID만 보낸다(psmux 세션 이름·pid는 main이 실행 목록에서 찾음)
   ipcMain.handle('history:terminate', (_e, sid: unknown): Promise<HistoryStopDto> | HistoryStopDto =>
     (isSid(sid) ? stopDetached(sid) : { ok: false, error: tr('ipc.badSessionId') }));

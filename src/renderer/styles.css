@@ -111,7 +111,8 @@ code { font-family: var(--font-mono); font-size: .9em; } /* 기본 monospace는 
 .hist-item { position: relative; }
 .hist-row__more { position: absolute; right: 4px; top: 2px; visibility: hidden; }
 .hist-item:hover .hist-row__more, .hist-item:focus-within .hist-row__more, .hist-item.is-menu .hist-row__more { visibility: visible; }
-.hist-item:hover .hist-row__time, .hist-item:focus-within .hist-row__time, .hist-item.is-menu .hist-row__time { visibility: hidden; }
+.hist-item:hover .hist-row__time, .hist-item:focus-within .hist-row__time, .hist-item.is-menu .hist-row__time,
+.hist-item:hover .hist-group__count, .hist-item:focus-within .hist-group__count, .hist-item.is-menu .hist-group__count { visibility: hidden; }
 /* 목록(overflow) 밖으로 나와 잘리지 않고 목록 스크롤 높이도 늘리지 않게 화면 기준(fixed)으로 띄운다. 위치는 Sidebar가 계산 */
 .menu__list.hist-menu { position: fixed; right: auto; min-width: 160px; z-index: 40; }
 .menu__list .is-danger:not(:disabled) { color: var(--danger); }
