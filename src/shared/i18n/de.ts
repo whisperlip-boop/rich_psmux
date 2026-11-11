@@ -498,7 +498,7 @@ export const de: Dict = {
   'hist.folderMenuTip': 'Ordnermenü (Shift+F10)',
   'trash.groupMessage': { one: '{n} Unterhaltung in „{folder}“ wird in den Papierkorb verschoben.', other: '{n} Unterhaltungen in „{folder}“ werden in den Papierkorb verschoben.' },
   'trash.groupSkipped': { one: '{n} Unterhaltung wird übersprungen, weil sie geöffnet ist, läuft oder nicht verschoben werden kann.', other: '{n} Unterhaltungen werden übersprungen, weil sie geöffnet sind, laufen oder nicht verschoben werden können.' },
-  'trash.groupPartial': { one: '{n} von {total} Unterhaltungen wurde nicht vollständig in den Papierkorb verschoben (geöffnet, laufend, in Verwendung oder Pfad nicht sicher).', other: '{n} von {total} Unterhaltungen wurden nicht vollständig in den Papierkorb verschoben (geöffnet, laufend, in Verwendung oder Pfad nicht sicher).' },
+  'trash.groupPartial': { one: '{n} von {total} Unterhaltungen wurde nicht vollständig in den Papierkorb verschoben (geöffnet, laufend, in Verwendung oder unsicherer Pfad).', other: '{n} von {total} Unterhaltungen wurden nicht vollständig in den Papierkorb verschoben (geöffnet, laufend, in Verwendung oder unsicherer Pfad).' },
   'trash.groupNote': 'Sie können sie aus dem Windows-Papierkorb wiederherstellen.',
   'trash.groupNoteFolders': 'Die Ordner der Unterhaltungen (Toolergebnisse usw.) werden ebenfalls verschoben. Sie können sie aus dem Windows-Papierkorb wiederherstellen.',
 };

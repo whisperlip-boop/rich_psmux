@@ -495,7 +495,7 @@ export const da: Dict = {
   'hist.folderMenuTip': 'Mappemenu (Shift+F10)',
   'trash.groupMessage': { one: '{n} samtale i "{folder}" flyttes til papirkurven.', other: '{n} samtaler i "{folder}" flyttes til papirkurven.' },
   'trash.groupSkipped': { one: '{n} samtale springes over, fordi den er åben, kører eller ikke kan flyttes.', other: '{n} samtaler springes over, fordi de er åbne, kører eller ikke kan flyttes.' },
-  'trash.groupPartial': { one: '{n} af {total} samtaler blev ikke flyttet fuldt ud til papirkurven (åben, kører, i brug, eller stien er ikke sikker).', other: '{n} af {total} samtaler blev ikke flyttet fuldt ud til papirkurven (åbne, kører, i brug, eller stien er ikke sikker).' },
+  'trash.groupPartial': { one: '{n} af {total} samtaler blev ikke flyttet fuldt ud til papirkurven (åben, kørende, i brug, eller stien er ikke sikker).', other: '{n} af {total} samtaler blev ikke flyttet fuldt ud til papirkurven (åbne, kørende, i brug, eller stien er ikke sikker).' },
   'trash.groupNote': 'Du kan gendanne dem fra papirkurven i Windows.',
   'trash.groupNoteFolders': 'Samtalernes mapper (værktøjsresultater osv.) flyttes også. Du kan gendanne dem fra papirkurven i Windows.',
 };
