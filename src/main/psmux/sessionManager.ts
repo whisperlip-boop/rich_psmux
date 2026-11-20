@@ -90,6 +90,11 @@ export interface SessionOptions {
   shell?: string | null;
   /** 탭 용도. 'login'이면 리드 명령이 claude auth login(hook·statusLine 없음). 기본 'conversation'. */
   purpose?: SessionPurpose;
+  /**
+   * 방금 list-sessions로 있음을 확인한 세션(시작 복원). 첫 연결의 has-session을 건너뛴다(프로세스 1개 절약).
+   * 그 사이 세션이 사라져도 `-CC attach -t`는 exit 1로 끝나고 세션을 만들지 않는다(client.ts 실측) → 연결 실패로 처리된다.
+   */
+  listed?: boolean;
 }
 
 /** 종료 요청 후 팀원 칸이 사라질 때까지 기다리는 최대 시간. */
@@ -169,6 +174,8 @@ export class TabSession extends EventEmitter {
   /** 카드 입력(deliver) 순서 보장용 체인. */
   private inputQueue: Promise<unknown> = Promise.resolve();
   private refreshAgain = false;
+  /** 기존 세션에 붙은 뒤 뒤에서 도는 PATH 갱신(never rejects). kill이 끝나기를 기다린다. */
+  private shimPending: Promise<void> | null = null;
   private closing = false;
   private reconnectDelay = 1000;
   /** 설정한 셸을 이 세션에 적용하지 못했을 때 사용자 안내(한국어). 적용됐거나 설정이 없으면 null. */
@@ -293,10 +300,23 @@ export class TabSession extends EventEmitter {
     }
     try {
       const t0 = Date.now();
-      await this.connect();
+      await this.connect(!this.opts.listed);
       const tConnect = Date.now();
-      await this.applyShimPath();
-      if (!fresh) log('info', `[${this.session}] startup: attach has-session+connect ${tConnect - t0} ms, shim path ${Date.now() - tConnect} ms`);
+      if (fresh) {
+        await this.applyShimPath(true);
+      } else {
+        // 기존 세션: PATH 갱신(psmux CLI, 기동 중에는 서버가 바빠 수 초)은 기다리지 않고, 읽어 보는 확인도 하지 않는다.
+        // 대신 칸 목록을 바로 받아 탭을 알릴 때 카드가 함께 생기게 한다(폴링·출력을 기다리지 않음)
+        this.shimPending = this.applyShimPath(false).then(
+          (applied) => log('info', `[${this.session}] startup: shim path ${applied ? 'applied' : 'not applied'} after ${Date.now() - tConnect} ms (background)`),
+          (e: unknown) => log('warn', `[${this.session}] exec shim not applied: ${errMsg(e)}`),
+        );
+        await this.refresh();
+        // has-session을 건너뛴 경우 사라진 세션도 준비 대기 시간 초과(1.5초)로 connect를 통과할 수 있다: 그 사이 연결이 끊겼으면 붙기 실패로 끝낸다
+        // (칸이 아직 0개인 정상 세션은 연결이 살아 있어 통과. 분리·종료 중이면 지금처럼 그대로 둔다)
+        if (!this.client && !this.closing) throw new Error('control mode connection lost while attaching');
+        log('info', `[${this.session}] startup: attach connect ${tConnect - t0} ms${this.opts.listed ? ' (has-session skipped)' : ''}, first pane list ${Date.now() - tConnect} ms`);
+      }
       if (fresh) {
         await this.refresh();
         this.leadPaneId = [...this.panes.keys()][0] ?? null;
@@ -405,30 +425,33 @@ export class TabSession extends EventEmitter {
    * shortcut: 기존 세션에 붙을 때도 base는 지금 앱의 PATH다(세션에는 읽을 수 있는 자기 PATH가 없음). 세션을 만든 뒤 사용자 PATH가 바뀌었으면
    * 새 칸은 바뀐 PATH를 받는다. 세션별 PATH를 기록해야 할 일이 생기면 세션 메타에 남긴다.
    */
-  private async applyShimPath(): Promise<void> {
+  private async applyShimPath(verify: boolean): Promise<boolean> {
+    if (this.closing) return false;
     let dir: string;
     try {
       dir = ensureExecShim(this.opts.dataDir);
     } catch (e) {
       log('warn', `[${this.session}] exec shim not applied: ${errMsg(e)}`);
-      return;
+      return false;
     }
     const base = envPath(cleanEnv());
     const value = sessionPath(dir, base?.value);
     if (!base || !value) {
       log('warn', `[${this.session}] exec shim not applied: PATH unknown`);
-      return;
+      return false;
     }
     const r = await psmuxCli(this.opts.psmux, ['set-environment', '-t', this.session, base.key, value]);
     if (r.code !== 0) {
       log('warn', `[${this.session}] exec shim not applied: set-environment code=${r.code} ${r.err.slice(0, 120)}`);
-      return;
+      return false;
     }
-    // 그대로 들어갔는지 확인(로그에는 PATH 내용 대신 길이만). 진단용이라 연결 완료(복원 6개면 세션마다 CLI 1회)를 기다리게 하지 않는다
+    // 그대로 들어갔는지 확인(새 세션만, 로그에는 PATH 내용 대신 길이만). 진단용이라 시작을 기다리게 하지 않는다
+    if (!verify) return true;
     void psmuxCli(this.opts.psmux, ['show-environment', '-t', this.session, base.key]).then((back) => {
       const got = back.code === 0 ? back.out.replace(/^[^=]*=/, '') : null;
       if (got !== value) log('warn', `[${this.session}] exec shim PATH read back differs (set ${value.length} chars, read ${got === null ? `code=${back.code}` : `${got.length} chars`})`);
     });
+    return true;
   }
 
   /** 칸이 생긴 지 QUICK_DEATH_MS 안에 죽거나 사라졌으면 경고 1줄(리드 제외, 종료 처리 중 제외, 칸마다 1번). */
@@ -440,8 +463,9 @@ export class TabSession extends EventEmitter {
     if (ms <= QUICK_DEATH_MS) log('warn', `[${this.session}] pane ${id} closed ${Math.round(ms / 100) / 10}s after it was added`);
   }
 
-  private async connect(): Promise<void> {
-    if (!(await hasSession(this.opts.psmux, this.session))) {
+  /** control mode 연결. checkSession이 false면 has-session을 건너뛴다(시작 복원의 첫 연결만, SessionOptions.listed). */
+  private async connect(checkSession = true): Promise<void> {
+    if (checkSession && !(await hasSession(this.opts.psmux, this.session))) {
       this.setStatus('ended', msg('sess.gone'));
       throw new Error(tr('sess.notFound', { name: this.session }));
     }
@@ -1107,6 +1131,8 @@ export class TabSession extends EventEmitter {
   /** psmux 세션까지 종료하고 이 세션의 앱 파일(메타·캐시·hook)을 지운다(명시적 종료·테스트 정리 전용). */
   async kill(): Promise<void> {
     this.detach();
+    // 뒤에서 돌던 PATH 갱신(psmux CLI)이 끝난 뒤 닫는다: 업데이트 전 닫기 뒤에 psmux 프로세스가 남아 exe 교체를 막지 않게
+    await this.shimPending;
     const r = await psmuxCli(this.opts.psmux, ['kill-session', '-t', this.session]);
     log('info', `[${this.session}] kill-session code=${r.code}`);
     // 세션이 남아 있으면 앱 파일을 지우지 않는다(다음 실행 때 복원·정리 대상)

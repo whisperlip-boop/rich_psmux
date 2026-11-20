@@ -237,6 +237,8 @@ export class HistoryIndexer extends EventEmitter {
   /** 캐시를 읽고(useCache), 전체 스캔·감시·주기 확인을 시작한다. */
   async start(useCache = true): Promise<void> {
     if (useCache) this.loadCache();
+    // 캐시 목록을 바로 내보낸다: 첫 화면(init)의 히스토리가 전체 스캔(기동 중 main이 바쁘면 수 초)을 기다리지 않게. 바뀐 파일은 스캔 끝에 다시 알린다
+    if (this.entries.size) this.emit('update', this.items());
     this.watcher = watchProjects((rel) => this.onWatch(rel), (e) => log('warn', `history watch error: ${errMsg(e)} (periodic rescan continues)`));
     this.periodic = setInterval(() => void this.scanAll(), PERIODIC_MS);
     this.saveTimer = setInterval(() => { if (this.dirty) this.saveCache(); }, CACHE_SAVE_MS);

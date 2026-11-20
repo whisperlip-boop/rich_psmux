@@ -156,11 +156,14 @@ export class ControlClient extends EventEmitter {
     const { psmuxPath, session, env, log } = this.opts;
     // `-CC -t`는 -t를 무시하고, PSMUX_SESSION_NAME은 없는 이름이면 새 세션을 만든다.
     // `-CC attach -t`는 없는 세션이면 exit 1로 끝나고 세션을 만들지 않는다(실측) → has-session 확인 뒤 사라져도 안전
+    const t0 = Date.now();
     this.proc = spawn(psmuxPath, ['-CC', 'attach', '-t', session], {
       env,
       stdio: ['pipe', 'pipe', 'pipe'],
       windowsHide: true,
     });
+    // 프로세스 생성은 main 스레드를 막는다(기동 지연 진단용으로 걸린 시간을 남김)
+    const spawnMs = Date.now() - t0;
     this.proc.stdout?.on('data', (chunk: Buffer) => {
       for (const line of this.splitter.push(chunk)) {
         const ev = this.parser.feed(line);
@@ -171,7 +174,7 @@ export class ControlClient extends EventEmitter {
     this.proc.on('error', (e) => this.close(`spawn error: ${e.message}`));
     this.proc.on('exit', (code) => this.close(`process exit ${code}`));
     this.proc.stdin?.on('error', (e) => this.close(`stdin error: ${e.message}`));
-    log('info', `[cc ${session}] started pid=${this.proc.pid}`);
+    log('info', `[cc ${session}] started pid=${this.proc.pid} (spawn ${spawnMs} ms)`);
   }
 
   private handle(ev: ControlEvent): void {

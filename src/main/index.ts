@@ -104,6 +104,12 @@ let restoring: Promise<void> | null = null;
 const restoringTabs = new Set<string>();
 /** 렌더러에 알린 탭(붙는 중인 복원 탭 제외), 만든 순서. */
 const shownTabs = (): TabSession[] => orderedTabs().filter((t) => !restoringTabs.has(t.tabId));
+/** 시작 복원에서 동시에 붙는 세션 수(실측: 6개를 한꺼번에 붙이면 main이 0.6~2.8초씩 멈추고 psmux CLI가 서버에서 줄을 섬). */
+const RESTORE_CONCURRENCY = 2;
+/** 창 첫 그리기(ready-to-show)를 기다리는 최대 시간(ms). 이벤트가 오지 않아도(최소화로 시작 등) 복원은 시작한다. */
+const FIRST_PAINT_WAIT_MS = 3000;
+/** 창이 처음 그려졌을 때(또는 FIRST_PAINT_WAIT_MS 뒤) resolve. 시작 복원은 이 뒤에 시작한다(createWindow에서 설정). */
+let firstPaint: Promise<void> = Promise.resolve();
 /** 같은 대화를 연달아 클릭해도 세션을 두 번 만들지 않게 진행 중인 열기를 공유한다. */
 const opening = new Map<string, Promise<OpenResult>>();
 /** 진행 중인 붙기(세션 이름 → 결과). attachSession이 같은 세션을 동시에 두 번 붙지 않게 공유하고, 끝나면 지운다. */
@@ -300,26 +306,48 @@ function existingTabResult(tabId: string): Promise<OpenResult> {
  * 살아 있는 앱 세션에 다시 연결(복원·◐ 재연결). 폴더·리드 명령은 메타 값을 쓴다(리드 이름 @ceo 기준).
  * 같은 세션을 붙는 중이면(복원 중 히스토리 클릭 등) 그 작업을 공유한다(TabSession·-CC 연결이 둘 생기지 않게).
  */
-function attachSession(name: string): Promise<OpenResult> {
+function attachSession(name: string, restore?: RestorePaths): Promise<OpenResult> {
   let p = attaching.get(name);
   if (!p) {
-    p = attachSessionOnce(name).finally(() => attaching.delete(name));
+    p = attachSessionOnce(name, restore).then((r) => {
+      announceRestored(name, r);
+      return r;
+    }, (e: unknown) => {
+      restoringTabs.delete(name);
+      throw e;
+    }).finally(() => attaching.delete(name));
     attaching.set(name, p);
   }
   return p;
 }
 
-async function attachSessionOnce(name: string): Promise<OpenResult> {
+/** 시작 복원이 세션마다 다시 찾지 않게 한 번 찾아 넘기는 값(psmux·hook 명령). 넘기면 방금 list-sessions로 본 세션으로 보고 has-session도 건너뛴다. */
+interface RestorePaths { psmux: string; hook: string | null }
+
+/**
+ * 시작 복원 대상이던 세션의 붙기가 끝났을 때(복원·히스토리 클릭 어느 쪽이든) 막아 둔 탭 상태를 렌더러에 보낸다.
+ * 실패면 보내지 않아 지금처럼 탭이 생기지 않는다.
+ */
+function announceRestored(name: string, r: OpenResult): void {
+  if (!restoringTabs.delete(name)) return;
+  const t = tabs.get(name);
+  if (!r.ok || !t) return;
+  send('tab:state', t.state());
+  log('info', `[${name}] startup: session interactive (tab sent to renderer) +${sinceReady()} ms since app ready`);
+}
+
+async function attachSessionOnce(name: string, restore?: RestorePaths): Promise<OpenResult> {
   const existing = tabs.get(name);
   if (existing) return { ok: true, tabId: existing.tabId };
   if (updates.sessionsLocked) return { ok: false, error: updateBusyError() };
   if (stopping.has(name)) return { ok: false, error: tr('open.stopping') };
   const meta = readSessionMeta(dataDir, name);
-  const psmux = await resolvePsmux(settings.get().psmuxPath);
+  const psmux = restore?.psmux ?? await resolvePsmux(settings.get().psmuxPath);
   if (!meta || !psmux) return { ok: false, error: tr('open.reattachFailed', { name, why: msg(!meta ? 'open.noMeta' : 'open.noPsmux') }) };
   // 메타의 용도도 넘긴다: 로그인 세션에 다시 붙으면 로그인 탭으로 표시·감시
   const purpose = meta.purpose ?? 'conversation';
-  const t = new TabSession({ psmux, folder: meta.folder, leadCommand: meta.leadCommand, dataDir, hookCommand: purpose === 'login' ? null : (await leadScriptCommands(false)).hook, attachName: name, purpose });
+  const hook = purpose === 'login' ? null : restore ? restore.hook : (await leadScriptCommands(false)).hook;
+  const t = new TabSession({ psmux, folder: meta.folder, leadCommand: meta.leadCommand, dataDir, hookCommand: hook, attachName: name, purpose, listed: !!restore });
   log('info', `[${name}] attaching (lead ${meta.leadPaneId ?? '?'}, resume ${meta.resumeSessionId?.slice(0, 8) ?? '-'})`);
   const r = await startTab(t, `attach ${name}`);
   if (r.ok && purpose === 'login') watchLogin(t);
@@ -361,21 +389,29 @@ async function restoreSessions(): Promise<void> {
     .map((x) => x.n);
   const skipped = live.filter((n) => isAppSessionName(n) && !names.includes(n));
   log('info', `restore: ${names.length} session(s) [${names.join(', ')}]${skipped.length ? `, skipped (no app data): ${skipped.join(', ')}` : ''}`);
-  // 세션마다 붙는 대로 렌더러에 알린다(가장 느린 세션을 기다리지 않음). 탭 순서는 렌더러가 createdAt으로 맞춘다
-  for (const n of names) restoringTabs.add(n);
-  const results = await Promise.all(names.map((n) => attachSession(n).then((x) => {
-    restoringTabs.delete(n);
-    const t = tabs.get(n);
-    if (x.ok && t) {
-      send('tab:state', t.state());
-      log('info', `[${n}] startup: session interactive (tab sent to renderer) +${sinceReady()} ms since app ready`);
+  // 경로는 한 번만 찾는다(세션마다 where.exe 2회 → 0회). 복원할 세션이 없으면 찾지 않는다.
+  // restoringTabs에 넣기 전에 찾아서, 찾다가 예외가 나도 이름이 막힌 채 남지 않게 한다
+  const paths: RestorePaths | undefined = names.length ? { psmux, hook: (await leadScriptCommands(false)).hook } : undefined;
+  // 세션마다 붙는 대로 렌더러에 알린다(announceRestored, 가장 느린 세션을 기다리지 않음). 탭 순서는 렌더러가 createdAt으로 맞춘다.
+  // 경로를 찾는 사이 사용자가 이미 연(또는 여는 중인) 세션은 넣지 않는다(보이는 탭의 상태·출력을 막지 않게)
+  for (const n of names) if (!tabs.has(n) && !attaching.has(n)) restoringTabs.add(n);
+  // 프로세스 생성이 main 스레드를 막고 psmux 서버도 CLI를 하나씩 처리하므로 한꺼번에 붙지 않고 RESTORE_CONCURRENCY개씩, 오래된 탭부터 붙는다
+  const results: OpenResult[] = [];
+  let next = 0;
+  const worker = async (): Promise<void> => {
+    while (next < names.length) {
+      const i = next++;
+      const n = names[i];
+      // 사용자가 먼저 연(또는 여는 중인) 세션(히스토리 클릭 등)은 그 붙기가 맡는다
+      if (!restoringTabs.has(n)) {
+        results[i] = tabs.has(n) ? { ok: true, tabId: n } : { ok: false, error: 'attach requested elsewhere did not succeed' };
+        continue;
+      }
+      // 하나가 예외로 끝나도 나머지 복원·복원 완료 알림(app:restored)을 끊지 않는다. 실패 기록은 아래 warn 줄
+      results[i] = await attachSession(n, paths).catch((e: unknown): OpenResult => ({ ok: false, error: errMsg(e) }));
     }
-    return x;
-  }, (e: unknown): OpenResult => {
-    // 하나가 예외로 끝나도 나머지 복원·복원 완료 알림(app:restored)을 끊지 않는다. 실패 기록은 아래 warn 줄
-    restoringTabs.delete(n);
-    return { ok: false, error: errMsg(e) };
-  })));
+  };
+  await Promise.all(Array.from({ length: RESTORE_CONCURRENCY }, worker));
   results.forEach((x, i) => { if (!x.ok) log('warn', `restore ${names[i]} failed: ${x.error}`); });
   log('info', `startup: all sessions interactive (${results.filter((x) => x.ok).length}/${names.length} tab(s) sent to renderer) +${sinceReady()} ms since app ready`);
   await refreshDetached();
@@ -1396,7 +1432,7 @@ function showAgentNotice(tabId: string, pane: string, title: string, body: strin
 function registerIpc(): void {
   ipcMain.handle('app:init', async () => {
     // 복원은 기다리지 않는다: 복원 탭은 붙는 대로 tab:state로 가고(렌더러는 init 전에 구독), 탭 없는 세션 목록은 복원 끝에 session:detached로 간다
-    restoring ??= restoreSessions().catch((e) => log('error', `restore failed: ${errMsg(e)}`));
+    restoring ??= firstPaint.then(() => restoreSessions()).catch((e) => log('error', `restore failed: ${errMsg(e)}`));
     await refreshRunning();
     usageReady ??= usage.start().catch((e) => log('warn', `usage start failed: ${errMsg(e)}`));
     await usageReady;
@@ -1726,7 +1762,16 @@ function createWindow(): void {
   // 렌더러가 멈췄는지(창 "응답 없음"이 main인지 렌더러인지 구분용)
   win.on('unresponsive', () => log('warn', 'window unresponsive (renderer not responding)'));
   win.on('responsive', () => log('info', 'window responsive again'));
-  win.once('ready-to-show', () => log('info', `startup: window ready-to-show +${sinceReady()} ms since app ready`));
+  // 창은 만들 때 바로 보이고(show 기본값 true) 첫 그리기 전에는 backgroundColor 한 색만 보인다.
+  // 실측: 렌더러는 멈추지 않았는데 복원 중 main이 멈춘 동안 첫 그리기가 +5.2초까지 늦었다(main 스레드가 창 표시에 관여) → 복원은 첫 그리기 뒤에
+  const w = win;
+  firstPaint = new Promise<void>((res) => {
+    w.once('ready-to-show', () => {
+      log('info', `startup: window ready-to-show +${sinceReady()} ms since app ready`);
+      res();
+    });
+    setTimeout(res, FIRST_PAINT_WAIT_MS).unref();
+  });
   win.webContents.once('did-finish-load', () => log('info', `startup: renderer loaded +${sinceReady()} ms since app ready`));
   win.webContents.on('console-message', (e) => {
     if (e.level === 'error' || e.level === 'warning') log(e.level === 'error' ? 'error' : 'warn', `[renderer] ${e.message.slice(0, 500)}`);

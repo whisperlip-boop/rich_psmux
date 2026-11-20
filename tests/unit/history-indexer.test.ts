@@ -159,6 +159,21 @@ describe('HistoryIndexer update branches', () => {
     ix.stop();
   });
 
+  it('start publishes the cached list before the full scan finishes', async () => {
+    write(`${user('cached')}\n`);
+    const cache = join(home, 'cache.json');
+    const first = new HistoryIndexer(cache);
+    await first.scanAll();
+    first.stop(); // 캐시 저장
+    const ix = new HistoryIndexer(cache);
+    const sizes: number[] = [];
+    ix.on('update', (items: unknown[]) => sizes.push(items.length));
+    const started = ix.start();
+    expect(sizes).toEqual([1]); // start 호출 직후(스캔을 기다리기 전)
+    await started;
+    ix.stop();
+  });
+
   it('a removed file disappears from the list', async () => {
     write(`${user('bye')}\n`);
     const ix = new HistoryIndexer(join(home, 'cache.json'));
