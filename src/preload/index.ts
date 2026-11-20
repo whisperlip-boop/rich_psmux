@@ -13,6 +13,7 @@ function on<T extends unknown[]>(channel: string, cb: (...args: T) => void): Uns
 
 const api: CtdApi = {
   init: () => ipcRenderer.invoke('app:init'),
+  restored: () => ipcRenderer.invoke('app:restored'),
   pickFolder: () => ipcRenderer.invoke('dialog:pickFolder'),
   pickFiles: (kind) => ipcRenderer.invoke('dialog:pickFiles', kind),
   pickAddDir: () => ipcRenderer.invoke('dialog:pickAddDir'),

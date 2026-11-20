@@ -129,14 +129,23 @@ export function probeDir(p: string, ms: number = PATH_TIMEOUT_MS): Promise<PathP
   return guardedProbe(`dir:${p.toLowerCase()}`, isUncPath(p), () => dirExists(p), ms);
 }
 
+/** 진행 중인 where.exe 실행(이름 → stdout). 끝나면 지운다(결과를 캐시하지 않아 설치·PATH 변경은 다음 호출에 반영). */
+const whereInflight = new Map<string, Promise<string>>();
+
 /**
  * PATH에서 실행 파일 찾기(where.exe, 비동기).
  * PATH의 UNC 실행 파일은 지원 범위 밖: 건너뛰어 UNC 확인 자리(동시 1개)를 쓰지 않는다(설정의 UNC 확인이 busy로 막히지 않게).
  */
 async function where(exe: string, accept: (p: string) => boolean = () => true): Promise<string | null> {
-  const out = await new Promise<string>((res) => {
-    execFile('where.exe', [exe], { encoding: 'utf8', windowsHide: true, timeout: 5000, env: cleanEnv() }, (err, stdout) => res(err ? '' : stdout));
-  });
+  // 복원 때 세션마다 같은 이름을 동시에 찾는다: 프로세스 생성(CreateProcess)이 main 스레드를 막으므로 진행 중인 실행을 공유한다
+  let run = whereInflight.get(exe);
+  if (!run) {
+    run = new Promise<string>((res) => {
+      execFile('where.exe', [exe], { encoding: 'utf8', windowsHide: true, timeout: 5000, env: cleanEnv() }, (err, stdout) => res(err ? '' : stdout));
+    }).finally(() => whereInflight.delete(exe));
+    whereInflight.set(exe, run);
+  }
+  const out = await run;
   for (const s of out.split(/\r?\n/).map((x) => x.trim())) {
     if (!s || isUncPath(s) || !accept(s)) continue;
     if ((await probeExecutable(s)) === 'ok') return s;

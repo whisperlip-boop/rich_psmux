@@ -379,7 +379,10 @@ type Unsub = () => void;
 
 /** preload API. */
 export interface CtdApi {
+  /** 첫 화면 값. 세션 복원을 기다리지 않는다(복원한 탭은 붙는 대로 onTabState로 온다). */
   init(): Promise<InitDto>;
+  /** 시작 시 세션 복원(모든 세션 붙기 시도)이 끝나면 resolve. init 뒤에 부른다. */
+  restored(): Promise<void>;
   pickFolder(): Promise<string | null>;
   /** 첨부 버튼용 파일 선택(여러 개). 취소면 빈 배열. */
   pickFiles(kind: 'image' | 'any'): Promise<string[]>;

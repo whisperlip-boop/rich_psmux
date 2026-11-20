@@ -292,8 +292,11 @@ export class TabSession extends EventEmitter {
       if (this.opts.shell) this.shellWarning = await this.applyShell(this.opts.shell);
     }
     try {
+      const t0 = Date.now();
       await this.connect();
+      const tConnect = Date.now();
       await this.applyShimPath();
+      if (!fresh) log('info', `[${this.session}] startup: attach has-session+connect ${tConnect - t0} ms, shim path ${Date.now() - tConnect} ms`);
       if (fresh) {
         await this.refresh();
         this.leadPaneId = [...this.panes.keys()][0] ?? null;
@@ -308,6 +311,8 @@ export class TabSession extends EventEmitter {
       if (fresh) await this.kill();
       throw e;
     }
+    // 시작하는 사이 분리·종료됐으면(detach가 타이머를 이미 정리함) 주기 작업을 새로 만들지 않는다
+    if (this.closing) return;
     this.timers.push(setInterval(() => this.scheduleRefresh(0), POLL_MS));
     this.timers.push(setInterval(() => void this.pollTeam(), TEAM_POLL_MS));
     this.timers.push(setInterval(() => this.updateWorking(), 500));
@@ -419,10 +424,11 @@ export class TabSession extends EventEmitter {
       log('warn', `[${this.session}] exec shim not applied: set-environment code=${r.code} ${r.err.slice(0, 120)}`);
       return;
     }
-    // 그대로 들어갔는지 확인(로그에는 PATH 내용 대신 길이만)
-    const back = await psmuxCli(this.opts.psmux, ['show-environment', '-t', this.session, base.key]);
-    const got = back.code === 0 ? back.out.replace(/^[^=]*=/, '') : null;
-    if (got !== value) log('warn', `[${this.session}] exec shim PATH read back differs (set ${value.length} chars, read ${got === null ? `code=${back.code}` : `${got.length} chars`})`);
+    // 그대로 들어갔는지 확인(로그에는 PATH 내용 대신 길이만). 진단용이라 연결 완료(복원 6개면 세션마다 CLI 1회)를 기다리게 하지 않는다
+    void psmuxCli(this.opts.psmux, ['show-environment', '-t', this.session, base.key]).then((back) => {
+      const got = back.code === 0 ? back.out.replace(/^[^=]*=/, '') : null;
+      if (got !== value) log('warn', `[${this.session}] exec shim PATH read back differs (set ${value.length} chars, read ${got === null ? `code=${back.code}` : `${got.length} chars`})`);
+    });
   }
 
   /** 칸이 생긴 지 QUICK_DEATH_MS 안에 죽거나 사라졌으면 경고 1줄(리드 제외, 종료 처리 중 제외, 칸마다 1번). */
@@ -439,6 +445,8 @@ export class TabSession extends EventEmitter {
       this.setStatus('ended', msg('sess.gone'));
       throw new Error(tr('sess.notFound', { name: this.session }));
     }
+    // has-session을 기다리는 사이 분리·종료(업데이트 전 세션 닫기 등)됐으면 -CC 프로세스를 띄우지 않는다
+    if (this.closing) throw new Error('detached while connecting');
     const c = new ControlClient({ psmuxPath: this.opts.psmux, session: this.session, env: cleanEnv(), log });
     this.client = c;
     c.on('output', (pane: string, data: Buffer, seq: number) => this.onOutput(pane, data, seq));
@@ -671,13 +679,19 @@ export class TabSession extends EventEmitter {
       delete this.hook.done[id];
       this.noteQuickDeath(id);
     }
+    const capStart = Date.now();
+    const caps: Promise<void>[] = [];
     for (const p of diff.added) {
       log('info', `[${this.session}] pane added ${p.paneId} ${p.windowId} ${p.width}x${p.height}`);
       // 기존 세션에 붙은 직후 처음 본 칸은 방금 생긴 칸이 아니다
       if (this.listedOnce || !this.opts.attachName) this.paneAddedAt.set(p.paneId, Date.now());
       const want = this.desired.get(p.paneId) ?? this.desired.get(this.leadPaneId ?? '') ?? null;
       if (want && (want.cols !== p.width || want.rows !== p.height)) void this.applySize(p.paneId);
-      void this.resync(p.paneId);
+      caps.push(this.resync(p.paneId));
+    }
+    // 기동 시간 진단: 기존 세션에 붙은 뒤 첫 칸 캡처에 걸린 시간(세션당 1줄)
+    if (!this.listedOnce && this.opts.attachName && caps.length) {
+      void Promise.all(caps).then(() => log('info', `[${this.session}] startup: initial capture ${caps.length} pane(s) ${Date.now() - capStart} ms`));
     }
     this.listedOnce = true;
     if (diff.removed.length) log('info', `[${this.session}] panes removed ${diff.removed.join(',')}`);
@@ -994,6 +1008,7 @@ export class TabSession extends EventEmitter {
   }
 
   private pollHooks(): void {
+    const t0 = Date.now();
     let size = 0;
     try { size = statSync(this.hookEventsFile).size; } catch { return; }
     if (size < this.hookOffset) this.hookOffset = 0;
@@ -1025,7 +1040,6 @@ export class TabSession extends EventEmitter {
       if (rec.event === 'SessionStart' && pane !== null && pane === this.leadPaneId) leadStarted = true;
       if (perRecordLog) log('info', `[${this.session}] hook ${rec.event}${rec.notificationType ? `/${rec.notificationType}` : ''} pane=${pane ?? '?'} (env pane=${rec.pane ?? '-'})`);
     }
-    if (!perRecordLog) log('info', `[${this.session}] hook ${recs.length} records replayed`);
     // 리드의 새 대화 시작(/clear·재개 등) → sessionId가 바뀌었을 수 있어 바로 다시 확인(묶음당 한 번)
     if (leadStarted) {
       this.lastTeamPoll = 0;
@@ -1035,6 +1049,7 @@ export class TabSession extends EventEmitter {
       this.relabel();
       this.emitState();
     }
+    if (!perRecordLog) log('info', `[${this.session}] hook ${recs.length} records replayed in ${Date.now() - t0} ms`);
   }
 
   private writeMeta(): void {

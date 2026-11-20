@@ -9,6 +9,29 @@ import { isLang, langFromLocales } from '../shared/i18n';
 import { App } from './App';
 import { applyLang } from './i18n';
 
+/** 기동 직후 렌더러 멈춤 감시 기간·간격·경고 기준(ms). */
+const LAG_PROBE_MS = 60_000;
+const LAG_TICK_MS = 100;
+const LAG_WARN_MS = 500;
+
+// 기동 시간 진단: 처음 LAG_PROBE_MS 동안 렌더러 스레드가 LAG_WARN_MS 넘게 멈추면 기록한다(main 앱 로그로는 warn·error만 넘어간다).
+// 창이 보이지 않을 때는 타이머가 늦춰지므로 세지 않는다
+const probeStart = performance.now();
+let probeLast = probeStart;
+let probeMax = 0;
+const probe = window.setInterval(() => {
+  const now = performance.now();
+  const lag = Math.round(now - probeLast - LAG_TICK_MS);
+  probeLast = now;
+  if (document.visibilityState !== 'visible') return;
+  probeMax = Math.max(probeMax, lag);
+  if (lag > LAG_WARN_MS) console.warn(`startup: renderer blocked ~${lag} ms (${Math.round(now - probeStart)} ms after renderer start)`);
+}, LAG_TICK_MS);
+window.setTimeout(() => {
+  window.clearInterval(probe);
+  console.warn(`startup: renderer loop probe done (max lag ${probeMax} ms in ${LAG_PROBE_MS / 1000} s)`);
+}, LAG_PROBE_MS);
+
 void window.ctd.getLanguage()
   .catch((e: unknown) => {
     console.error(`[ipc] getLanguage failed: ${e instanceof Error ? e.message : String(e)}`);

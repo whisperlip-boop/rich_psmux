@@ -128,6 +128,11 @@ export function App() {
   const lastSaved = useRef<Record<string, string>>({});
   const closed = useRef<Set<string>>(new Set());
   const createdAt = useRef<Record<string, number>>({});
+  /**
+   * 시작 복원 중 활성 탭을 자동으로 고르는 중인지. 복원 탭은 붙는 순서대로 오므로, 사용자가 아직 누르지 않았으면 가장 먼저 만든 탭을
+   * 활성으로 맞춘다(예전처럼 init에 모두 실려 올 때와 같은 결과). 첫 클릭·키 입력이나 복원 완료 때 끈다(쓰는 중인 탭을 빼앗지 않게).
+   */
+  const autoActive = useRef(true);
   /** 탭별 직전 상태(렌더 전에 상태가 여러 번 와도 알림이 겹치지 않게 렌더와 별개로 바로 갱신)와 처음 본 시각. */
   const lastState = useRef<Record<string, TabStateDto>>({});
   const firstSeen = useRef<Record<string, number>>({});
@@ -204,7 +209,11 @@ export function App() {
     setTabs((t) => ({ ...t, [s.tabId]: s }));
     createdAt.current[s.tabId] = s.createdAt;
     setOrder((o) => insertByCreatedAt(o, s.tabId, s.createdAt, (x) => createdAt.current[x]));
-    setActive((a) => a ?? s.tabId);
+    setActive((a) => {
+      if (a === null) return s.tabId;
+      const at = createdAt.current[a];
+      return autoActive.current && at !== undefined && s.createdAt < at ? s.tabId : a;
+    });
   };
 
   const removeTab = (tabId: string): void => {
@@ -250,6 +259,8 @@ export function App() {
       return false;
     }
     if (r.warning) setError(r.warning);
+    // 사용자가 연 탭: 뒤늦게 붙은 복원 탭이 활성을 가져가지 않게
+    autoActive.current = false;
     if (r.tab) {
       closed.current.delete(r.tab.tabId);
       applyTab(r.tab);
@@ -450,21 +461,55 @@ export function App() {
 
   useEffect(() => {
     const offs: (() => void)[] = [];
+    // init은 세션 복원을 기다리지 않고, 복원 탭은 붙는 대로 tab:state로 온다. 그래서 init을 부르기 전에 구독하고,
+    // init 응답 전에 온 이벤트는 쌓아 두었다가 저장된 탭 화면 상태(saved)를 읽은 직후, init 값보다 먼저 온 순서대로 적용한다
+    let early: (() => void)[] | null = [];
+    const later = <A extends unknown[]>(fn: (...a: A) => void) => (...a: A): void => {
+      if (early) early.push(() => fn(...a));
+      else fn(...a);
+    };
+    const listOffs = [
+      window.ctd.onTabState(later(applyTab)),
+      window.ctd.onTabClosed(later(removeTab)),
+      window.ctd.onHistory(later(setHistory)),
+      window.ctd.onRunning(later(setRunning)),
+      window.ctd.onDetached(later(setDetached)),
+      window.ctd.onUsage(later(setUsage)),
+      window.ctd.onAccount(later(setAccount)),
+    ];
+    offs.push(...listOffs);
+    // 카드가 생기기 전 칸 출력은 terminals.ts 대기 버퍼에 쌓이고, 카드가 생기면 capture-pane 재동기화로 다시 그린다
+    wireTerminalEvents();
+    // 첫 클릭·키 입력 뒤에는 복원 탭이 와도 활성 탭을 바꾸지 않는다
+    const userActed = (): void => { autoActive.current = false; };
+    window.addEventListener('pointerdown', userActed, { capture: true, once: true });
+    window.addEventListener('keydown', userActed, { capture: true, once: true });
+    offs.push(() => {
+      window.removeEventListener('pointerdown', userActed, { capture: true });
+      window.removeEventListener('keydown', userActed, { capture: true });
+    });
     void safeIpc(() => window.ctd.init(), null, (m) => setError(t('app.restart', { msg: stripEndPunct(m) })), t('action.startApp')).then((init) => {
-      if (!init) return;
+      if (!init) {
+        // 시작 실패: 예전처럼 탭·목록을 반영하지 않는다(쌓인 이벤트를 버리고 구독 해제)
+        early = null;
+        listOffs.forEach((f) => f());
+        return;
+      }
+      // 쌓인 이벤트는 init 응답 이전에 보낸 것(init 값과 같거나 더 오래됨): 저장된 탭 화면 상태만 먼저 읽고 반영한 뒤 init 값으로 덮는다
+      // (반대로 하면 탭 상태가 과거로 돌아가 지난 승인 알림이 다시 뜰 수 있음)
+      saved.current = init.uiState.tabs;
+      const queued = early ?? [];
+      early = null;
+      queued.forEach((f) => f());
       setTerminalFont(init.fontSize, init.fontFamily);
       applyTheme(init.theme);
       setShowInputBar(init.showInputBar);
       setAccount(init.account);
       setUsage(init.usage);
-      offs.push(window.ctd.onUsage(setUsage));
-      offs.push(window.ctd.onAccount(setAccount));
-      wireTerminalEvents();
       void safeIpc(() => window.ctd.updateState(), null).then((s) => { if (s) setUpd(s); });
       offs.push(window.ctd.onUpdateState(setUpd));
       setRecent(init.recentFolders);
       setHomeDir(init.homeDir);
-      saved.current = init.uiState.tabs;
       setCollapsed(new Set(init.uiState.collapsed));
       setSidebarHidden(init.uiState.sidebarCollapsed === true);
       sidebarHiddenRef.current = init.uiState.sidebarCollapsed === true;
@@ -475,15 +520,16 @@ export function App() {
       setRunning(init.running);
       setDetached(init.detached);
       init.tabs.forEach(applyTab);
-      offs.push(window.ctd.onTabState(applyTab));
-      offs.push(window.ctd.onTabClosed(removeTab));
-      offs.push(window.ctd.onHistory(setHistory));
-      offs.push(window.ctd.onRunning(setRunning));
-      offs.push(window.ctd.onDetached(setDetached));
+      // 복원이 끝나기 전에는 빈 화면 안내(세션 시작 버튼)를 띄우지 않는다. 복원이 끝나면 활성 탭 자동 선택도 끝낸다
+      void safeIpc(() => window.ctd.restored(), undefined).then(() => {
+        autoActive.current = false;
+        setReady(true);
+      });
       // 알림 클릭: main이 창을 앞으로 가져온 뒤 그 탭·카드로 전환(이미 닫은 탭이면 무시)
       offs.push(window.ctd.onFocusPane((tabId, pane) => {
         const tb = live.current.tabs[tabId];
         if (!tb) return;
+        autoActive.current = false;
         setActive(tabId);
         if (tb.panes.some((p) => p.paneId === pane)) setUi((x) => ({ ...x, [tabId]: { ...(x[tabId] ?? DEFAULT_TAB_UI), activePane: pane } }));
       }));
@@ -493,7 +539,6 @@ export function App() {
         applyTheme(a.theme);
         setShowInputBar(a.showInputBar);
       }));
-      setReady(true);
     });
     return () => offs.forEach((f) => f());
   }, []);

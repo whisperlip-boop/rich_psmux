@@ -68,7 +68,15 @@ if (devUserDataRaw) {
 app.setPath('userData', devUserData ?? join(app.getPath('appData'), 'rich-psmux'));
 const dataDir = app.getPath('userData');
 initLogger(join(dataDir, 'logs'), !app.isPackaged);
+log('info', `startup: logger ready at process uptime ${Math.round(process.uptime() * 1000)} ms`);
 if (devUserDataWarn) log('warn', devUserDataWarn);
+/** app ready 시각(기동 시간 진단 로그의 기준). */
+let readyAt = 0;
+const sinceReady = (): number => Date.now() - readyAt;
+/** 기동 직후 main 이벤트 루프 멈춤 감시 기간·간격·경고 기준(ms). */
+const LAG_PROBE_MS = 60_000;
+const LAG_TICK_MS = 100;
+const LAG_WARN_MS = 500;
 const settings = new SettingsStore(join(dataDir, 'settings.json'));
 const uiStore = new UiStateStore(join(dataDir, 'ui-state.json'));
 const indexer = new HistoryIndexer(join(dataDir, 'cache', 'history-index.json'));
@@ -89,8 +97,17 @@ let history: HistoryDto = { status: 'loading', items: [] };
 let running: RunningConversation[] = [];
 let runningJson = '';
 let restoring: Promise<void> | null = null;
+/**
+ * 시작 복원으로 붙는 중인 세션 이름. 붙기가 끝날 때까지 렌더러에 탭 상태를 보내지 않는다
+ * (실패하면 지금처럼 탭이 아예 생기지 않게. 성공하면 restoreSessions가 그때 상태를 보낸다).
+ */
+const restoringTabs = new Set<string>();
+/** 렌더러에 알린 탭(붙는 중인 복원 탭 제외), 만든 순서. */
+const shownTabs = (): TabSession[] => orderedTabs().filter((t) => !restoringTabs.has(t.tabId));
 /** 같은 대화를 연달아 클릭해도 세션을 두 번 만들지 않게 진행 중인 열기를 공유한다. */
 const opening = new Map<string, Promise<OpenResult>>();
+/** 진행 중인 붙기(세션 이름 → 결과). attachSession이 같은 세션을 동시에 두 번 붙지 않게 공유하고, 끝나면 지운다. */
+const attaching = new Map<string, Promise<OpenResult>>();
 /** 히스토리 "세션 끊기…" 작업 하나: 앱 세션이면 탭 없는 연결, 결과. */
 interface StopJob { conn: TabSession | null; done: Promise<HistoryStopDto> }
 /** 끊는 중인 대상(psmux 세션 이름 또는 `pid:<n>` → 작업). 그 사이 탭으로 붙거나 두 번 끊지 않게 한다. */
@@ -113,7 +130,12 @@ const DETACHED_POLL_MS = 10_000;
  */
 const updates = new UpdateService({
   appVersion: app.getVersion(), cacheFile: join(dataDir, 'cache', 'update-check.json'),
-  resolveClaude, resolveWinget, closeSessions: () => closeAllSessionsForUpdate(),
+  // 잠금(sessionsLocked) 전에 시작한 붙기(시작 복원·진행 중 재연결)가 끝난 뒤 닫는다: 탭 등록 전이던 세션이 닫기에서 빠져 교체 중 psmux를 실행하지 않게.
+  // 붙기 작업은 예외로 끝날 수도 있어(설정 단계 예외) 결과와 무관하게 모두 끝나기만 기다린다
+  resolveClaude, resolveWinget, closeSessions: async () => {
+    await Promise.allSettled([restoring, ...attaching.values()]);
+    return closeAllSessionsForUpdate();
+  },
   onState: (s: UpdateStateDto) => send('update:state', s), onOutput: (d: Uint8Array) => send('update:output', d),
 });
 /** 업데이트가 psmux를 쓰지 못하게 막는 동안의 안내(현재 UI 언어). */
@@ -191,15 +213,17 @@ function refreshKeepAwake(): void {
 function wireTab(t: TabSession): void {
   t.on('state', (s: TabState) => {
     refreshKeepAwake();
-    // 이미 닫은 탭(분리·종료)의 늦은 상태는 보내지 않는다(렌더러에 탭이 되살아나지 않게)
-    if (tabs.get(t.tabId) === t) send('tab:state', s);
+    // 이미 닫은 탭(분리·종료)의 늦은 상태는 보내지 않는다(렌더러에 탭이 되살아나지 않게). 붙는 중인 복원 탭도 아직 보내지 않는다
+    if (tabs.get(t.tabId) === t && !restoringTabs.has(t.tabId)) send('tab:state', s);
     // Claude만 탭의 대화 ID를 기억해 두면 히스토리에서 다시 열 때도 에이전트 없이 열린다
     if (t.plain && s.leadSessionId) uiStore.markPlainSession(s.leadSessionId);
   });
+  // 붙는 중인 복원 탭의 화면 데이터는 보내지 않는다: 렌더러에 아직 카드가 없고(실패하면 대기 버퍼만 남음), 카드가 생기면 capture-pane으로 다시 그린다
+  const shown = (): boolean => !restoringTabs.has(t.tabId);
   // Buffer는 공유 풀의 일부일 수 있어 IPC 직렬화 전에 필요한 바이트만 복사한다
-  t.on('output', (pane: string, data: Buffer) => send('pane:output', t.tabId, pane, new Uint8Array(data)));
-  t.on('resync', (pane: string, data: string) => send('pane:resync', t.tabId, pane, data));
-  t.on('size', (pane: string, cols: number, rows: number) => send('pane:size', t.tabId, pane, cols, rows));
+  t.on('output', (pane: string, data: Buffer) => { if (shown()) send('pane:output', t.tabId, pane, new Uint8Array(data)); });
+  t.on('resync', (pane: string, data: string) => { if (shown()) send('pane:resync', t.tabId, pane, data); });
+  t.on('size', (pane: string, cols: number, rows: number) => { if (shown()) send('pane:size', t.tabId, pane, cols, rows); });
 }
 
 /** 탭 세션을 등록·시작한다. 실패하면 정리 후 오류 결과. */
@@ -267,8 +291,25 @@ async function newSession(folder: string, resumeSessionId?: string, plain = fals
   return r;
 }
 
-/** 살아 있는 앱 세션에 다시 연결(복원·◐ 재연결). 폴더·리드 명령은 메타 값을 쓴다(리드 이름 @ceo 기준). */
-async function attachSession(name: string): Promise<OpenResult> {
+/** 이미 있는 탭으로 전환하는 결과. 그 탭이 아직 붙는 중이면 붙기 결과를 기다린다(렌더러가 모르는 탭 ID를 받지 않게. 실패면 실패 결과). */
+function existingTabResult(tabId: string): Promise<OpenResult> {
+  return attaching.get(tabId) ?? Promise.resolve({ ok: true, tabId });
+}
+
+/**
+ * 살아 있는 앱 세션에 다시 연결(복원·◐ 재연결). 폴더·리드 명령은 메타 값을 쓴다(리드 이름 @ceo 기준).
+ * 같은 세션을 붙는 중이면(복원 중 히스토리 클릭 등) 그 작업을 공유한다(TabSession·-CC 연결이 둘 생기지 않게).
+ */
+function attachSession(name: string): Promise<OpenResult> {
+  let p = attaching.get(name);
+  if (!p) {
+    p = attachSessionOnce(name).finally(() => attaching.delete(name));
+    attaching.set(name, p);
+  }
+  return p;
+}
+
+async function attachSessionOnce(name: string): Promise<OpenResult> {
   const existing = tabs.get(name);
   if (existing) return { ok: true, tabId: existing.tabId };
   if (updates.sessionsLocked) return { ok: false, error: updateBusyError() };
@@ -320,9 +361,25 @@ async function restoreSessions(): Promise<void> {
     .map((x) => x.n);
   const skipped = live.filter((n) => isAppSessionName(n) && !names.includes(n));
   log('info', `restore: ${names.length} session(s) [${names.join(', ')}]${skipped.length ? `, skipped (no app data): ${skipped.join(', ')}` : ''}`);
-  const results = await Promise.all(names.map((n) => attachSession(n)));
+  // 세션마다 붙는 대로 렌더러에 알린다(가장 느린 세션을 기다리지 않음). 탭 순서는 렌더러가 createdAt으로 맞춘다
+  for (const n of names) restoringTabs.add(n);
+  const results = await Promise.all(names.map((n) => attachSession(n).then((x) => {
+    restoringTabs.delete(n);
+    const t = tabs.get(n);
+    if (x.ok && t) {
+      send('tab:state', t.state());
+      log('info', `[${n}] startup: session interactive (tab sent to renderer) +${sinceReady()} ms since app ready`);
+    }
+    return x;
+  }, (e: unknown): OpenResult => {
+    // 하나가 예외로 끝나도 나머지 복원·복원 완료 알림(app:restored)을 끊지 않는다. 실패 기록은 아래 warn 줄
+    restoringTabs.delete(n);
+    return { ok: false, error: errMsg(e) };
+  })));
   results.forEach((x, i) => { if (!x.ok) log('warn', `restore ${names[i]} failed: ${x.error}`); });
+  log('info', `startup: all sessions interactive (${results.filter((x) => x.ok).length}/${names.length} tab(s) sent to renderer) +${sinceReady()} ms since app ready`);
   await refreshDetached();
+  log('info', `startup: restore finished +${sinceReady()} ms since app ready (${results.filter((x) => x.ok).length}/${names.length} attached)`);
 }
 
 /** 대화 기록(.jsonl)이 있는지: 인덱스에 있거나, 인덱스 갱신이 늦을 수 있어 파일이 바로 있는지도 본다. */
@@ -421,7 +478,8 @@ async function refreshDetachedInner(): Promise<void> {
       if (live === null) return;
       const cache: JsonlCache = new Map();
       const sel = selectDetached({
-        metas, live, isTab: (n) => tabs.has(n) || stopping.has(n), metaOf: (n) => readSessionMeta(dataDir, n), hasConversation: (m, n) => metaHasConversation(m, n, cache),
+        // 복원 목록에 오른 뒤 TabSession을 만들기 전인 세션도 탭으로 본다(잠깐 "탭 없는 세션"으로 보이지 않게)
+        metas, live, isTab: (n) => tabs.has(n) || stopping.has(n) || restoringTabs.has(n), metaOf: (n) => readSessionMeta(dataDir, n), hasConversation: (m, n) => metaHasConversation(m, n, cache),
       });
       out = sel.detached;
     }
@@ -624,7 +682,7 @@ function setLanguage(raw: unknown): SetLanguageResultDto {
   settings.update({ language: raw });
   setLang(raw);
   log('info', `language set: ${raw}`);
-  for (const t of orderedTabs()) send('tab:state', t.state());
+  for (const t of shownTabs()) send('tab:state', t.state());
   send('usage:update', usage.get());
   return { ok: true, language: raw };
 }
@@ -948,10 +1006,10 @@ const eqi = (a: string | null | undefined, b: string): boolean => !!a && a.toLow
 async function openHistory(sessionId: string, force: boolean): Promise<OpenResult> {
   if (updates.sessionsLocked) return { ok: false, error: updateBusyError() };
   const open = [...tabs.values()].find((t) => { const st = t.state(); return eqi(st.leadSessionId, sessionId) || eqi(st.resumeSessionId, sessionId); });
-  if (open) return { ok: true, tabId: open.tabId };
+  if (open) return existingTabResult(open.tabId);
   const r = findRunning(await refreshRunning(), sessionId);
   if (r) {
-    if (r.psmuxSession && tabs.has(r.psmuxSession)) return { ok: true, tabId: r.psmuxSession };
+    if (r.psmuxSession && tabs.has(r.psmuxSession)) return existingTabResult(r.psmuxSession);
     if (r.ours && r.psmuxSession) return attachSession(r.psmuxSession);
     // 같은 대화를 두 프로세스가 이어 쓰면 기록이 섞인다(중복 실행 금지).
     // 판정은 sessions/<pid>.json + pid 생존이라 pid가 재사용되면 오판할 수 있어, 사용자가 확인 후 강제로 이어갈 수 있게 한다
@@ -1039,6 +1097,8 @@ function stopRace(plan: StopPlan, list: RunningConversation[]): StopFailCode | n
   const same = (r: RunningConversation): boolean => (plan.psmuxSession !== null ? r.psmuxSession === plan.psmuxSession : r.pid === plan.pid);
   const ids = new Set([plan.sessionId, ...[...list, ...running].filter(same).map((r) => r.sessionId)].map((id) => id.toLowerCase()));
   if ([...ids].some((id) => opening.has(id))) return 'opening';
+  // 붙는 중인 세션(시작 복원·재연결)도 열린 탭으로 본다(곧 붙을 세션을 끊지 않게)
+  if (plan.psmuxSession !== null && (attaching.has(plan.psmuxSession) || restoringTabs.has(plan.psmuxSession))) return 'tab-open';
   const open = [...tabs.values()].some((t) => {
     const st = t.state();
     return (plan.psmuxSession !== null && st.session === plan.psmuxSession)
@@ -1335,19 +1395,24 @@ function showAgentNotice(tabId: string, pane: string, title: string, body: strin
 
 function registerIpc(): void {
   ipcMain.handle('app:init', async () => {
+    // 복원은 기다리지 않는다: 복원 탭은 붙는 대로 tab:state로 가고(렌더러는 init 전에 구독), 탭 없는 세션 목록은 복원 끝에 session:detached로 간다
     restoring ??= restoreSessions().catch((e) => log('error', `restore failed: ${errMsg(e)}`));
-    await restoring;
     await refreshRunning();
     usageReady ??= usage.start().catch((e) => log('warn', `usage start failed: ${errMsg(e)}`));
     await usageReady;
     const s = settings.get();
     const init = {
       fontSize: s.fontSize, fontFamily: s.fontFamily, theme: s.theme, showInputBar: s.showInputBar, account: await loadAccount(), recentFolders: s.recentFolders, homeDir: app.getPath('home'),
-      tabs: orderedTabs().map((t) => t.state()), history, running: runningDto(), detached, uiState: uiStore.get(), usage: usage.get(),
+      tabs: shownTabs().map((t) => t.state()), history, running: runningDto(), detached, uiState: uiStore.get(), usage: usage.get(),
     };
+    if (!startupUsage) log('info', `startup: init answered (${init.tabs.length} tab(s) already shown) +${sinceReady()} ms since app ready`);
     // 기동 시 1회: 렌더러가 init 응답(현재 값)을 받은 뒤 결과가 usage:update로 간다(CLI 확인·네트워크를 기다리므로 응답보다 늦음)
     startupUsage ??= autoRefreshUsage(usage, startupLoggedIn, 'startup');
     return init;
+  });
+  // 시작 복원이 끝날 때까지 기다린다(렌더러는 그 전에는 빈 화면 안내를 띄우지 않는다). 복원 실패도 끝난 것으로 본다(restoring은 reject하지 않음)
+  ipcMain.handle('app:restored', async () => {
+    await restoring;
   });
   // ↻: /api/oauth/usage 1회(진행 중이면 같은 요청을 기다림). 반환값에는 사용률·시각·안내 문구만 있다
   ipcMain.handle('usage:refresh', () => usage.refresh());
@@ -1463,7 +1528,7 @@ function registerIpc(): void {
   ipcMain.handle('psmux:open', async (_e, name: unknown) => {
     if (!isStr(name, 200) || !isAppSessionName(name)) return { ok: false, error: tr('ipc.appSessionOnly') };
     const existing = tabs.get(name);
-    if (existing) return { ok: true, tabId: existing.tabId };
+    if (existing) return existingTabResult(existing.tabId);
     if (updates.sessionsLocked) return { ok: false, error: updateBusyError() };
     const psmux = await resolvePsmux(settings.get().psmuxPath);
     // 없는 이름으로 연결하면 psmux가 새 세션을 만든다 → 먼저 확인
@@ -1658,6 +1723,11 @@ function createWindow(): void {
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', (e) => e.preventDefault());
   win.webContents.on('render-process-gone', (_e, d) => log('error', `renderer gone: ${d.reason}`));
+  // 렌더러가 멈췄는지(창 "응답 없음"이 main인지 렌더러인지 구분용)
+  win.on('unresponsive', () => log('warn', 'window unresponsive (renderer not responding)'));
+  win.on('responsive', () => log('info', 'window responsive again'));
+  win.once('ready-to-show', () => log('info', `startup: window ready-to-show +${sinceReady()} ms since app ready`));
+  win.webContents.once('did-finish-load', () => log('info', `startup: renderer loaded +${sinceReady()} ms since app ready`));
   win.webContents.on('console-message', (e) => {
     if (e.level === 'error' || e.level === 'warning') log(e.level === 'error' ? 'error' : 'warn', `[renderer] ${e.message.slice(0, 500)}`);
   });
@@ -1711,11 +1781,38 @@ async function runAuto(): Promise<void> {
   }
 }
 
+/**
+ * 기동 직후 LAG_PROBE_MS 동안 main 이벤트 루프 멈춤을 잰다. 타이머가 LAG_WARN_MS 넘게 늦으면 경고 1줄, 끝나면 요약 1줄.
+ * 창 "응답 없음"이 main 스레드 멈춤(동기 작업·프로세스 생성)인지 단순 대기인지 로그로 구분하려는 진단.
+ */
+function startLagProbe(): void {
+  let last = Date.now();
+  let max = 0;
+  let stalls = 0;
+  const timer = setInterval(() => {
+    const now = Date.now();
+    const lag = now - last - LAG_TICK_MS;
+    last = now;
+    max = Math.max(max, lag);
+    if (lag > LAG_WARN_MS) {
+      stalls++;
+      log('warn', `startup: main event loop blocked ~${lag} ms (+${sinceReady()} ms since app ready)`);
+    }
+  }, LAG_TICK_MS).unref();
+  setTimeout(() => {
+    clearInterval(timer);
+    log('info', `startup: main loop probe done (max lag ${max} ms, ${stalls} stall(s) > ${LAG_WARN_MS} ms in ${LAG_PROBE_MS / 1000} s)`);
+  }, LAG_PROBE_MS).unref();
+}
+
 app.on('second-instance', () => win?.focus());
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   void app.whenReady().then(() => {
+    readyAt = Date.now();
+    log('info', `startup: app ready at process uptime ${Math.round(process.uptime() * 1000)} ms`);
+    startLagProbe();
     // 시스템 로케일은 ready 뒤에만 정확하다. IPC·창보다 먼저 정해 첫 메시지부터 이 언어로 만든다
     setLang(effectiveLang());
     log('info', `ui language: ${getLang()}${settings.get().language ? '' : ' (system)'}`);
@@ -1731,6 +1828,7 @@ if (!app.requestSingleInstanceLock()) {
     registerIpc();
     cleanupClips(dataDir);
     createWindow();
+    log('info', `startup: window created +${sinceReady()} ms since app ready`);
     refreshKeepAwake();
     // 설정이 꺼져 있으면 아무 호출도 하지 않는다(캐시 파일만 읽어 둠)
     updates.startup(settings.get().checkUpdatesOnStartup);
