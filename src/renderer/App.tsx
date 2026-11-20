@@ -25,10 +25,10 @@ import { useDialogKeys } from './dialog';
 import { DEFAULT_FILTER, displayTitle, isFreshTab, originalTitle, parseFilter, stopTarget, tabConversationId, type HistoryFilter, type StopTarget } from './history';
 import { applyLang, t, tx } from './i18n';
 import { safeIpc } from './ipc';
-import { DEFAULT_TAB_UI, layoutFromCode, type LayoutId, type TabUi } from './layout';
+import { DEFAULT_TAB_UI, folderName, layoutFromCode, tabTitles, type LayoutId, type TabUi } from './layout';
 import { errorNotice, type ErrorNotice } from './notice';
 import { updateSlots, type Slot } from './slots';
-import { addDirLeadPane, ctrlWAllowed, insertByCreatedAt, nextActiveAfterClose, normalizeSavedTabUi, tabAcceptsInput, toSavedTabUi } from './tabs';
+import { addDirLeadPane, agentEvents, clipName, ctrlWAllowed, insertByCreatedAt, markUnread, nextActiveAfterClose, normalizeSavedTabUi, settleDone, tabAcceptsInput, TabTimers, toSavedTabUi, type AgentEvent } from './tabs';
 import { applyTheme } from './theme';
 import { disposeTab, disposeTerminal, isAppShortcut, resetUpdateTerminal, setActiveTab, setTerminalFont, wireTerminalEvents } from './terminals';
 import { cardState, UPDATE_TAB } from './update';
@@ -55,6 +55,10 @@ export function App() {
   const [active, setActive] = useState<string | null>(null);
   const [ui, setUi] = useState<Record<string, TabUi>>({});
   const [bannerDone, setBannerDone] = useState<Record<string, boolean>>({});
+  /** 탭별 Windows 알림 끄기(탭 우클릭 메뉴, 세션 이름 키로 저장). */
+  const [muted, setMuted] = useState<Record<string, boolean>>({});
+  /** 리드가 차례를 끝냈는데 아직 보지 않은 탭. 그 탭을 창이 활성인 채로 보면 지운다(저장하지 않음). */
+  const [unread, setUnread] = useState<ReadonlySet<string>>(new Set());
   const [recent, setRecent] = useState<string[]>([]);
   const [homeDir, setHomeDir] = useState('');
   const [busy, setBusy] = useState(false);
@@ -66,7 +70,7 @@ export function App() {
   const [confirmForce, setConfirmForce] = useState<string | null>(null);
   /** 파일 드래그 중 놓을 대상 카드(활성 탭 안). */
   const [drop, setDrop] = useState<{ tabId: string; pane: string } | null>(null);
-  /** 카드 아래 입력 막대 표시(설정). 끄면 터미널에 직접 입력하고 파일 드롭 첨부는 받지 않는다. */
+  /** 카드 아래 입력 막대 표시(설정). 끄면 터미널에 직접 입력하고 파일 드롭은 터미널 입력 줄에 글자로 넣는다. */
   const [showInputBar, setShowInputBar] = useState(true);
   const [info, setInfo] = useState<Record<string, string | number | null> | null>(null);
   const [confirmEnd, setConfirmEnd] = useState<string | null>(null);
@@ -124,9 +128,45 @@ export function App() {
   const lastSaved = useRef<Record<string, string>>({});
   const closed = useRef<Set<string>>(new Set());
   const createdAt = useRef<Record<string, number>>({});
+  /** 탭별 직전 상태(렌더 전에 상태가 여러 번 와도 알림이 겹치지 않게 렌더와 별개로 바로 갱신)와 처음 본 시각. */
+  const lastState = useRef<Record<string, TabStateDto>>({});
+  const firstSeen = useRef<Record<string, number>>({});
+  /** 탭별 차례 끝 대기 타이머(settleDone: DONE_SETTLE_MS마다 doneDecision으로 다시 판단). */
+  const doneTimers = useRef(new TabTimers());
   // 키 처리기에서 최신 값을 쓰기 위한 참조
-  const live = useRef({ order, active, ui, busy, tabs, showInputBar });
-  live.current = { order, active, ui, busy, tabs, showInputBar };
+  const live = useRef({ order, active, ui, busy, tabs, showInputBar, muted });
+  live.current = { order, active, ui, busy, tabs, showInputBar, muted };
+
+  /** 탭 바와 같은 표시 이름(같은 폴더면 "이름 (2)", 로그인 탭은 고정 이름). */
+  const tabName = (s: TabStateDto): string => {
+    if (s.purpose === 'login') return t('tab.login');
+    const ids = live.current.order.filter((id) => id === s.tabId || live.current.tabs[id]);
+    const i = ids.indexOf(s.tabId);
+    return i < 0 ? folderName(s.folder) : tabTitles(ids.map((id) => (id === s.tabId ? s : live.current.tabs[id]).folder))[i];
+  };
+
+  /** Windows 알림 요청: 창이 비활성이고 탭 알림이 켜져 있을 때만(설정은 main이 확인). 이름은 잘라 제목 길이 제한을 넘지 않게. */
+  const notifyAgent = (s: TabStateDto, e: AgentEvent): void => {
+    if (document.hasFocus() || live.current.muted[s.tabId]) return;
+    const agent = s.panes.find((p) => p.paneId === e.pane)?.label.name ?? '';
+    window.ctd.notify(s.tabId, e.pane, t('notify.title', { tab: clipName(tabName(s)), agent: clipName(agent) }), t(e.kind === 'done' ? 'notify.done' : 'notify.approval'));
+  };
+
+  /**
+   * 차례 끝·승인 대기. 승인 대기 알림은 바로. 리드 차례 끝은 팀이 조용해질 때까지 기다린 뒤(settleDone, 팀 실행 중 리드가 팀원 메시지마다
+   * 차례를 끝내는 소음 방지) 그때 보고 있지 않으면 읽지 않음 표시(알림 설정·끄기와 무관)와 Windows 알림 요청. 새 차례 끝은 기다림을 대신한다.
+   */
+  const onAgentEvents = (s: TabStateDto, evs: AgentEvent[]): void => {
+    const approval = evs.find((e) => e.kind === 'approval');
+    if (approval) notifyAgent(s, approval);
+    const done = evs.find((e) => e.kind === 'done');
+    const doneAt = s.panes.find((p) => p.paneId === done?.pane)?.doneAt;
+    if (!done || doneAt == null) return;
+    settleDone(doneTimers.current, s.tabId, doneAt, () => lastState.current[s.tabId], Date.now, (cur) => {
+      setUnread((u) => markUnread(u, cur.tabId, [done], document.hasFocus() && live.current.active === cur.tabId));
+      notifyAgent(cur, done);
+    });
+  };
 
   const applyTab = (s: TabStateDto): void => {
     if (closed.current.has(s.tabId)) return; // 닫은 탭의 늦은 상태
@@ -136,7 +176,13 @@ export function App() {
       slots.current[s.tabId] = sv.slots;
       setUi((x) => (x[s.tabId] ? x : { ...x, [s.tabId]: sv.ui }));
       if (sv.bannerDone) setBannerDone((b) => ({ ...b, [s.tabId]: true }));
+      // 같은 실행 안에서 분리 후 다시 연 탭은 메모리 값이 최신(saved는 시작 때 읽은 값이라 그 뒤 알림 켜기·끄기를 모름)
+      setMuted((m) => (s.tabId in m ? m : { ...m, [s.tabId]: sv.muted }));
     }
+    firstSeen.current[s.tabId] ??= Date.now();
+    const evs = agentEvents(lastState.current[s.tabId], s, firstSeen.current[s.tabId]);
+    lastState.current[s.tabId] = s;
+    if (evs.length) onAgentEvents(s, evs);
     // 사라진 칸의 터미널 폐기
     const prev = panesSeen.current[s.tabId] ?? new Set<string>();
     const now = new Set(s.panes.map((p) => p.paneId));
@@ -167,6 +213,15 @@ export function App() {
     delete panesSeen.current[tabId];
     delete slots.current[tabId];
     delete lastSaved.current[tabId];
+    delete lastState.current[tabId];
+    delete firstSeen.current[tabId];
+    doneTimers.current.cancel(tabId);
+    setUnread((u) => {
+      if (!u.has(tabId)) return u;
+      const n = new Set(u);
+      n.delete(tabId);
+      return n;
+    });
     const { order: o, active: a } = live.current;
     // @update 카드가 있던 탭이 닫히면(업데이트 전 세션 정리 등) 카드는 Update 탭으로 옮긴다(D8)
     if (updHostRef.current === tabId) {
@@ -250,6 +305,11 @@ export function App() {
       return;
     }
     insertInto({ tabId, pane: lead, text: q.text, command: true });
+  };
+
+  /** 대화 ID·이어가기 명령 복사(성공은 조용히, 실패만 오류 줄). */
+  const copyHistory = (item: HistoryItemDto, what: 'id' | 'resume'): void => {
+    void safeIpc(() => window.ctd.copyHistory(item.sessionId, what), false, setError, t('action.copy'));
   };
 
   /** 사용량 ↻. IPC 자체가 실패하면 영역 안 한 줄로 알린다. */
@@ -420,6 +480,13 @@ export function App() {
       offs.push(window.ctd.onHistory(setHistory));
       offs.push(window.ctd.onRunning(setRunning));
       offs.push(window.ctd.onDetached(setDetached));
+      // 알림 클릭: main이 창을 앞으로 가져온 뒤 그 탭·카드로 전환(이미 닫은 탭이면 무시)
+      offs.push(window.ctd.onFocusPane((tabId, pane) => {
+        const tb = live.current.tabs[tabId];
+        if (!tb) return;
+        setActive(tabId);
+        if (tb.panes.some((p) => p.paneId === pane)) setUi((x) => ({ ...x, [tabId]: { ...(x[tabId] ?? DEFAULT_TAB_UI), activePane: pane } }));
+      }));
       // 설정 저장 즉시 적용: 글꼴·크기·테마·입력 막대(카드 본문이 커지면 카드의 ResizeObserver가 fit)
       offs.push(window.ctd.onAppearance((a) => {
         setTerminalFont(a.fontSize, a.fontFamily);
@@ -431,7 +498,8 @@ export function App() {
     return () => offs.forEach((f) => f());
   }, []);
 
-  // 창 전체 드래그앤드롭: 파일·폴더를 놓으면 대상 카드 입력창 커서 위치에 @"경로"(공백 구분). 놓은 곳이 카드면 그 카드, 아니면 활성 카드
+  // 창 전체 드래그앤드롭: 파일·폴더를 놓으면 대상 카드 입력창 커서 위치에 @"경로"(공백 구분). 놓은 곳이 카드면 그 카드, 아니면 활성 카드.
+  // 입력 막대를 숨겼으면 같은 글을 그 카드의 터미널 입력 줄에 넣는다(Enter 없음)
   useEffect(() => {
     const isFiles = (e: DragEvent): boolean => !!e.dataTransfer && [...e.dataTransfer.types].includes('Files');
     const hoveredPane = (e: DragEvent, tabId: string): string | null => {
@@ -448,8 +516,7 @@ export function App() {
       e.preventDefault(); // 기본 동작(파일 열기·이동) 막기
       hover.over();
       const a = live.current.active;
-      // 입력 막대를 숨기면 드롭 첨부를 받지 않는다(기본 동작만 막고 드롭 표시 없음)
-      const pane = a && live.current.showInputBar ? targetPane(a, hoveredPane(e, a)) : null;
+      const pane = a ? targetPane(a, hoveredPane(e, a)) : null;
       if (e.dataTransfer) e.dataTransfer.dropEffect = pane ? 'copy' : 'none';
       setDrop((d) => (pane && a ? (d && d.tabId === a && d.pane === pane ? d : { tabId: a, pane }) : null));
     };
@@ -462,11 +529,16 @@ export function App() {
       if (!isFiles(e)) return;
       e.preventDefault();
       hover.reset();
-      if (!live.current.showInputBar) return;
       const a = live.current.active;
       const pane = a ? targetPane(a, hoveredPane(e, a)) : null;
       if (!a || !pane) {
         setError(t(a ? 'app.tabNoInput' : 'app.openSessionFirst'));
+        return;
+      }
+      const toTerminal = !live.current.showInputBar;
+      // 터미널에 직접 넣을 때 승인 대기 중인 칸은 글자가 선택지로 읽힐 수 있어 거부(main도 다시 확인)
+      if (toTerminal && live.current.tabs[a]?.panes.some((p) => p.paneId === pane && p.waiting)) {
+        setError(t('app.dropWaiting'));
         return;
       }
       const files = [...(e.dataTransfer?.files ?? [])];
@@ -477,7 +549,14 @@ export function App() {
       if (problems.length) setError(problems.join('\n'));
       if (!m.text) return;
       setUi((x) => ({ ...x, [a]: { ...(x[a] ?? DEFAULT_TAB_UI), activePane: pane } }));
-      insertInto({ tabId: a, pane, text: m.text });
+      if (!toTerminal) {
+        insertInto({ tabId: a, pane, text: m.text });
+        return;
+      }
+      // 끝 공백: 다음 입력이 경로에 붙지 않게(입력 막대의 insertAt과 같은 목적)
+      void safeIpc(() => window.ctd.typeText(a, pane, `${m.text} `), null, setError, t('action.sendMessage')).then((ok) => {
+        if (ok === false) setError(t(live.current.tabs[a]?.panes.some((p) => p.paneId === pane && p.waiting) ? 'app.dropWaiting' : 'app.tabNoInput'));
+      });
     };
     window.addEventListener('dragenter', onEnter, true);
     window.addEventListener('dragover', onOver, true);
@@ -533,13 +612,30 @@ export function App() {
       const t = tabs[id];
       const u = ui[id];
       if (!t || !u) continue;
-      const v = toSavedTabUi(u, slots.current[id] ?? [], !!bannerDone[id]);
+      const v = toSavedTabUi(u, slots.current[id] ?? [], !!bannerDone[id], !!muted[id]);
       const j = JSON.stringify(v);
       if (lastSaved.current[id] === j) continue;
       lastSaved.current[id] = j;
       window.ctd.saveTabUi(t.session, v);
     }
-  }, [ui, tabs, order, bannerDone]);
+  }, [ui, tabs, order, bannerDone, muted]);
+
+  // 읽지 않음 해제: 그 탭이 활성이고 창이 활성일 때(탭 전환 또는 창으로 돌아옴)
+  useEffect(() => {
+    const clear = (): void => {
+      const a = live.current.active;
+      if (!a || !document.hasFocus()) return;
+      setUnread((u) => {
+        if (!u.has(a)) return u;
+        const n = new Set(u);
+        n.delete(a);
+        return n;
+      });
+    };
+    clear();
+    window.addEventListener('focus', clear);
+    return () => window.removeEventListener('focus', clear);
+  }, [active]);
 
   // 단축키. 캡처 단계에서 먼저 받아 터미널과 충돌하지 않게 한다.
   useEffect(() => {
@@ -657,7 +753,7 @@ export function App() {
         <Sidebar history={history} running={running} tabs={tabList} activeConversation={cur ? tabConversationId(cur) : null}
           collapsed={collapsed} onToggle={toggleGroup} onOpen={openConversation} onNew={(f) => void startSession(f)}
           onRetry={() => window.ctd.refreshHistory()} recent={recent} busy={busy}
-          onRename={setRenaming} onArchive={setArchived} onTrash={(it) => void askTrash(it)} onTrashGroup={(name, items) => void askTrashGroup(name, items)} onStop={askStop} stopping={stopping}
+          onRename={setRenaming} onArchive={setArchived} onCopy={copyHistory} onTrash={(it) => void askTrash(it)} onTrashGroup={(name, items) => void askTrashGroup(name, items)} onStop={askStop} stopping={stopping}
           detached={detached} onAttachDetached={attachDetached} onStopDetached={setStopDetachedAsk}
           hidden={sidebarHidden} onCollapse={toggleSidebar}
           filter={historyFilter} onFilter={(f) => { setHistoryFilter(f); window.ctd.saveHistoryFilter(f); }}
@@ -674,6 +770,7 @@ export function App() {
           <TabBar tabs={tabList} active={active} titleOf={titleOf} onSelect={setActive} onNew={() => void startSession()}
             recent={recent} homeDir={homeDir} busy={busy} onNewPlain={(f) => void startSession(f, true)}
             onDetach={detach} onTerminate={setConfirmEnd} isFresh={(tb) => isFreshTab(tb, history.items)} onExpand={sidebarHidden ? toggleSidebar : null}
+            unread={unread} muted={muted} onToggleMute={(id) => setMuted((m) => ({ ...m, [id]: !m[id] }))}
             layout={cur ? (ui[cur.tabId] ?? DEFAULT_TAB_UI).layout : null} onLayout={(l) => { if (cur) setLayout(cur.tabId, l); }}
             extraTab={updHost === UPDATE_TAB ? { id: UPDATE_TAB, label: t('update.tabName'), kind: updTabState === 'running' ? 'working' : updTabState === 'failed' ? 'disconnected' : 'idle' } : null}
             onCloseExtra={() => { setActive(UPDATE_TAB); setUpdCloseReq((n) => n + 1); }} />

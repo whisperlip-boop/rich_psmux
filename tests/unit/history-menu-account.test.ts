@@ -67,7 +67,7 @@ describe('history-meta 저장소', () => {
 
 /** 인덱스 항목 픽스처. */
 function hi(n: number, dir: string, kind: HistoryItem['kind'], teamName: string | null = null): HistoryItem {
-  return { sessionId: SID(n), dir, file: `${SID(n)}.jsonl`, key: KEY(dir, n), title: `t${n}`, cwd: 'D:\\x', kind, teamName, mtimeMs: n, createdMs: null };
+  return { sessionId: SID(n), dir, file: `${SID(n)}.jsonl`, key: KEY(dir, n), title: `t${n}`, cwd: 'D:\\x', kind, teamName, mtimeMs: n, createdMs: null, gitBranch: null, model: null, preview: null };
 }
 
 describe('목록 오버레이·팀원 묶기', () => {
@@ -262,7 +262,7 @@ describe('사이드바 표시 규칙', () => {
   const now = new Date(2026, 9, 26, 12, 0);
   const dto = (n: number, o: Partial<HistoryItemDto> = {}): HistoryItemDto => ({
     sessionId: SID(n), title: `제목${n}`, cwd: 'D:\\x', folderKey: 'd:\\x', folderName: 'x', mtimeMs: n, createdMs: null, kind: 'lead', mates: 0,
-    key: KEY('D--x', n), customTitle: null, archived: false, ...o,
+    key: KEY('D--x', n), customTitle: null, archived: false, gitBranch: null, model: null, preview: null, ...o,
   });
 
   it('표시 이름 override와 원래 제목, 검색은 둘 다 대상', () => {
@@ -271,6 +271,20 @@ describe('사이드바 표시 규칙', () => {
     expect(originalTitle(a, now)).toBe('제목1');
     expect(groupHistory([a], '바뀐', now)[0].items[0].sessionId).toBe(SID(1));
     expect(groupHistory([a], '제목1', now)[0].items[0].sessionId).toBe(SID(1));
+  });
+
+  it('검색: git 브랜치·모델·첫 메시지 앞부분도 대상(대소문자 무시)', () => {
+    const a = dto(1, { gitBranch: 'feature/Login', model: 'claude-opus-x', preview: 'Fix the parser bug' });
+    const b = dto(2);
+    const hit = (q: string): string[] => groupHistory([a, b], q, now).flatMap((g) => g.items.map((i) => i.sessionId));
+    expect(hit('login')).toEqual([SID(1)]);
+    expect(hit('OPUS')).toEqual([SID(1)]);
+    expect(hit('parser')).toEqual([SID(1)]);
+    expect(hit('없는 말')).toEqual([]);
+    // 본문 검색 결과는 검색어와 별개로 포함하되 상태 필터는 그대로 적용
+    const c = dto(3, { archived: true });
+    const hits = new Map([[SID(2), '…body…'], [SID(3), '…body…']]);
+    expect(viewHistory([a, b, c], DEFAULT_FILTER, '없는 말', now, hits).flatMap((g) => g.items.map((i) => i.sessionId))).toEqual([SID(2)]);
   });
 
   it('툴팁 마지막 줄은 세션 ID 전체(축약 없음)', () => {
@@ -297,7 +311,7 @@ describe('히스토리 필터·그룹·정렬', () => {
   const t = now.getTime();
   const dto = (n: number, o: Partial<HistoryItemDto> = {}): HistoryItemDto => ({
     sessionId: SID(n), title: `제목${n}`, cwd: 'D:\\x', folderKey: 'd:\\x', folderName: 'x', mtimeMs: t, createdMs: null, kind: 'lead', mates: 0,
-    key: KEY('D--x', n), customTitle: null, archived: false, ...o,
+    key: KEY('D--x', n), customTitle: null, archived: false, gitBranch: null, model: null, preview: null, ...o,
   });
   const ids = (items: HistoryItemDto[], f: Partial<HistoryFilter>, q = ''): string[] =>
     viewHistory(items, { ...DEFAULT_FILTER, ...f }, q, now).flatMap((g) => g.items.map((i) => i.sessionId));

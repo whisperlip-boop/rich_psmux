@@ -40,9 +40,10 @@ export function historyTip(i: HistoryItemDto, title: string, groupName: string):
   ].filter(Boolean).join('\n');
 }
 
-/** 검색 일치(표시 제목·원래 제목·폴더명, 대소문자 무시). q는 소문자·공백 제거된 검색어. */
+/** 검색 일치(표시 제목·원래 제목·폴더명·git 브랜치·모델·첫 메시지 앞부분, 대소문자 무시). q는 소문자·공백 제거된 검색어. */
 function matches(i: HistoryItemDto, q: string, now: Date): boolean {
-  return !q || displayTitle(i, now).toLowerCase().includes(q) || originalTitle(i, now).toLowerCase().includes(q) || i.folderName.toLowerCase().includes(q);
+  const has = (s: string | null): boolean => !!s && s.toLowerCase().includes(q);
+  return !q || has(displayTitle(i, now)) || has(originalTitle(i, now)) || has(i.folderName) || has(i.gitBranch) || has(i.model) || has(i.preview);
 }
 
 /** 상태 필터: 활성 = 보관 안 됨. */
@@ -101,13 +102,14 @@ export function createdOf(i: HistoryItemDto): number {
  * Args:
  *   items: 목록 항목.
  *   f: 필터.
- *   query: 검색어(표시 제목·원래 제목·폴더명, 대소문자 무시).
+ *   query: 검색어(표시 제목·원래 제목·폴더명·git 브랜치·모델·첫 메시지, 대소문자 무시).
  *   now: 기준 시각.
+ *   contentHits: 본문 검색에서 찾은 대화(ID → 일치 부분). 있으면 검색어와 별개로 포함한다.
  */
-export function filterHistory(items: HistoryItemDto[], f: HistoryFilter, query: string, now: Date): HistoryItemDto[] {
+export function filterHistory(items: HistoryItemDto[], f: HistoryFilter, query: string, now: Date, contentHits?: ReadonlyMap<string, string>): HistoryItemDto[] {
   const q = query.trim().toLowerCase();
   const since = f.recent === 'all' ? Number.NEGATIVE_INFINITY : now.getTime() - Number(f.recent) * DAY_MS;
-  return items.filter((i) => (f.status === 'all' || (f.status === 'archived') === i.archived) && i.mtimeMs >= since && matches(i, q, now));
+  return items.filter((i) => (f.status === 'all' || (f.status === 'archived') === i.archived) && i.mtimeMs >= since && (matches(i, q, now) || !!contentHits?.has(i.sessionId)));
 }
 
 /** 정렬 비교: 이름(표시 제목, 현재 언어 로케일·숫자 인식, 오름차순) / 생성 날짜(최신 먼저) / 최근 활동(최신 먼저). 같으면 최근 활동. */
@@ -175,10 +177,11 @@ export interface HistoryGroup {
  *   f: 필터.
  *   query: 검색어.
  *   now: 기준 시각.
+ *   contentHits: 본문 검색 결과(filterHistory 참고).
  */
-export function viewHistory(items: HistoryItemDto[], f: HistoryFilter, query: string, now: Date): HistoryGroup[] {
+export function viewHistory(items: HistoryItemDto[], f: HistoryFilter, query: string, now: Date, contentHits?: ReadonlyMap<string, string>): HistoryGroup[] {
   const cmp = compareHistory(f.sort, now);
-  const list = filterHistory(items, f, query, now).sort(cmp);
+  const list = filterHistory(items, f, query, now, contentHits).sort(cmp);
   if (!list.length) return [];
   const latest = (xs: HistoryItemDto[]): number => Math.max(...xs.map((x) => x.mtimeMs));
   if (f.group === 'none') return [{ key: NO_GROUP_KEY, name: '', path: null, items: list, latest: latest(list), kind: 'none' }];

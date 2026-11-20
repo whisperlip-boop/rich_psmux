@@ -3,27 +3,30 @@
 import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join, parse } from 'node:path';
 
-import { app, BrowserWindow, clipboard, dialog, ipcMain, nativeImage, nativeTheme, shell, type IpcMainEvent, type IpcMainInvokeEvent } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, nativeImage, nativeTheme, Notification, powerSaveBlocker, shell, type IpcMainEvent, type IpcMainInvokeEvent } from 'electron';
 
 import type {
-  AccountDto, AgentsDto, AppearanceDto, DetachedSessionDto, EditableSettings, HistoryDto, HistoryStopDto, LogoutResultDto, OpenResult, PsmuxSessionDto, RunningDto, SaveSettingsResult, SettingsView,
+  AccountDto, AgentsDto, AppearanceDto, ContentSearchResultDto, DetachedSessionDto, EditableSettings, HistoryDto, HistoryStopDto, LogoutResultDto, OpenLogsResultDto, OpenResult, PsmuxSessionDto, RunningDto, SaveSettingsResult, SettingsView,
   SetLanguageResultDto, TrashPreviewDto, TrashResultDto, UpdateStateDto, UsageDto,
 } from '../shared/api';
-import { AGENT_NAME_RE, AGENT_TEMPLATE, leadCommandFor, PLAIN_LEAD_COMMAND } from '../shared/agents';
+import { AGENT_NAME_RE, AGENT_TEMPLATE, leadCommandFor, PLAIN_LEAD_COMMAND, resumeCommand } from '../shared/agents';
 import { pickClipImage } from '../shared/attach';
 import { getLang, isLang, langFromLocales, msg, resolveMsg, setLang, tr, type Lang, type Msg } from '../shared/i18n';
 import { SESSION_ID_RE } from '../shared/ids';
+import { CONTENT_QUERY_MAX, CONTENT_QUERY_MIN } from '../shared/search';
 import { listMetaSessions, readSessionMeta, removeSessionFiles, UiStateStore, type SessionMeta } from './appData';
 import { listAgents } from './agentsScan';
 import { AuthCache, type AuthCheckResult } from './authCache';
 import { isShellCommand, LOGOUT_TIMEOUT_MS, loggedInFrom, parseAuthStatus, runClaude, STATUS_TIMEOUT_MS, stepLogin, type LoginWatch } from './auth';
 import {
-  agentsDir, claudeHomeDir, listRunningSessionFiles, projectDirName, projectsDir, readAccount, readRunningSessionFile, resolveProjects, setProjectsDir,
+  agentsDir, claudeHomeDir, listRunningSessionFiles, projectDirName, projectsDir, readAccount, readProjectRange, readRunningSessionFile, resolveProjects, setProjectsDir,
 } from './claudeHome';
 import { cleanupClips, saveClipPng } from './clips';
 import { selectDetached, sessionHasConversation } from './detached';
+import { searchContent, type SearchToken } from './history/contentSearch';
 import { HistoryIndexer } from './history/indexer';
 import { HistoryMetaStore } from './historyMeta';
+import { KeepAwake } from './keepAwake';
 import { toHistoryDtos } from './history/list';
 import { isDefinitiveRefusal, judgeKill, judgeOwner, killProcessTree, queryProcess } from './history/procKill';
 import {
@@ -31,7 +34,8 @@ import {
 } from './history/running';
 import { errMsg, initLogger, log } from './logger';
 import { hasSession, listSessionNames, psmuxCli } from './psmux/cli';
-import { asarUnpackedPath, probeDir, probeExecutable, resolveClaude, resolveNode, resolvePsmux, resolveWinget, unreachableMsg, unreachableReason } from './psmux/env';
+import { asarUnpackedPath, cleanEnv, probeDir, probeExecutable, resolveClaude, resolveNode, resolvePsmux, resolveWinget, unreachableMsg, unreachableReason } from './psmux/env';
+import { ensureExecShim, isWindowsPowerShell, policyBlocksShim, readExecutionPolicy } from './psmux/execShim';
 import { TabSession, type TabState } from './psmux/sessionManager';
 import { classifySessions, isAppSessionName, parseListSessions, selectRestorable, staleSessions } from './psmux/sessionName';
 import { DEFAULT_SETTINGS, leadCommandError, pushRecent, SettingsStore, validateSettings, type Settings } from './settings';
@@ -173,8 +177,20 @@ async function leadScriptCommands(withStatusLine: boolean): Promise<{ hook: stri
   return { hook, statusLine: base ? `${base} "${usageFile.replace(/\\/g, '/')}"` : null };
 }
 
+/** 잠자기 막기. 시스템 잠자기만 막고 화면은 꺼질 수 있다(prevent-app-suspension). */
+const keepAwake = new KeepAwake({ start: () => powerSaveBlocker.start('prevent-app-suspension'), stop: (id) => powerSaveBlocker.stop(id) });
+
+/** 설정과 열린 탭의 작업 여부로 잠자기 막기를 다시 정한다(탭 상태 변경·탭 닫기·설정 저장·시작 때). */
+function refreshKeepAwake(): void {
+  // 종료 중에는 release 뒤 늦게 온 탭 상태가 다시 막기를 잡지 않게
+  if (quitting) return;
+  const working = [...tabs.values()].some((t) => t.state().panes.some((p) => p.working));
+  keepAwake.update(settings.get().keepAwake, working);
+}
+
 function wireTab(t: TabSession): void {
   t.on('state', (s: TabState) => {
+    refreshKeepAwake();
     // 이미 닫은 탭(분리·종료)의 늦은 상태는 보내지 않는다(렌더러에 탭이 되살아나지 않게)
     if (tabs.get(t.tabId) === t) send('tab:state', s);
     // Claude만 탭의 대화 ID를 기억해 두면 히스토리에서 다시 열 때도 에이전트 없이 열린다
@@ -479,9 +495,13 @@ async function closeAllSessionsForUpdate(): Promise<boolean> {
     }
     uiStore.removeTab(t.session);
     if (tabs.get(t.tabId) === t) tabs.delete(t.tabId);
+    dropNotice(t.tabId);
     send('tab:closed', t.tabId);
     log('info', `[${t.session}] tab closed for update`);
   }
+  // 탭이 모두 닫혔으면 에이전트 모드의 유예를 기다리지 않고 바로 푼다(항상 모드는 그대로 유지)
+  if (!tabs.size && settings.get().keepAwake === 'agent') keepAwake.release();
+  else refreshKeepAwake();
   // 히스토리 "세션 끊기…" 중이던 탭 없는 연결(-CC 프로세스)도 끊는다
   for (const j of stopping.values()) j.conn?.detach();
   const psmux = await resolvePsmux(settings.get().psmuxPath);
@@ -538,7 +558,7 @@ async function settingsView(): Promise<SettingsView> {
   const s = settings.get();
   psmuxDetected ??= await resolvePsmux('');
   return {
-    values: { psmuxPath: s.psmuxPath, pwshPath: s.pwshPath, leadCommand: s.leadCommand, historyDir: s.historyDir, fontFamily: s.fontFamily, fontSize: s.fontSize, theme: s.theme, showSdkSessions: s.showSdkSessions, checkUpdatesOnStartup: s.checkUpdatesOnStartup, showInputBar: s.showInputBar },
+    values: { psmuxPath: s.psmuxPath, pwshPath: s.pwshPath, leadCommand: s.leadCommand, historyDir: s.historyDir, fontFamily: s.fontFamily, fontSize: s.fontSize, theme: s.theme, showSdkSessions: s.showSdkSessions, checkUpdatesOnStartup: s.checkUpdatesOnStartup, showInputBar: s.showInputBar, notifications: s.notifications, keepAwake: s.keepAwake },
     defaults: {
       psmuxDetected, historyDir: join(claudeHomeDir(), 'projects'),
       leadCommand: DEFAULT_SETTINGS.leadCommand, fontFamily: DEFAULT_SETTINGS.fontFamily, fontSize: DEFAULT_SETTINGS.fontSize,
@@ -571,6 +591,7 @@ async function saveSettingsNow(raw: unknown): Promise<SaveSettingsResult> {
   if (prev.theme !== next.theme || prev.fontSize !== next.fontSize || prev.fontFamily !== next.fontFamily || prev.showInputBar !== next.showInputBar) {
     send('settings:appearance', { fontSize: next.fontSize, fontFamily: next.fontFamily, theme: next.theme, showInputBar: next.showInputBar } satisfies AppearanceDto);
   }
+  if (prev.keepAwake !== next.keepAwake) refreshKeepAwake();
   if (prev.historyDir !== next.historyDir) {
     history = { status: 'loading', items: [] };
     send('history:update', history);
@@ -1200,6 +1221,8 @@ async function closeTab(t: TabSession, terminate: boolean): Promise<boolean> {
     }
   }
   if (tabs.get(t.tabId) === t) tabs.delete(t.tabId);
+  dropNotice(t.tabId);
+  refreshKeepAwake();
   log('info', `[${t.session}] tab closed (${how})`);
   send('tab:closed', t.tabId);
   void refreshRunning();
@@ -1225,6 +1248,89 @@ function isDirectory(p: string): boolean {
 }
 function tabOf(id: unknown): TabSession | null {
   return typeof id === 'string' ? tabs.get(id) ?? null : null;
+}
+
+/** 진행 중인 본문 검색(새 검색·취소 요청이 오면 멈춘다). */
+let contentToken: SearchToken | null = null;
+
+/**
+ * 사이드바 본문 검색: 지금 목록에 보이는 대화(보관 포함, 팀원 제외)의 파일을 최근 순으로 읽는다. 검색어·본문은 기록하지 않는다.
+ *
+ * Returns:
+ *   cancelled = 다른 검색·취소로 멈춤(렌더러는 결과를 버림).
+ */
+async function runContentSearch(query: string): Promise<ContentSearchResultDto> {
+  if (contentToken) contentToken.cancelled = true;
+  const token: SearchToken = { cancelled: false };
+  contentToken = token;
+  const listed = new Set(history.items.map((i) => i.sessionId));
+  const targets = indexer.items().filter((i) => listed.has(i.sessionId)).sort((a, b) => b.mtimeMs - a.mtimeMs);
+  const t0 = Date.now();
+  try {
+    const r = await searchContent(readProjectRange, targets, query, token, (done, total) => { if (contentToken === token) send('history:searchProgress', done, total); });
+    log('info', `content search: ${r.scanned}/${targets.length} files, ${r.hits.length} hits, ${r.failed} unreadable, ${Date.now() - t0} ms${token.cancelled ? ', cancelled' : ''}`);
+    return { ok: true, cancelled: token.cancelled, hits: r.hits };
+  } catch (e) {
+    log('warn', `content search failed: ${errMsg(e)}`);
+    return { ok: false, cancelled: false, hits: [] };
+  } finally {
+    if (contentToken === token) contentToken = null;
+  }
+}
+
+/**
+ * 팀원 칸 exec shim의 칸 셸 실행 정책 확인(로그만): 설정의 PowerShell, 없으면 psmux 기본 셸. 로컬 .ps1을 막으면 경고.
+ */
+async function checkShimPolicy(): Promise<void> {
+  let shell = settings.get().pwshPath;
+  if (!shell) {
+    const psmux = await resolvePsmux(settings.get().psmuxPath);
+    const r = psmux ? await psmuxCli(psmux, ['show-options', '-gv', 'default-shell']) : null;
+    shell = r && r.code === 0 ? r.out.split(/\r?\n/)[0]?.trim() ?? '' : '';
+  }
+  if (!shell) return;
+  // Windows PowerShell 5.1은 팀원 명령의 &&를 해석하지 못한다(실행 정책과 무관)
+  if (isWindowsPowerShell(shell)) {
+    log('warn', `teammate panes need PowerShell 7: pane shell is Windows PowerShell (${shell}), which cannot run the Claude Code teammate command`);
+    return;
+  }
+  const policy = await readExecutionPolicy(shell, cleanEnv());
+  if (policy && policyBlocksShim(policy)) log('warn', `exec shim may be blocked: execution policy ${policy} for ${shell}; Claude Code teammate panes may fail to start`);
+}
+
+/** 탭별 마지막 Windows 알림. 참조를 쥐고 있어야 알림 센터에서 눌러도 클릭 처리기가 남는다. 같은 탭의 새 알림은 이전 것을 닫고 바꾼다. */
+const notices = new Map<string, Notification>();
+
+/** 닫은 탭의 알림을 알림 센터에서 지우고 참조를 놓는다(탭 닫기·업데이트 전 세션 정리). */
+function dropNotice(tabId: string): void {
+  notices.get(tabId)?.close();
+  notices.delete(tabId);
+}
+
+/**
+ * 에이전트 알림(렌더러가 차례 끝·승인 대기를 감지해 요청). 설정이 꺼졌거나 창이 활성이면 띄우지 않는다.
+ * 클릭하면 창을 앞으로 가져오고 렌더러에 그 탭·카드로 전환을 요청한다.
+ *
+ * Returns:
+ *   알림을 띄웠는지.
+ */
+function showAgentNotice(tabId: string, pane: string, title: string, body: string): boolean {
+  if (!settings.get().notifications || !win || win.isDestroyed() || win.isFocused() || !Notification.isSupported()) return false;
+  notices.get(tabId)?.close();
+  const n = new Notification({ title, body, silent: true, ...(existsSync(appIcon) ? { icon: appIcon } : {}) });
+  n.on('click', () => {
+    if (!win || win.isDestroyed()) return;
+    if (win.isMinimized()) win.restore();
+    win.show();
+    win.focus();
+    send('app:focusPane', tabId, pane);
+  });
+  n.on('failed', (_e, err) => log('warn', `notification failed: ${String(err).slice(0, 200)}`));
+  notices.set(tabId, n);
+  n.show();
+  win.flashFrame(true);
+  log('info', `[${tabId}] notification shown (${pane})`);
+  return true;
 }
 
 function registerIpc(): void {
@@ -1317,6 +1423,21 @@ function registerIpc(): void {
     publishHistory();
     return true;
   });
+  // 이어가기 명령은 앱이 이어갈 때와 같은 리드 명령(에이전트 없이 연 대화는 claude)
+  ipcMain.handle('history:copy', (_e, sid: unknown, what: unknown) => {
+    if (!isSid(sid) || (what !== 'id' && what !== 'resume')) return false;
+    let text = sid;
+    if (what === 'resume') {
+      const item = indexer.find(sid);
+      text = resumeCommand(uiStore.isPlainSession(sid) ? PLAIN_LEAD_COMMAND : settings.get().leadCommand, sid, item?.cwd ?? null);
+    }
+    clipboard.writeText(text);
+    log('info', `history: copied ${what} for ${sid.slice(0, 8)}`);
+    return true;
+  });
+  ipcMain.handle('history:searchContent', (_e, q: unknown) =>
+    (isStr(q, CONTENT_QUERY_MAX) && q.trim().length >= CONTENT_QUERY_MIN ? runContentSearch(q) : { ok: false, cancelled: false, hits: [] } satisfies ContentSearchResultDto));
+  ipcMain.on('history:cancelSearch', () => { if (contentToken) contentToken.cancelled = true; });
   ipcMain.handle('history:archive', (_e, key: unknown, archived: unknown) => {
     if (!indexedKey(key) || !historyMeta.setArchived(key, archived)) return false;
     publishHistory();
@@ -1348,6 +1469,20 @@ function registerIpc(): void {
     // 없는 이름으로 연결하면 psmux가 새 세션을 만든다 → 먼저 확인
     if (!psmux || !(await hasSession(psmux, name))) return { ok: false, error: tr('ipc.sessionGone', { name }) };
     return attachSession(name);
+  });
+  ipcMain.handle('app:openLogs', async (): Promise<OpenLogsResultDto> => {
+    const dir = join(dataDir, 'logs');
+    try {
+      const r = await shell.openPath(dir);
+      if (!r) return { ok: true, path: dir };
+      log('warn', `log folder open failed: ${r}`);
+    } catch (e) {
+      log('warn', `log folder open failed: ${errMsg(e)}`);
+    }
+    return { ok: false, path: dir };
+  });
+  ipcMain.on('app:notify', (_e: IpcMainEvent, tabId: unknown, pane: unknown, title: unknown, body: unknown) => {
+    if (tabOf(tabId) && isPane(pane) && isStr(title, 300) && isStr(body, 300)) showAgentNotice(tabId as string, pane, title, body);
   });
   ipcMain.handle('app:info', () => ({ version: app.getVersion(), electron: process.versions.electron, chrome: process.versions.chrome }));
   ipcMain.handle('history:open', async (_e, sid: unknown, force: unknown) => {
@@ -1438,6 +1573,10 @@ function registerIpc(): void {
   ipcMain.handle('pane:input', async (_e, tabId: unknown, pane: unknown, text: unknown) => {
     const t = tabOf(tabId);
     return !!t && isPane(pane) && isStr(text) ? t.sendInput(pane, text) : false;
+  });
+  ipcMain.handle('pane:type', async (_e, tabId: unknown, pane: unknown, text: unknown) => {
+    const t = tabOf(tabId);
+    return !!t && isPane(pane) && isStr(text, 20000) ? t.typeText(pane, text) : false;
   });
   ipcMain.on('pane:keys', (_e: IpcMainEvent, tabId: unknown, pane: unknown, data: unknown) => {
     const t = tabOf(tabId);
@@ -1533,6 +1672,8 @@ function createWindow(): void {
   void indexer.start();
   setInterval(() => void refreshRunning(), RUNNING_POLL_MS);
   setInterval(() => void refreshDetached(), DETACHED_POLL_MS);
+  // 알림 때 켠 작업 표시줄 깜박임은 창이 활성이 되면 끈다
+  win.on('focus', () => win?.flashFrame(false));
   win.on('closed', () => { win = null; });
   if (AUTO.folder) win.webContents.once('did-finish-load', () => void runAuto());
 }
@@ -1578,9 +1719,19 @@ if (!app.requestSingleInstanceLock()) {
     // 시스템 로케일은 ready 뒤에만 정확하다. IPC·창보다 먼저 정해 첫 메시지부터 이 언어로 만든다
     setLang(effectiveLang());
     log('info', `ui language: ${getLang()}${settings.get().language ? '' : ' (system)'}`);
+    // Windows 알림이 설치본 바로 가기와 같은 앱으로 보이게. 이 값은 package.json build.appId와 반드시 같아야 한다
+    app.setAppUserModelId('dev.local.rich-psmux');
+    // Claude Code 2.1.329+ 팀원 칸 명령의 exec용 shim(세션을 열기 전에 준비, 앱 세션 PATH 맨 앞에 둔다)
+    try {
+      ensureExecShim(dataDir);
+    } catch (e) {
+      log('warn', `exec shim write failed: ${errMsg(e)}`);
+    }
+    void checkShimPolicy().catch((e) => log('warn', `exec shim policy check failed: ${errMsg(e)}`));
     registerIpc();
     cleanupClips(dataDir);
     createWindow();
+    refreshKeepAwake();
     // 설정이 꺼져 있으면 아무 호출도 하지 않는다(캐시 파일만 읽어 둠)
     updates.startup(settings.get().checkUpdatesOnStartup);
     log('info', `app ready (data=${dataDir}, sessionData=${app.getPath('sessionData')})`);
@@ -1603,6 +1754,8 @@ app.on('before-quit', (e) => {
   }
   if (quitting) return;
   quitting = true;
+  keepAwake.release();
+  if (contentToken) contentToken.cancelled = true;
   indexer.stop();
   usage.stop();
   uiStore.flush();

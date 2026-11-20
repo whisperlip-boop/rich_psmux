@@ -84,6 +84,18 @@ describe('jsonl facts (title / cwd / kind rules)', () => {
     ]);
     expect(titleOf(f)).toBe('실제 질문 입니다');
   });
+  it('search fields: last git branch and assistant model, first message as preview', () => {
+    const f = factsOf([
+      rec({ type: 'user', gitBranch: 'feature/a', message: { role: 'user', content: 'first question' } }),
+      rec({ type: 'assistant', gitBranch: '', message: { model: 'claude-opus-x', content: [] } }),
+      rec({ type: 'assistant', gitBranch: 'main', message: { model: '<synthetic>', content: [] } }),
+      rec({ type: 'assistant', message: 'bad' }),
+    ]);
+    expect(f.gitBranch).toBe('main'); // 빈 값은 앞 값을 지우지 않음
+    expect(f.model).toBe('claude-opus-x'); // <synthetic>·형식 오류는 건너뜀
+    expect(toItem({ dir: 'd', file: `${SID}.jsonl`, size: 1, mtimeMs: 1, offset: 0, aligned: true, facts: f })).toMatchObject({ gitBranch: 'main', model: 'claude-opus-x', preview: 'first question' });
+    expect(toItem({ dir: 'd', file: `${SID}.jsonl`, size: 1, mtimeMs: 1, offset: 0, aligned: true, facts: emptyFacts() })).toMatchObject({ gitBranch: null, model: null, preview: null });
+  });
   it('title: falls back to last-prompt, then null; custom-title has priority', () => {
     expect(titleOf(factsOf([user('<ide_opened_file>x</ide_opened_file>'), rec({ type: 'last-prompt', lastPrompt: 'lp' })]))).toBe('lp');
     expect(titleOf(factsOf([rec({ type: 'mode', mode: 'x' })]))).toBeNull();
@@ -174,20 +186,23 @@ describe('indexFile / appendFile (head + tail streaming)', () => {
     expect(toItem({ dir: 'd', file: `${SID}.jsonl`, size: 1, mtimeMs: 1, offset: 0, aligned: true, facts: factsOf([user('x')]) })).toMatchObject({ sessionId: SID, title: 'x', kind: 'session' });
     expect(parseCache(null)).toEqual([]);
     expect(parseCache({ version: 999, entries: [] })).toEqual([]);
-    // 캐시 버전 3(firstAt 추가). 이전 버전 캐시는 버리고 다시 읽는다
-    const entry = { dir: 'd', file: 'f', size: 1, mtimeMs: 2, offset: 0, facts: { lines: 1, aiTitle: 'x', cwd: 5, firstAt: 1700000000000 } };
+    // 캐시 버전 4(gitBranch·model 추가, 3에서 firstAt). 이전 버전 캐시는 버리고 다시 읽는다
+    const entry = { dir: 'd', file: 'f', size: 1, mtimeMs: 2, offset: 0, facts: { lines: 1, aiTitle: 'x', cwd: 5, firstAt: 1700000000000, gitBranch: 'main', model: 7 } };
     expect(parseCache({ version: 2, entries: [entry] })).toEqual([]);
-    const ok = parseCache({ version: 3, entries: [entry, { dir: 1 }, null] });
+    expect(parseCache({ version: 3, entries: [entry] })).toEqual([]);
+    const ok = parseCache({ version: 4, entries: [entry, { dir: 1 }, null] });
     expect(ok).toHaveLength(1);
     expect(ok[0].facts.aiTitle).toBe('x');
     expect(ok[0].facts.cwd).toBeUndefined();
     expect(ok[0].facts.firstAt).toBe(1700000000000);
-    expect(parseCache({ version: 3, entries: [{ ...entry, facts: { lines: 1, firstAt: 'x' } }] })[0].facts.firstAt).toBeUndefined();
+    expect(ok[0].facts.gitBranch).toBe('main');
+    expect(ok[0].facts.model).toBeUndefined();
+    expect(parseCache({ version: 4, entries: [{ ...entry, facts: { lines: 1, firstAt: 'x' } }] })[0].facts.firstAt).toBeUndefined();
   });
 });
 
 describe('history list (teammates grouped under the lead)', () => {
-  const base = { dir: 'D--x', cwd: 'D:\\x', title: 't', teamName: null, agentName: null, mtimeMs: 1, size: 1, createdMs: null };
+  const base = { dir: 'D--x', cwd: 'D:\\x', title: 't', teamName: null, agentName: null, mtimeMs: 1, size: 1, createdMs: null, gitBranch: null, model: null, preview: null };
   // 파일 이름·키(인덱서 keyOf와 같은 <dir>/<file>)를 붙인다
   const keyed = <T extends { dir: string; sessionId: string }>(o: T): T & { file: string; key: string } => ({ ...o, file: `${o.sessionId}.jsonl`, key: `${o.dir}/${o.sessionId}.jsonl` });
   const lead = keyed({ ...base, sessionId: '4df7e772-0000-0000-0000-000000000000', kind: 'lead' as const });

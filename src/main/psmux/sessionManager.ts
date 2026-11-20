@@ -6,18 +6,19 @@ import { EventEmitter } from 'node:events';
 import { closeSync, mkdirSync, openSync, readFileSync, readSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { isPlainLeadCommand } from '../../shared/agents';
+import { isPlainLeadCommand, pwshQuote } from '../../shared/agents';
 import { msg, resolveMsg, tr, type Msg } from '../../shared/i18n';
 import { SESSION_ID_RE } from '../../shared/ids';
 import { appendLeadId, readSessionMeta, removeSessionFiles, sessionFiles, writeSessionMeta } from '../appData';
 import { findLeadSessionId, findTeamConfig, readTeamConfig, scanTranscriptTeam, type TranscriptTeam } from '../claudeHome';
 import { ControlClient, type CommandResult } from '../controlMode/client';
-import { assertSafeToken, inputToCommands, splitSubmit, tokensToCommands, xtermDataToTokens } from '../controlMode/quote';
+import { assertSafeToken, inputToCommands, isTypeableLine, literalCommands, splitSubmit, tokensToCommands, xtermDataToTokens } from '../controlMode/quote';
 import { errMsg, log } from '../logger';
 import { applyHookRecord, emptyHookState, parseHookLine, type HookState } from '../teams/hookState';
 import { fallbackLabel, leadNameFromCommand, resolveLabels, teamNameFor, type PaneLabel, type TeamConfig } from '../teams/paneMapper';
 import { hasSession, psmuxCli } from './cli';
 import { cleanEnv, probeDir, unreachableMsg } from './env';
+import { ensureExecShim, envPath, sessionPath } from './execShim';
 import { OutputBatcher } from './outputBatcher';
 import { clampSize, diffPanes, LIST_PANES_FORMAT, multilineModeFor, panesToBreak, parseListPanes, shellMatches, shellOptionPath, type PaneInfo } from './panes';
 import { makeSessionName } from './sessionName';
@@ -37,6 +38,10 @@ export interface PaneView {
   label: PaneLabel;
   working: boolean;
   waiting: boolean;
+  /** 승인 대기를 시작한 hook 시각. 대기 중이 아니면 null. */
+  waitingAt: number | null;
+  /** 마지막 차례 종료(Stop·StopFailure) hook 시각. 없으면 null. */
+  doneAt: number | null;
 }
 
 /** 렌더러로 보내는 탭 상태. */
@@ -107,11 +112,9 @@ const MAX_PANE_OP_ATTEMPTS = 3;
 /** dead 칸 정리 실패 시 재시도 간격(매 2초 무한 반복 방지). */
 const DEAD_RETRY_MS = 30000;
 const HOOK_POLL_MS = 700;
+/** 칸이 생긴 뒤 이 시간 안에 죽으면 경고 로그(팀원 실행 실패가 앱 로그에 보이게, 정리 동작은 그대로). */
+const QUICK_DEATH_MS = 15000;
 
-/** pwsh 작은따옴표 문자열. */
-function pwshQuote(s: string): string {
-  return `'${s.replace(/'/g, "''")}'`;
-}
 
 /**
  * psmux 세션 하나를 관리한다.
@@ -152,6 +155,10 @@ export class TabSession extends EventEmitter {
   // 순번(firstSeq·lastSeq)은 진단용 추가 인자(앱은 쓰지 않음, 통합 테스트가 재동기화 순서 추적에 사용)
   private readonly out = new OutputBatcher((pane, data, firstSeq, lastSeq) => this.emit('output', pane, data, firstSeq, lastSeq));
   private paneOpFailures = new Map<string, number>();
+  /** 칸이 처음 보인 시각(빨리 닫힌 칸 경고용). 기존 세션에 붙은 직후 처음 본 칸은 넣지 않는다. */
+  private paneAddedAt = new Map<string, number>();
+  /** 칸 목록을 한 번이라도 반영했는지(붙기 직후 첫 목록 구분). */
+  private listedOnce = false;
   private deadRetryAt = new Map<string, number>();
   private lastTeamPoll = 0;
   private timers: NodeJS.Timeout[] = [];
@@ -232,6 +239,8 @@ export class TabSession extends EventEmitter {
       label: this.labels[p.paneId] ?? fallbackLabel(p.paneId),
       working: this.working.has(p.paneId),
       waiting: this.hook.waiting[p.paneId] !== undefined,
+      waitingAt: this.hook.waiting[p.paneId] ?? null,
+      doneAt: this.hook.done[p.paneId] ?? null,
     }));
     // 리드 카드를 항상 맨 앞에
     panes.sort((a, b) => (a.paneId === this.leadPaneId ? -1 : b.paneId === this.leadPaneId ? 1 : Number(a.paneId.slice(1)) - Number(b.paneId.slice(1))));
@@ -282,6 +291,7 @@ export class TabSession extends EventEmitter {
     }
     try {
       await this.connect();
+      await this.applyShimPath();
       if (fresh) {
         await this.refresh();
         this.leadPaneId = [...this.panes.keys()][0] ?? null;
@@ -379,6 +389,47 @@ export class TabSession extends EventEmitter {
       PreToolUse: withMatcher, PostToolUse: withMatcher, PermissionRequest: withMatcher, PermissionDenied: withMatcher,
     };
     return hooks;
+  }
+
+  /**
+   * 이 세션의 새 칸 PATH 맨 앞에 exec shim 폴더를 둔다(세션 환경만, -g 아님). Claude Code 2.1.329+ 팀원 칸 명령의 exec를 PowerShell에서 풀기 위해.
+   * base는 앱이 psmux에 넘기는 정리된 환경의 PATH(앱이 만든 세션의 칸은 이 PATH로 뜬다). shim 파일이 지워졌거나 바뀌었으면 다시 쓴다.
+   * PATH를 모르거나 shim을 쓰지 못하면 건드리지 않는다. 이미 떠 있는 칸(리드)에는 영향이 없다. psmux는 Path·PATH를 같은 변수로 다룬다(실측).
+   * shortcut: 기존 세션에 붙을 때도 base는 지금 앱의 PATH다(세션에는 읽을 수 있는 자기 PATH가 없음). 세션을 만든 뒤 사용자 PATH가 바뀌었으면
+   * 새 칸은 바뀐 PATH를 받는다. 세션별 PATH를 기록해야 할 일이 생기면 세션 메타에 남긴다.
+   */
+  private async applyShimPath(): Promise<void> {
+    let dir: string;
+    try {
+      dir = ensureExecShim(this.opts.dataDir);
+    } catch (e) {
+      log('warn', `[${this.session}] exec shim not applied: ${errMsg(e)}`);
+      return;
+    }
+    const base = envPath(cleanEnv());
+    const value = sessionPath(dir, base?.value);
+    if (!base || !value) {
+      log('warn', `[${this.session}] exec shim not applied: PATH unknown`);
+      return;
+    }
+    const r = await psmuxCli(this.opts.psmux, ['set-environment', '-t', this.session, base.key, value]);
+    if (r.code !== 0) {
+      log('warn', `[${this.session}] exec shim not applied: set-environment code=${r.code} ${r.err.slice(0, 120)}`);
+      return;
+    }
+    // 그대로 들어갔는지 확인(로그에는 PATH 내용 대신 길이만)
+    const back = await psmuxCli(this.opts.psmux, ['show-environment', '-t', this.session, base.key]);
+    const got = back.code === 0 ? back.out.replace(/^[^=]*=/, '') : null;
+    if (got !== value) log('warn', `[${this.session}] exec shim PATH read back differs (set ${value.length} chars, read ${got === null ? `code=${back.code}` : `${got.length} chars`})`);
+  }
+
+  /** 칸이 생긴 지 QUICK_DEATH_MS 안에 죽거나 사라졌으면 경고 1줄(리드 제외, 종료 처리 중 제외, 칸마다 1번). */
+  private noteQuickDeath(id: string): void {
+    const t0 = this.paneAddedAt.get(id);
+    this.paneAddedAt.delete(id);
+    if (t0 === undefined || id === this.leadPaneId || this.terminating) return;
+    const ms = Date.now() - t0;
+    if (ms <= QUICK_DEATH_MS) log('warn', `[${this.session}] pane ${id} closed ${Math.round(ms / 100) / 10}s after it was added`);
   }
 
   private async connect(): Promise<void> {
@@ -615,13 +666,18 @@ export class TabSession extends EventEmitter {
       this.deadRetryAt.delete(id);
       this.working.delete(id);
       delete this.hook.waiting[id];
+      delete this.hook.done[id];
+      this.noteQuickDeath(id);
     }
     for (const p of diff.added) {
       log('info', `[${this.session}] pane added ${p.paneId} ${p.windowId} ${p.width}x${p.height}`);
+      // 기존 세션에 붙은 직후 처음 본 칸은 방금 생긴 칸이 아니다
+      if (this.listedOnce || !this.opts.attachName) this.paneAddedAt.set(p.paneId, Date.now());
       const want = this.desired.get(p.paneId) ?? this.desired.get(this.leadPaneId ?? '') ?? null;
       if (want && (want.cols !== p.width || want.rows !== p.height)) void this.applySize(p.paneId);
       void this.resync(p.paneId);
     }
+    this.listedOnce = true;
     if (diff.removed.length) log('info', `[${this.session}] panes removed ${diff.removed.join(',')}`);
     for (const p of diff.changed) this.emit('size', p.paneId, p.width, p.height);
     if (diff.added.length || diff.removed.length || diff.changed.length) {
@@ -641,6 +697,7 @@ export class TabSession extends EventEmitter {
     for (const p of list.filter((x) => x.dead)) {
       const retryAt = this.deadRetryAt.get(p.paneId);
       if (retryAt !== undefined && retryAt > now) continue;
+      if (retryAt === undefined) this.noteQuickDeath(p.paneId);
       const steps: string[] = [];
       let gone = false;
       if (p.windowPanes === 1 && p.paneId !== lead) {
@@ -731,9 +788,34 @@ export class TabSession extends EventEmitter {
   /** 텍스트 전송(차례 보장). clearWaiting이면 승인 대기 표시를 지운다(사용자 입력일 때만). */
   private deliver(pane: string, text: string, clearWaiting: boolean): Promise<boolean> {
     // 텍스트와 Enter 사이에 간격이 생기므로 입력끼리 섞이지 않게(앞 입력의 Enter 전에 다음 텍스트가 끼지 않게) 차례로 보낸다
-    const run = this.inputQueue.then(() => this.deliverNow(pane, text, clearWaiting));
+    return this.enqueue(() => this.deliverNow(pane, text, clearWaiting));
+  }
+
+  /** 카드 입력 체인에 작업을 붙인다(앞 작업이 실패해도 다음 작업은 실행). */
+  private enqueue(fn: () => Promise<boolean>): Promise<boolean> {
+    const run = this.inputQueue.then(fn);
     this.inputQueue = run.catch(() => undefined);
     return run;
+  }
+
+  /**
+   * 입력 막대를 숨긴 카드에 파일을 놓았을 때: 한 줄 글자만 칸에 넣고 End·Enter는 보내지 않는다(제출은 사용자가).
+   * 카드 입력과 같은 체인을 써서 다른 입력의 본문과 Enter 사이에 끼지 않는다. 승인 대기 중인 칸은 글자가 선택지로 읽힐 수 있어 거부한다.
+   */
+  async typeText(pane: string, text: string): Promise<boolean> {
+    // 승인 대기는 700ms 주기 hook 읽기로만 알 수 있어, 방금 뜬 승인 프롬프트를 놓치지 않게 확인 전에 새 기록을 바로 읽는다(동기·새로 붙은 줄만)
+    const blocked = (): boolean => {
+      if (this.terminating) return true;
+      if (this.opts.hookCommand) this.pollHooks();
+      return this.hook.waiting[pane] !== undefined;
+    };
+    if (!isTypeableLine(text) || blocked()) return false;
+    return this.enqueue(async () => {
+      // 앞 입력을 기다리는 사이 승인 프롬프트가 떴거나 종료가 시작됐을 수 있어 보내기 직전에 다시 확인
+      if (blocked() || !this.panes.has(pane)) return false;
+      log('info', `[${this.session}] type -> ${pane} (${text.length} chars, no submit)`);
+      return this.runCommands(literalCommands(pane, text));
+    });
   }
 
   /** 텍스트 전송 본체: 본문 → (End) → Enter를 SUBMIT_DELAY_MS 간격으로. */

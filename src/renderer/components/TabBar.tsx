@@ -1,4 +1,5 @@
-// 탭 바: 탭(상태 점·폴더명 (2)·×=분리, 대화 기록이 없는 탭은 ×=바로 종료), 우클릭 메뉴(분리/종료…), [+]·[▾](Claude만 메뉴), 작업 중 탭 경고, 레이아웃 선택기 1~5.
+// 탭 바: 탭(상태 점·폴더명 (2)·읽지 않음 점·×=분리, 대화 기록이 없는 탭은 ×=바로 종료), 우클릭 메뉴(분리/알림 끄기/종료…), [+]·[▾](Claude만 메뉴),
+// 읽지 않음 수·작업 중 탭 경고, 레이아웃 선택기 1~5.
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 
@@ -33,14 +34,20 @@ interface TabBarProps {
   /** 세션이 아닌 앱 탭(@update 카드만 두는 "Update" 탭). 없으면 null. ×는 카드 [닫기]와 같다. */
   extraTab?: { id: string; label: string; kind: StatusKind } | null;
   onCloseExtra?: () => void;
+  /** 리드가 차례를 끝냈는데 아직 보지 않은 탭. */
+  unread: ReadonlySet<string>;
+  /** Windows 알림을 끈 탭. */
+  muted: Record<string, boolean>;
+  onToggleMute: (id: string) => void;
 }
 
 /** 탭 목록. */
-export function TabBar({ tabs, active, titleOf, onSelect, onNew, onNewPlain, recent, homeDir, busy, onDetach, onTerminate, isFresh, onExpand, layout, onLayout, extraTab = null, onCloseExtra }: TabBarProps) {
+export function TabBar({ tabs, active, titleOf, onSelect, onNew, onNewPlain, recent, homeDir, busy, onDetach, onTerminate, isFresh, onExpand, layout, onLayout, extraTab = null, onCloseExtra, unread, muted, onToggleMute }: TabBarProps) {
   const titles = tabTitles(tabs.map((t) => t.folder));
   const norm = (f: string): string => f.replace(/[\\/]+$/, '').toLowerCase();
   const plainRecent = recent.filter((f) => norm(f) !== norm(homeDir));
   const workingTabs = workingTabCount(tabs);
+  const unreadTabs = tabs.filter((x) => unread.has(x.tabId));
   const listRef = useRef<HTMLDivElement>(null);
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   const [more, setMore] = useState(false);
@@ -140,13 +147,18 @@ export function TabBar({ tabs, active, titleOf, onSelect, onNew, onNewPlain, rec
           const title = titleOf(tab);
           const extra = tab.terminating ? t('tab.ending') : tab.leadGone ? t('tab.leadGone') : tab.error && st === 'disconnected' ? tab.error : '';
           const fresh = isFresh(tab);
+          const isUnread = unread.has(tab.tabId);
           return (
             <div key={tab.tabId} role="tab" aria-selected={on} tabIndex={on ? 0 : -1} data-tab={tab.tabId}
-              class={`tab${on ? ' is-active' : ''} tab--${st}`} onClick={() => onSelect(tab.tabId)}
+              class={`tab${on ? ' is-active' : ''} tab--${st}${isUnread ? ' tab--unread' : ''}`} onClick={() => onSelect(tab.tabId)}
               onContextMenu={(e) => { e.preventDefault(); setMenu({ id: tab.tabId, x: e.clientX, y: e.clientY }); }}
-              title={[tab.folder, tab.plain ? t('tab.plainHeader') : null, title ?? t('tab.noTitle'), statusLabel(st), extra].filter(Boolean).join('\n')}>
+              title={[tab.folder, tab.plain ? t('tab.plainHeader') : null, title ?? t('tab.noTitle'), statusLabel(st), extra, isUnread ? t('tab.unread') : null,
+                muted[tab.tabId] ? t('tab.mutedTip') : null].filter(Boolean).join('\n')}>
               <StatusDot kind={st} />
               <span class="tab__name">{tab.purpose === 'login' ? t('tab.login') : titles[i]}</span>
+              {/* 읽지 않음: 상태 점과 별개(상태 우선순위는 그대로). 색만으로 구분하지 않게 이름 굵게 + 스크린 리더 문구 */}
+              {isUnread && <span class="tab__unread" aria-hidden="true" />}
+              {isUnread && <span class="sr-only">{t('tab.unread')}</span>}
               <button class="tab__close" tabIndex={-1} title={t(fresh ? 'tab.closeFreshTip' : 'tab.detachTip')} aria-label={t(fresh ? 'tab.closeFresh' : 'tab.detach')}
                 disabled={tab.terminating} onClick={(e) => { e.stopPropagation(); onDetach(tab.tabId); }}>×</button>
             </div>
@@ -183,6 +195,9 @@ export function TabBar({ tabs, active, titleOf, onSelect, onNew, onNewPlain, rec
         )}
       </div>
       <span class="tabbar__spacer" />
+      {unreadTabs.length > 0 && (
+        <button class="unread-badge" title={t('tab.unreadTip')} onClick={() => onSelect(unreadTabs[0].tabId)}>{t('tab.unreadCount', { n: unreadTabs.length })}</button>
+      )}
       {workingTabs >= 2 && <span class="warn-badge" title={t('tab.workingTip')}>{t('tab.working', { n: workingTabs })}</span>}
       {/* 레이아웃 선택기 1~5 */}
       <div class="layout-sel" role="group" aria-label={t('tab.layout')}>
@@ -194,6 +209,7 @@ export function TabBar({ tabs, active, titleOf, onSelect, onNew, onNewPlain, rec
       {menu && (
         <div class="ctx-menu" role="menu" style={{ left: `${menu.x}px`, top: `${menu.y}px` }} onPointerDown={(e) => e.stopPropagation()}>
           <button role="menuitem" autoFocus disabled={menuTerminating} onClick={() => { setMenu(null); onDetach(menu.id); }}>{t(menuFresh ? 'tab.closeFresh' : 'tab.detach')}</button>
+          <button role="menuitem" onClick={() => { setMenu(null); onToggleMute(menu.id); }}>{t(muted[menu.id] ? 'tab.unmute' : 'tab.mute')}</button>
           {/* 확인 창이 닫힌 뒤 포커스가 돌아올 곳: 사라지는 메뉴 항목 대신 그 탭 */}
           <button role="menuitem" class="is-danger" disabled={menuTerminating} onClick={() => {
             setMenu(null);

@@ -10,7 +10,7 @@ import type { RunningDto, TabStateDto } from '../../src/shared/api';
 import { displayTitle, formatTime, groupHistory, itemDot } from '../../src/renderer/history';
 import { HoldBuffer } from '../../src/renderer/holdBuffer';
 import { DEFAULT_TAB_UI, ratioFromKey } from '../../src/renderer/layout';
-import { nextActiveAfterClose, normalizeSavedTabUi, tabStatus, toSavedTabUi, workingTabCount } from '../../src/renderer/tabs';
+import { agentEvents, clipName, DONE_RETRY_CAP_MS, DONE_SETTLE_MS, doneDecision, markUnread, nextActiveAfterClose, normalizeSavedTabUi, settleDone, tabStatus, TabTimers, toSavedTabUi, workingTabCount } from '../../src/renderer/tabs';
 
 vi.mock('../../src/main/logger', () => ({ log: () => undefined, errMsg: (e: unknown) => String(e) }));
 
@@ -88,9 +88,11 @@ describe('app data per session', () => {
   });
 });
 
-const pane = (id: string, o: Partial<{ working: boolean; waiting: boolean }> = {}) => ({
-  paneId: id, windowId: '@1', cols: 80, rows: 24, working: false, waiting: false,
+// 승인 대기면 대기 시작 시각을 기본 1000(테스트의 since보다 뒤)으로 둔다
+const pane = (id: string, o: Partial<{ working: boolean; waiting: boolean; waitingAt: number | null; doneAt: number | null }> = {}) => ({
+  paneId: id, windowId: '@1', cols: 80, rows: 24, working: false, waiting: false, doneAt: null as number | null,
   label: { name: id, color: '', textColor: '', isLead: id === '%0', source: 'lead' as const }, ...o,
+  waitingAt: o.waiting ? o.waitingAt ?? 1000 : null,
 });
 const tab = (o: Partial<TabStateDto>): TabStateDto => ({
   tabId: 't', session: 'ctd-t-000001', folder: 'D:\\x', status: 'connected', leadPaneId: '%0', teamName: null, panes: [pane('%0')],
@@ -108,14 +110,141 @@ describe('tab status aggregation', () => {
     expect(workingTabCount([tab({ panes: [pane('%0', { working: true })] }), tab({ panes: [pane('%3', { waiting: true })] }), tab({})])).toBe(2);
   });
   it('restores saved tab ui defensively and round-trips', () => {
-    const v = toSavedTabUi({ layout: 4, activePane: '%2', mainRatio: { 3: 30, 4: 70 } }, [{ paneId: '%0', name: 'ceo' }, { paneId: null, name: 'qa' }], true);
+    const v = toSavedTabUi({ layout: 4, activePane: '%2', mainRatio: { 3: 30, 4: 70 } }, [{ paneId: '%0', name: 'ceo' }, { paneId: null, name: 'qa' }], true, true);
     expect(normalizeSavedTabUi(JSON.parse(JSON.stringify(v)))).toEqual({
-      ui: { layout: 4, activePane: '%2', mainRatio: { 3: 30, 4: 70 } }, slots: [{ paneId: '%0', name: 'ceo' }, { paneId: null, name: 'qa' }], bannerDone: true,
+      ui: { layout: 4, activePane: '%2', mainRatio: { 3: 30, 4: 70 } }, slots: [{ paneId: '%0', name: 'ceo' }, { paneId: null, name: 'qa' }], bannerDone: true, muted: true,
     });
-    expect(normalizeSavedTabUi({ layout: 9, activePane: 'x', mainRatio: { 3: 99 }, slots: [{}, 5, { paneId: 'bad', name: 'n' }] })).toEqual({
-      ui: { ...DEFAULT_TAB_UI, mainRatio: { 3: 75, 4: 50 } }, slots: [{ paneId: null, name: 'n' }], bannerDone: false,
+    expect(normalizeSavedTabUi({ layout: 9, activePane: 'x', mainRatio: { 3: 99 }, slots: [{}, 5, { paneId: 'bad', name: 'n' }], muted: 'yes' })).toEqual({
+      ui: { ...DEFAULT_TAB_UI, mainRatio: { 3: 75, 4: 50 } }, slots: [{ paneId: null, name: 'n' }], bannerDone: false, muted: false,
     });
     expect(normalizeSavedTabUi(undefined).ui).toEqual(DEFAULT_TAB_UI);
+  });
+  it('agent events: approval edge on any pane, lead turn end only after first sight', () => {
+    const base = tab({ panes: [pane('%0'), pane('%1')] });
+    // 처음 보는 탭은 기준만(재연결 때 다시 읽은 오래된 기록)
+    expect(agentEvents(undefined, tab({ panes: [pane('%0', { doneAt: 50 })] }), 0)).toEqual([]);
+    expect(agentEvents(base, tab({ panes: [pane('%0'), pane('%1', { waiting: true })] }), 0)).toEqual([{ pane: '%1', kind: 'approval' }]);
+    // 이미 대기 중이면 다시 알리지 않음
+    const waiting = tab({ panes: [pane('%0'), pane('%1', { waiting: true })] });
+    expect(agentEvents(waiting, waiting, 0)).toEqual([]);
+    expect(agentEvents(base, tab({ panes: [pane('%0', { doneAt: 200 }), pane('%1')] }), 100)).toEqual([{ pane: '%0', kind: 'done' }]);
+    // 처음 본 시각보다 이른 차례 끝, 같은 값, 팀원 차례 끝은 무시
+    expect(agentEvents(base, tab({ panes: [pane('%0', { doneAt: 50 }), pane('%1')] }), 100)).toEqual([]);
+    const done = tab({ panes: [pane('%0', { doneAt: 200 }), pane('%1')] });
+    expect(agentEvents(done, done, 100)).toEqual([]);
+    expect(agentEvents(base, tab({ panes: [pane('%0'), pane('%1', { doneAt: 200 })] }), 100)).toEqual([]);
+    // 종료 처리 중인 탭은 무시
+    expect(agentEvents(base, tab({ terminating: true, panes: [pane('%0', { doneAt: 200 }), pane('%1', { waiting: true })] }), 100)).toEqual([]);
+    // 둘 다면 승인 대기 먼저
+    expect(agentEvents(base, tab({ panes: [pane('%0', { doneAt: 200 }), pane('%1', { waiting: true })] }), 100).map((e) => e.kind)).toEqual(['approval', 'done']);
+  });
+  it('approval replayed on reattach (waiting since before first sight) is not a new event', () => {
+    const base = tab({ panes: [pane('%0'), pane('%1')] });
+    expect(agentEvents(base, tab({ panes: [pane('%0'), pane('%1', { waiting: true, waitingAt: 50 })] }), 100)).toEqual([]);
+    expect(agentEvents(base, tab({ panes: [pane('%0'), pane('%1', { waiting: true, waitingAt: 150 })] }), 100)).toEqual([{ pane: '%1', kind: 'approval' }]);
+  });
+  it('done toast only after the tab settled (lead unchanged, nothing working or waiting)', () => {
+    const settled = tab({ panes: [pane('%0', { doneAt: 200 }), pane('%1')] });
+    expect(doneDecision(settled, 200, 300)).toBe('fire');
+    // 리드가 다시 움직여 새 차례 끝이 옴(새 기다림이 맡음)
+    expect(doneDecision(tab({ panes: [pane('%0', { doneAt: 300 }), pane('%1')] }), 200, 300)).toBe('drop');
+    // 리드·팀원이 아직 작업 중이거나 승인 대기: 다시 확인, 상한이 지나면 그만
+    expect(doneDecision(tab({ panes: [pane('%0', { doneAt: 200, working: true }), pane('%1')] }), 200, 300)).toBe('retry');
+    expect(doneDecision(tab({ panes: [pane('%0', { doneAt: 200 }), pane('%1', { working: true })] }), 200, 300)).toBe('retry');
+    expect(doneDecision(tab({ panes: [pane('%0', { doneAt: 200 }), pane('%1', { waiting: true })] }), 200, 300)).toBe('retry');
+    expect(doneDecision(tab({ panes: [pane('%0', { doneAt: 200 }), pane('%1', { working: true })] }), 200, 200 + DONE_RETRY_CAP_MS)).toBe('drop');
+    // 탭이 닫혔거나 종료 중
+    expect(doneDecision(undefined, 200, 300)).toBe('drop');
+    expect(doneDecision(tab({ terminating: true, panes: [pane('%0', { doneAt: 200 })] }), 200, 300)).toBe('drop');
+  });
+  it('settleDone: retries while a teammate works, fires once when quiet, drops on resume / cap / close', () => {
+    vi.useFakeTimers();
+    try {
+      let clock = 1_000_000;
+      const now = (): number => clock;
+      const step = (): void => { clock += DONE_SETTLE_MS; vi.advanceTimersByTime(DONE_SETTLE_MS); };
+      const busy = tab({ panes: [pane('%0', { doneAt: clock }), pane('%1', { working: true })] });
+      const quiet = tab({ panes: [pane('%0', { doneAt: clock }), pane('%1')] });
+      const fired: string[] = [];
+      // 8초에 팀원 작업 중 → 16초에 조용 → 한 번만
+      let cur: TabStateDto | undefined = busy;
+      const tt = new TabTimers();
+      settleDone(tt, 't', clock, () => cur, now, (x) => fired.push(x.tabId));
+      step();
+      expect(fired).toEqual([]);
+      cur = quiet;
+      step();
+      expect(fired).toEqual(['t']);
+      step();
+      expect(fired).toEqual(['t']);
+      // 다시 확인하는 동안 리드가 다시 움직임 → 그만
+      const t0 = clock;
+      cur = tab({ panes: [pane('%0', { doneAt: t0 }), pane('%1', { working: true })] });
+      settleDone(tt, 't', t0, () => cur, now, (x) => fired.push(`resume ${x.tabId}`));
+      step();
+      cur = tab({ panes: [pane('%0', { doneAt: t0 + 5 }), pane('%1')] });
+      step();
+      step();
+      expect(fired).toEqual(['t']);
+      // 상한까지 계속 작업 중 → 그만(뒤에 조용해져도 알리지 않음)
+      const t1 = clock;
+      cur = tab({ panes: [pane('%0', { doneAt: t1 }), pane('%1', { working: true })] });
+      settleDone(tt, 't', t1, () => cur, now, (x) => fired.push(`cap ${x.tabId}`));
+      for (let i = 0; i < DONE_RETRY_CAP_MS / DONE_SETTLE_MS + 2; i++) step();
+      cur = tab({ panes: [pane('%0', { doneAt: t1 }), pane('%1')] });
+      step();
+      expect(fired).toEqual(['t']);
+      // 다시 확인하는 동안 탭이 닫힘 → 알리지 않음(상태 없음·타이머 취소 둘 다)
+      const t2 = clock;
+      cur = tab({ panes: [pane('%0', { doneAt: t2 }), pane('%1', { working: true })] });
+      settleDone(tt, 't', t2, () => cur, now, (x) => fired.push(`closed ${x.tabId}`));
+      step();
+      cur = undefined;
+      step();
+      settleDone(tt, 'u', t2, () => quiet, now, (x) => fired.push(`cancel ${x.tabId}`));
+      tt.cancel('u');
+      step();
+      expect(fired).toEqual(['t']);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it('a newer turn end restarts the wait; closing the tab cancels it', () => {
+    vi.useFakeTimers();
+    try {
+      const fired: string[] = [];
+      const tt = new TabTimers();
+      tt.set('t', 8000, () => fired.push('first'));
+      vi.advanceTimersByTime(5000);
+      tt.set('t', 8000, () => fired.push('second')); // 새 차례 끝: 처음부터 다시
+      vi.advanceTimersByTime(5000);
+      expect(fired).toEqual([]);
+      vi.advanceTimersByTime(3000);
+      expect(fired).toEqual(['second']);
+      tt.set('u', 8000, () => fired.push('closed'));
+      tt.cancel('u');
+      vi.advanceTimersByTime(10000);
+      expect(fired).toEqual(['second']);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it('clips names for the toast title without splitting surrogate pairs', () => {
+    expect(clipName('short')).toBe('short');
+    expect(clipName('a'.repeat(61))).toBe(`${'a'.repeat(59)}…`);
+    const e = clipName('😀'.repeat(70));
+    expect(Array.from(e)).toHaveLength(60);
+    expect(e).toBe(`${'😀'.repeat(59)}…`);
+  });
+  // 읽지 않음은 settleDone이 알릴 때(onFire) 그 시점의 보고 있는지로 판단한다(App). 판단 규칙 자체:
+  it('marks unread only for a lead turn end the user did not see', () => {
+    const none = new Set<string>();
+    const done = [{ pane: '%0', kind: 'done' as const }];
+    expect([...markUnread(none, 't', done, false)]).toEqual(['t']);
+    expect(markUnread(none, 't', done, true)).toBe(none);
+    expect(markUnread(none, 't', [{ pane: '%1', kind: 'approval' }], false)).toBe(none);
+    const has = new Set(['t']);
+    expect(markUnread(has, 't', done, false)).toBe(has);
   });
   it('picks the neighbour after closing a tab', () => {
     expect(nextActiveAfterClose(['a', 'b', 'c'], 'b', 'b')).toBe('c');
@@ -156,7 +285,7 @@ describe('sidebar rules', () => {
     expect(formatTime(Number.NaN, now)).toBe('');
   });
   const item = (sid: string, folderKey: string, folderName: string, mtimeMs: number, title: string | null) =>
-    ({ sessionId: sid, title, cwd: `D:\\${folderName}`, folderKey, folderName, mtimeMs, kind: 'lead' as const, mates: 0, key: `d/${sid}.jsonl`, customTitle: null, archived: false, createdMs: null });
+    ({ sessionId: sid, title, cwd: `D:\\${folderName}`, folderKey, folderName, mtimeMs, kind: 'lead' as const, mates: 0, key: `d/${sid}.jsonl`, customTitle: null, archived: false, createdMs: null, gitBranch: null, model: null, preview: null });
   const items = [item('a', 'd:\\one', 'one', 10, 'Alpha'), item('b', 'd:\\two', 'two', 30, 'Beta'), item('c', 'd:\\one', 'One', 20, null)];
   it('groups by folder (newest group first, newest item first) and searches title + folder name', () => {
     const g = groupHistory(items, '', now);

@@ -5,10 +5,12 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/ho
 
 import type { DetachedSessionDto, HistoryDto, HistoryItemDto, RunningDto, TabStateDto } from '../../shared/api';
 import { getLang } from '../../shared/i18n';
+import { CONTENT_QUERY_MAX, CONTENT_QUERY_MIN, highlightRange } from '../../shared/search';
 import {
   displayTitle, formatTime, historyTip, isDefaultFilter, itemDot, itemTimeLabel, stopTarget, trashBlockedReason, viewHistory, type DotKind, type HistoryFilter,
 } from '../history';
 import { t } from '../i18n';
+import { safeIpc } from '../ipc';
 import { folderName } from '../layout';
 import { FilterMenu } from './FilterMenu';
 import { StatusDot } from './StatusDot';
@@ -32,6 +34,8 @@ interface SidebarProps {
   /** 항목 메뉴. */
   onRename: (item: HistoryItemDto) => void;
   onArchive: (item: HistoryItemDto, archived: boolean) => void;
+  /** 대화 ID·이어가기 명령 복사. */
+  onCopy: (item: HistoryItemDto, what: 'id' | 'resume') => void;
   onTrash: (item: HistoryItemDto) => void;
   /** 폴더 그룹 삭제 확인 열기: 지금 보이는 대화(필터·검색 적용 후, 접혀 있어도). */
   onTrashGroup: (name: string, items: HistoryItemDto[]) => void;
@@ -95,10 +99,14 @@ interface HistRowProps {
   canStop: boolean;
   /** 이 대화의 세션을 끊는 중(항목 비활성·행 클릭 무시). */
   stopping: boolean;
+  /** 본문 검색에서 찾은 일치 부분(없으면 undefined)과 강조할 검색어. */
+  snippet?: string;
+  query: string;
   onMenu: (open: boolean) => void;
   onOpen: () => void;
   onRename: () => void;
   onArchive: () => void;
+  onCopy: (what: 'id' | 'resume') => void;
   onTrash: () => void;
   onStop: () => void;
 }
@@ -136,6 +144,23 @@ function menuPick(onMenu: (open: boolean) => void, rowRef: RefObject<HTMLButtonE
   };
 }
 
+/** 본문 검색 일치 부분에서 검색어(첫 번째, 대소문자 무시)를 강조한다. */
+function markQuery(text: string, query: string): ComponentChildren {
+  const m = highlightRange(text, query);
+  if (!m) return text;
+  const end = m.index + m.length;
+  return <>{text.slice(0, m.index)}<mark>{text.slice(m.index, end)}</mark>{text.slice(end)}</>;
+}
+
+/** 본문 검색 상태(Enter로 시작, 검색어가 바뀌면 취소·초기화). hits = 대화 ID → 일치 부분. */
+interface ContentSearchState {
+  q: string;
+  status: 'running' | 'done' | 'failed';
+  done: number;
+  total: number;
+  hits: ReadonlyMap<string, string>;
+}
+
 /** ⋮ 버튼 아이콘. */
 function MoreIcon() {
   return <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="8" cy="3" r="1.4" /><circle cx="8" cy="8" r="1.4" /><circle cx="8" cy="13" r="1.4" /></svg>;
@@ -160,7 +185,12 @@ function HistRow(p: HistRowProps) {
           }
         }}>
         <span class="hist-row__dot">{p.dot && <StatusDot kind={p.dot} />}</span>
-        <span class="hist-row__title">{p.title}</span>
+        {p.snippet === undefined ? <span class="hist-row__title">{p.title}</span> : (
+          <span class="hist-row__main">
+            <span class="hist-row__title">{p.title}</span>
+            <span class="hist-row__snippet">{markQuery(p.snippet, p.query)}</span>
+          </span>
+        )}
         {/* 보관 표시: 좁은 폭에서도 들어가게 글자 대신 12px 아이콘(designer 4) */}
         {p.it.archived && <span class="ico ico--archive hist-row__badge" role="img" aria-label={t('hist.archived')} title={t('hist.archived')} />}
         <span class="hist-row__time">{p.time}</span>
@@ -173,6 +203,8 @@ function HistRow(p: HistRowProps) {
         <div ref={menuRef} class="menu__list hist-menu" role="menu" aria-label={t('hist.menu')} style={menuStyle(pos)}>
           <button role="menuitem" onClick={pick(p.onRename)}><span class="ico ico--rename" aria-hidden="true" />{t('hist.rename')}</button>
           <button role="menuitem" onClick={pick(p.onArchive)}><span class="ico ico--archive" aria-hidden="true" />{t(p.it.archived ? 'hist.unarchive' : 'hist.archive')}</button>
+          <button role="menuitem" onClick={pick(() => p.onCopy('id'))}><span class="ico ico--copy" aria-hidden="true" />{t('hist.copyId')}</button>
+          <button role="menuitem" onClick={pick(() => p.onCopy('resume'))}><span class="ico ico--copy" aria-hidden="true" />{t('hist.copyResume')}</button>
           {p.canStop && (
             <button role="menuitem" class="is-danger" disabled={p.stopping} onClick={pick(p.onStop)}>
               <span class="ico ico--sessioncut" aria-hidden="true" />{t('hist.stop')}{p.stopping && <span class="menu__reason">{t('hist.stopping')}</span>}
@@ -272,6 +304,9 @@ function DetachedRow(p: DetachedRowProps) {
 export function Sidebar(props: SidebarProps) {
   const { history, running, tabs, activeConversation, collapsed, busy } = props;
   const [query, setQuery] = useState('');
+  const [content, setContent] = useState<ContentSearchState | null>(null);
+  /** 본문 검색 순번: 늦게 온 이전 검색 결과를 버린다. */
+  const contentSeq = useRef(0);
   const [now, setNow] = useState(() => new Date());
   const [newOpen, setNewOpen] = useState(false);
   /** 메뉴가 열린 항목 키. */
@@ -319,6 +354,34 @@ export function Sidebar(props: SidebarProps) {
     };
   }, [menuKey]);
 
+  // 본문 검색 진행 표시(마친 파일 수 / 전체)
+  useEffect(() => window.ctd.onContentProgress((done, total) => setContent((c) => (c && c.status === 'running' ? { ...c, done, total } : c))), []);
+
+  /** 본문 검색을 멈추고 결과를 지운다(검색어 변경·지우기·취소). */
+  const stopContent = (): void => {
+    contentSeq.current++;
+    if (content?.status === 'running') window.ctd.cancelContentSearch();
+    setContent(null);
+  };
+  const changeQuery = (v: string): void => {
+    setQuery(v);
+    if (content) stopContent();
+  };
+  /** Enter: 지금 검색어로 대화 본문을 찾는다(키 입력마다 하지 않음). */
+  const startContent = async (): Promise<void> => {
+    const q = query.trim();
+    if (q.length < CONTENT_QUERY_MIN || (content?.q === q && content.status !== 'failed')) return;
+    const seq = ++contentSeq.current;
+    setContent({ q, status: 'running', done: 0, total: 0, hits: new Map() });
+    const r = await safeIpc(() => window.ctd.searchContent(q), null);
+    if (seq !== contentSeq.current || r?.cancelled) return;
+    if (!r?.ok) {
+      setContent((c) => (c ? { ...c, status: 'failed' } : c));
+      return;
+    }
+    setContent((c) => (c ? { ...c, status: 'done', hits: new Map(r.hits.map((h) => [h.sessionId, h.snippet])) } : c));
+  };
+
   // 시각 표기(오늘/어제)가 날짜를 넘겨도 맞게 1분마다 갱신
   useEffect(() => {
     const t = window.setInterval(() => setNow(new Date()), 60000);
@@ -338,7 +401,10 @@ export function Sidebar(props: SidebarProps) {
 
   // 날짜 그룹 이름·이름 정렬이 언어를 따르므로 언어가 바뀌면 다시 계산한다
   const lang = getLang();
-  const groups = useMemo(() => viewHistory(history.items, props.filter, query, now), [history.items, props.filter, query, now, lang]);
+  const hits = content?.status === 'done' ? content.hits : undefined;
+  const groups = useMemo(() => viewHistory(history.items, props.filter, query, now, hits), [history.items, props.filter, query, now, lang, hits]);
+  // 상태·최근 활동 필터로 가려진 대화는 세지 않는다(보이는 행 중 본문에서 찾은 것만)
+  const shownHits = hits ? groups.reduce((n, g) => n + g.items.filter((i) => hits.has(i.sessionId)).length, 0) : 0;
   const searching = query.trim() !== '';
   const isCollapsedKey = (key: string): boolean => collapsed.has(key);
   const toggleKey = (key: string): void => props.onToggle(key);
@@ -442,8 +508,9 @@ export function Sidebar(props: SidebarProps) {
           active={active !== null && it.sessionId.toLowerCase() === active} busy={busy} tabIndex={roving()}
           tip={historyTip(it, title, groupName)}
           menuOpen={menuKey === it.key} trashBlocked={trashBlockedReason(it.sessionId, tabs, running)} canStop={target !== null} stopping={stoppingRow}
+          snippet={hits?.get(it.sessionId)} query={query}
           onMenu={(o) => setMenuKey(o ? it.key : null)} onOpen={() => { if (!stoppingRow) props.onOpen(it.sessionId); }}
-          onRename={() => props.onRename(it)} onArchive={() => props.onArchive(it, !it.archived)} onTrash={() => props.onTrash(it)} onStop={() => props.onStop(it)} />
+          onRename={() => props.onRename(it)} onArchive={() => props.onArchive(it, !it.archived)} onCopy={(what) => props.onCopy(it, what)} onTrash={() => props.onTrash(it)} onStop={() => props.onStop(it)} />
       );
     };
     // 검색 중에는 결과가 보이게 접힌 그룹도 펼쳐 보인다(저장된 접기 상태는 그대로). 그룹 없음은 머리 없이 평면 목록
@@ -499,12 +566,30 @@ export function Sidebar(props: SidebarProps) {
             <svg class="search__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
               <circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" />
             </svg>
-            <input type="search" placeholder={t('sidebar.search')} aria-label={t('sidebar.search')} value={query} onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
-              onKeyDown={(e) => { if (e.key === 'Escape' && query) { e.preventDefault(); setQuery(''); } }} />
-            {query && <button class="search__clear" title={t('sidebar.clear')} aria-label={t('sidebar.clearSearch')} onClick={() => setQuery('')}>×</button>}
+            <input type="search" placeholder={t('sidebar.search')} aria-label={t('sidebar.search')} aria-describedby="content-search-status" value={query} maxLength={CONTENT_QUERY_MAX}
+              onInput={(e) => changeQuery((e.target as HTMLInputElement).value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape' && query) { e.preventDefault(); changeQuery(''); }
+                if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); void startContent(); }
+              }} />
+            {query && <button class="search__clear" title={t('sidebar.clear')} aria-label={t('sidebar.clearSearch')} onClick={() => changeQuery('')}>×</button>}
           </div>
           <FilterMenu filter={props.filter} onChange={props.onFilter} />
         </div>
+        {/* 본문 검색 안내·진행·결과(Enter로 시작) */}
+        {query.trim().length >= CONTENT_QUERY_MIN && (
+          <div class="content-search" id="content-search-status" role="status">
+            {!content && t('sidebar.contentHint')}
+            {content?.status === 'running' && (
+              <>
+                <span>{t('sidebar.contentSearching', { done: String(content.done), total: String(content.total) })}</span>
+                <button class="content-search__cancel" onClick={stopContent}>{t('common.cancel')}</button>
+              </>
+            )}
+            {content?.status === 'done' && (shownHits ? t('sidebar.contentFound', { n: shownHits }) : t('sidebar.contentNone'))}
+            {content?.status === 'failed' && t('sidebar.contentFailed')}
+          </div>
+        )}
       </div>
       <div class="sidebar__list">{body}</div>
       {props.footer}

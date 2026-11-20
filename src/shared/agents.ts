@@ -65,6 +65,26 @@ export function isPlainLeadCommand(cmd: string): boolean {
   return cmd.trim() === PLAIN_LEAD_COMMAND;
 }
 
+/** pwsh 작은따옴표 문자열. PowerShell은 ' 외에 ‘ ’ ‚ ‛(U+2018~201B)도 작은따옴표로 읽으므로 모두 두 번 써서 글자로 남긴다. */
+export function pwshQuote(s: string): string {
+  return `'${s.replace(/['\u2018\u2019\u201a\u201b]/g, '$&$&')}'`;
+}
+
+/**
+ * 히스토리 "이어가기 명령 복사"(PowerShell 문법): 앱이 이어갈 때와 같은 리드 명령 + `-r <ID>`.
+ * `-r`은 현재 폴더의 프로젝트에서 대화를 찾으므로 작업 폴더를 알면 앞에서 그 폴더로 옮긴다(-LiteralPath: 경로의 [ ]를 와일드카드로 읽지 않게).
+ * 앱 전용 --settings(hook)는 넣지 않는다.
+ *
+ * Args:
+ *   leadCommand: 리드 명령(에이전트 없이 연 대화면 PLAIN_LEAD_COMMAND).
+ *   sessionId: 대화 ID(호출부에서 형식 검증).
+ *   cwd: 대화의 작업 폴더(모르면 null).
+ */
+export function resumeCommand(leadCommand: string, sessionId: string, cwd: string | null): string {
+  const cmd = `${leadCommand.trim()} -r ${sessionId}`;
+  return cwd ? `Set-Location -LiteralPath ${pwshQuote(cwd)}; ${cmd}` : cmd;
+}
+
 /** 표 머리·구분 행 등 이름이 아닌 칸. */
 const NOT_A_NAME = new Set(['name', 'names', 'agent', 'agents', 'role', 'roles', 'member', 'members', 'teammate', 'teammates', '이름', '역할', '에이전트', '팀원']);
 

@@ -3,7 +3,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, win32 } from 'node:path';
 
-import type { EditableSettings, SettingsErrors, ThemeMode } from '../shared/api';
+import type { EditableSettings, KeepAwakeMode, SettingsErrors, ThemeMode } from '../shared/api';
 import { isAbsoluteWinPath } from '../shared/attach';
 import { isLang, tr, type Lang } from '../shared/i18n';
 import { errMsg, log } from './logger';
@@ -29,6 +29,10 @@ export interface Settings {
   checkUpdatesOnStartup: boolean;
   /** 카드 아래 입력 막대(첨부·입력창·Send·⋮) 표시. 끄면 터미널에 직접 입력(psmux와 같은 방식). */
   showInputBar: boolean;
+  /** 에이전트 차례 끝·승인 대기 때 Windows 알림(창이 활성이 아닐 때만, 소리 없음). */
+  notifications: boolean;
+  /** 컴퓨터 잠자기 막기: 끔 / 에이전트가 작업하는 동안 / 항상. */
+  keepAwake: KeepAwakeMode;
   /** UI 언어. 빈 값 = 고르지 않음(Windows 표시 언어를 따름, 파일에 기록하지 않음). */
   language: Lang | '';
 }
@@ -47,12 +51,16 @@ export const DEFAULT_SETTINGS: Settings = {
   showSdkSessions: false,
   checkUpdatesOnStartup: false,
   showInputBar: true,
+  notifications: true,
+  keepAwake: 'off',
   language: '',
 };
 
 const MAX_RECENT = 10;
 // 초기 빌드의 기본 글꼴(기본값으로 간주해 새 기본값이 적용되게 함)
 const LEGACY_FONT = "'Cascadia Mono', Consolas, 'D2Coding', 'Malgun Gothic', monospace";
+
+const isKeepAwake = (v: unknown): v is KeepAwakeMode => v === 'off' || v === 'agent' || v === 'on';
 
 /** 저장값을 검증하며 기본값과 합친다(타입이 다른 필드는 버림). */
 export function normalizeSettings(raw: unknown): Settings {
@@ -70,6 +78,8 @@ export function normalizeSettings(raw: unknown): Settings {
   if (typeof o.showSdkSessions === 'boolean') s.showSdkSessions = o.showSdkSessions;
   if (typeof o.checkUpdatesOnStartup === 'boolean') s.checkUpdatesOnStartup = o.checkUpdatesOnStartup;
   if (typeof o.showInputBar === 'boolean') s.showInputBar = o.showInputBar;
+  if (typeof o.notifications === 'boolean') s.notifications = o.notifications;
+  if (isKeepAwake(o.keepAwake)) s.keepAwake = o.keepAwake;
   // 알 수 없는 언어 값은 버리고 기본값(시스템 언어)을 쓴다
   if (isLang(o.language)) s.language = o.language;
   else if (o.language !== undefined && o.language !== '') log('warn', `settings: unknown language ignored (${JSON.stringify(o.language).slice(0, 40)})`);
@@ -199,10 +209,13 @@ export async function validateSettings(raw: unknown, fsx: PathChecks = FS_CHECKS
   if (typeof o.showSdkSessions !== 'boolean') errors.showSdkSessions = tr('set.invalid');
   if (typeof o.checkUpdatesOnStartup !== 'boolean') errors.checkUpdatesOnStartup = tr('set.invalid');
   if (typeof o.showInputBar !== 'boolean') errors.showInputBar = tr('set.invalid');
+  if (typeof o.notifications !== 'boolean') errors.notifications = tr('set.invalid');
+  if (!isKeepAwake(o.keepAwake)) errors.keepAwake = tr('set.invalid');
   if (Object.keys(errors).length) return { values: null, errors };
   return {
     values: { psmuxPath, pwshPath, leadCommand, historyDir, fontFamily, fontSize, theme: theme as ThemeMode, showSdkSessions: o.showSdkSessions as boolean,
-      checkUpdatesOnStartup: o.checkUpdatesOnStartup as boolean, showInputBar: o.showInputBar as boolean },
+      checkUpdatesOnStartup: o.checkUpdatesOnStartup as boolean, showInputBar: o.showInputBar as boolean, notifications: o.notifications as boolean,
+      keepAwake: o.keepAwake as KeepAwakeMode },
     errors,
   };
 }

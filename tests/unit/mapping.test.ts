@@ -107,6 +107,18 @@ describe('hookState', () => {
     applyHookRecord(st, { t: 5, event: 'Notification', sid: 's-pm', notificationType: 'idle_prompt' }, '%1', 'ceo');
     expect(st.waiting['%5']).toBeUndefined();
   });
+  it('records the last turn end (Stop / StopFailure) per pane and keeps it', () => {
+    const st = emptyHookState();
+    applyHookRecord(st, { t: 10, event: 'Stop', pane: '%1' }, '%1', 'ceo');
+    expect(st.done['%1']).toBe(10);
+    applyHookRecord(st, { t: 20, event: 'UserPromptSubmit', pane: '%1' }, '%1', 'ceo');
+    expect(st.done['%1']).toBe(10);
+    applyHookRecord(st, { t: 30, event: 'StopFailure', pane: '%3' }, '%1', 'ceo');
+    expect(st.done['%3']).toBe(30);
+    // 늦게 도착한 오래된 기록이 값을 되돌리지 않음
+    applyHookRecord(st, { t: 5, event: 'Stop', pane: '%1' }, '%1', 'ceo');
+    expect(st.done['%1']).toBe(10);
+  });
   it('returns null for events that cannot be mapped', () => {
     expect(applyHookRecord(emptyHookState(), { t: 1, event: 'Stop', sid: 'zzz', agentType: 'qa' }, '%1', 'ceo')).toBeNull();
   });

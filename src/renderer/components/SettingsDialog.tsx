@@ -3,7 +3,7 @@
 
 import { useEffect, useRef, useState } from 'preact/hooks';
 
-import type { EditableSettings, SettingsErrors, SettingsView, ThemeMode } from '../../shared/api';
+import type { EditableSettings, KeepAwakeMode, SettingsErrors, SettingsView, ThemeMode } from '../../shared/api';
 import type { MsgKey } from '../../shared/i18n';
 import { useDialogKeys } from '../dialog';
 import { t } from '../i18n';
@@ -17,6 +17,12 @@ const THEMES: { id: ThemeMode; label: MsgKey }[] = [
   { id: 'light', label: 'theme.light' },
   { id: 'dark', label: 'theme.dark' },
   { id: 'system', label: 'theme.system' },
+];
+
+const KEEP_AWAKE: { id: KeepAwakeMode; label: MsgKey }[] = [
+  { id: 'off', label: 'settings.keepAwake.off' },
+  { id: 'agent', label: 'settings.keepAwake.agent' },
+  { id: 'on', label: 'settings.keepAwake.on' },
 ];
 
 /** 설정 대화상자. */
@@ -127,6 +133,27 @@ export function SettingsDialog({ onClose }: SettingsDialogProps) {
                   {t('settings.showInputBar')}
                 </label>
                 <div class="field__hint" id="hint-showInputBar">{t('settings.showInputBarHint')}</div>
+              </fieldset>
+              <fieldset>
+                <legend>{t('settings.secNotify')}</legend>
+                <label class="check">
+                  <input type="checkbox" name="notifications" checked={form.notifications} aria-describedby="hint-notifications"
+                    onChange={(e) => set('notifications', (e.target as HTMLInputElement).checked)} />
+                  {t('settings.notify')}
+                </label>
+                <div class="field__hint" id="hint-notifications">{t('settings.notifyHint')}</div>
+                <div class="field" role="radiogroup" aria-label={t('settings.keepAwake')} aria-describedby="hint-keepAwake">
+                  <span class="field__label">{t('settings.keepAwake')}</span>
+                  <div class="radios">
+                    {KEEP_AWAKE.map((k) => (
+                      <label key={k.id} class="check">
+                        <input type="radio" name="keepAwake" value={k.id} checked={form.keepAwake === k.id} onChange={() => set('keepAwake', k.id)} />
+                        {t(k.label)}
+                      </label>
+                    ))}
+                  </div>
+                  <div class="field__hint" id="hint-keepAwake">{t('settings.keepAwakeHint')}</div>
+                </div>
               </fieldset>
               <fieldset>
                 <legend>{t('settings.secUpdates')}</legend>

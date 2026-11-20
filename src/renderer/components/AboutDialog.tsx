@@ -132,6 +132,13 @@ export function AboutDialog({ state, checked, onToggle, onStarted, onClose }: Ab
     await start(a.steps);
   };
 
+  // 로그 폴더 열기: 실패는 main이 기록하고 여기서는 상태 줄에 알린다
+  const openLogs = async (): Promise<void> => {
+    setMsg(null);
+    const r = await safeIpc(() => window.ctd.openLogs(), null, setMsg, t('action.openLogs'));
+    if (r && !r.ok) setMsg(t('about.openLogsFailed', { path: r.path }));
+  };
+
   const statusCell = (r: UpdateRowDto) => {
     const label = r.status === 'unknown' ? null : t(STATUS_LABEL[r.status]);
     const why = r.status === 'failed' && r.reason ? t('about.failReason', { name: UPDATE_NAMES[r.id], reason: t(`about.reason.${r.reason}` as MsgKey) }) : null;
@@ -162,6 +169,7 @@ ${why}` : label} aria-describedby={why ? `upd-why-${r.id}` : undefined}>
             <tr><th>{t('about.version')}</th><td>{info?.version ?? '-'}</td></tr>
             <tr><th>Electron</th><td>{info ? `${info.electron} (Chromium ${info.chrome})` : '-'}</td></tr>
             <tr><th>{t('about.license')}</th><td>MIT</td></tr>
+            <tr><th>{t('about.logs')}</th><td><button class="btn-secondary about__logs" onClick={() => void openLogs()}>{t('about.openLogs')}</button></td></tr>
           </tbody>
         </table>
         <div class="about__sep" />

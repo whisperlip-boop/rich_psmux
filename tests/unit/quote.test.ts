@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { chunkCodePoints, inputToCommands, isBenignError, literalCommands, tokensToCommands, xtermDataToTokens } from '../../src/main/controlMode/quote';
+import { chunkCodePoints, inputToCommands, isBenignError, isTypeableLine, literalCommands, tokensToCommands, xtermDataToTokens } from '../../src/main/controlMode/quote';
 
 describe('literalCommands quoting', () => {
   const L = (t: string): string[] => literalCommands('%1', t);
@@ -64,6 +64,14 @@ describe('literalCommands: leading "-" args (review Blocker)', () => {
   });
   it('rejects targets starting with "-"', () => {
     expect(() => literalCommands('-t', 'x')).toThrow();
+  });
+});
+
+describe('isTypeableLine (hidden-bar drop typed without Enter)', () => {
+  it('accepts a mention line, rejects blank text and every control character', () => {
+    expect(isTypeableLine('@"C:\\a b\\x.png" @"D:\\한글" ')).toBe(true);
+    expect(isTypeableLine('   ')).toBe(false);
+    for (const c of ['\r', '\n', '\t', '\x1b', '\x00', '\x7f', '\x03']) expect(isTypeableLine(`@"C:\\x"${c}`)).toBe(false);
   });
 });
 

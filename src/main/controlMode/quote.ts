@@ -10,6 +10,11 @@ export function assertSafeToken(s: string): string {
   return s;
 }
 
+/** 제출 없이 칸에 글자만 넣을 수 있는 한 줄인지: 공백뿐이 아니고 제어 문자(줄바꿈·탭·ESC 등 키로 해석될 수 있는 것)가 없어야 한다. */
+export function isTypeableLine(text: string): boolean {
+  return text.trim() !== '' && !/[\x00-\x1f\x7f]/.test(text);
+}
+
 /** 한 명령에 넣을 리터럴 텍스트 최대 길이(코드 포인트). 실측에서 2000자가 무손상이었으므로 여유를 둔다. */
 export const MAX_LITERAL_CHUNK = 1000;
 

@@ -24,6 +24,10 @@ export interface PaneViewDto {
   label: PaneLabelView;
   working: boolean;
   waiting: boolean;
+  /** 승인 대기를 시작한 hook 시각(epoch ms, 대기 중이 아니면 null). 재연결 때 다시 읽은 오래된 대기를 새 알림으로 보지 않는 기준. */
+  waitingAt: number | null;
+  /** 마지막 차례 종료(Stop·StopFailure) hook 시각(epoch ms). 없으면 null. 렌더러가 증가를 보고 알림·읽지 않음을 정한다. */
+  doneAt: number | null;
 }
 
 /** 탭 상태. */
@@ -75,6 +79,10 @@ export interface HistoryItemDto {
   customTitle: string | null;
   /** 보관함에 있는지. */
   archived: boolean;
+  /** 검색용: 마지막 git 브랜치·assistant 모델, 첫 사람 입력 앞부분(최대 200자). 없으면 null. */
+  gitBranch: string | null;
+  model: string | null;
+  preview: string | null;
 }
 
 /** 히스토리 목록 상태. */
@@ -118,6 +126,9 @@ export interface UiStateDto {
   historyFilter: Record<string, string>;
 }
 
+/** 잠자기 막기: 끔 / 에이전트가 작업하는 동안 / 항상. */
+export type KeepAwakeMode = 'off' | 'agent' | 'on';
+
 /** 테마 설정값. system = OS(prefers-color-scheme) 추종. */
 export type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -135,6 +146,10 @@ export interface EditableSettings {
   checkUpdatesOnStartup: boolean;
   /** 카드 아래 입력 막대 표시(끄면 터미널에 직접 입력). */
   showInputBar: boolean;
+  /** 에이전트 차례 끝·승인 대기 때 Windows 알림(창이 활성이 아닐 때만, 소리 없음). */
+  notifications: boolean;
+  /** 컴퓨터 잠자기 막기(기본 끔). */
+  keepAwake: KeepAwakeMode;
 }
 
 /** 항목별 오류(현재 UI 언어). */
@@ -193,6 +208,19 @@ export interface TrashResultDto {
   failed: number;
   /** 실패·거부 안내(현재 UI 언어 한 줄). */
   error?: string;
+}
+
+/** 본문 검색 결과. cancelled = 다른 검색·취소로 멈춤(렌더러는 결과를 버림). hits = 찾은 대화와 일치 부분 앞뒤 글. */
+export interface ContentSearchResultDto {
+  ok: boolean;
+  cancelled: boolean;
+  hits: { sessionId: string; snippet: string }[];
+}
+
+/** 로그 폴더 열기 결과. 실패하면 ok=false와 열려던 경로(안내 문구용). */
+export interface OpenLogsResultDto {
+  ok: boolean;
+  path: string;
 }
 
 /** 히스토리 "세션 끊기…" 결과. */
@@ -377,6 +405,8 @@ export interface CtdApi {
   saveHistoryFilter(filter: unknown): void;
   sendInput(tabId: string, pane: string, text: string): Promise<boolean>;
   sendKeys(tabId: string, pane: string, data: string): void;
+  /** 입력 막대를 숨긴 카드에 파일 드롭: 한 줄 글자만 칸에 넣는다(Enter 없음). 승인 대기 중·종료 처리 중이면 false. */
+  typeText(tabId: string, pane: string, text: string): Promise<boolean>;
   resizePane(tabId: string, pane: string, cols: number, rows: number): void;
   requestResync(tabId: string, pane: string): void;
   paneInfo(tabId: string, pane: string): Promise<Record<string, string | number | null> | null>;
@@ -404,11 +434,25 @@ export interface CtdApi {
   /** 앱이 만든 세션에 연결(이미 열린 탭이면 그 탭 ID). */
   openAppSession(name: string): Promise<OpenResult>;
   appInfo(): Promise<AppInfoDto>;
+  /** 에이전트 알림 요청(Windows 알림, 소리 없음). main이 설정 꺼짐·창 활성이면 무시한다. */
+  notify(tabId: string, pane: string, title: string, body: string): void;
+  /** 알림 클릭: 그 탭·카드로 전환. */
+  onFocusPane(cb: (tabId: string, pane: string) => void): Unsub;
+  /** 로그 폴더(<앱 데이터>/logs) 열기. 실패하면 ok=false와 그 경로. */
+  openLogs(): Promise<OpenLogsResultDto>;
   /** 사용량 ↻: /api/oauth/usage 1회 조회 후 표시 상태. 실패는 error에 현재 UI 언어 한 줄. */
   refreshUsage(): Promise<UsageDto>;
   onUsage(cb: (u: UsageDto) => void): Unsub;
   /** 히스토리 항목 메뉴: 표시 이름 변경(빈 값이면 원래 제목). */
   renameHistory(key: string, title: string): Promise<boolean>;
+  /** 히스토리 항목 메뉴: 대화 ID 또는 이어가기 명령을 클립보드에. */
+  copyHistory(sessionId: string, what: 'id' | 'resume'): Promise<boolean>;
+  /** 본문 검색(사이드바 Enter): 목록의 대화 파일에서 사람 입력·assistant 텍스트를 찾는다. 새 검색은 이전 검색을 멈춘다. */
+  searchContent(query: string): Promise<ContentSearchResultDto>;
+  /** 진행 중인 본문 검색 멈춤. */
+  cancelContentSearch(): void;
+  /** 본문 검색 진행(마친 파일 수, 전체 수). */
+  onContentProgress(cb: (done: number, total: number) => void): Unsub;
   /** 보관/보관 해제. */
   archiveHistory(key: string, archived: boolean): Promise<boolean>;
   /** 삭제 전 확인(함께 이동할 파일 수, 삭제 불가 사유). */

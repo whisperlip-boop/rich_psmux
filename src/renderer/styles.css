@@ -107,6 +107,14 @@ code { font-family: var(--font-mono); font-size: .9em; } /* 기본 monospace는 
 .hist-row__dot { width: 12px; flex: none; display: inline-flex; align-items: center; justify-content: center; }
 .hist-row__title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hist-row__time { flex: none; font-size: 11px; color: var(--text-2); }
+/* 본문 검색으로 찾은 행: 제목 아래 일치 부분 한 줄 */
+.hist-row__main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.hist-row:has(.hist-row__main) { height: auto; min-height: 28px; padding-top: 3px; padding-bottom: 3px; }
+.hist-row__snippet { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--text-2); }
+.hist-row__snippet mark { background: var(--accent-subtle); color: var(--accent-on-subtle); border-radius: 2px; }
+.content-search { display: flex; align-items: center; gap: 8px; margin-top: -4px; padding: 0 2px; font-size: 11px; color: var(--text-2); }
+.content-search__cancel { border: 0; background: none; padding: 0; color: var(--accent-on-subtle); font-size: 11px; }
+.content-search__cancel:hover { text-decoration: underline; }
 /* 히스토리 항목 메뉴: ⋮는 hover·포커스·메뉴 열림 때만 보이고, 그동안 시각 자리를 차지한다 */
 .hist-item { position: relative; }
 .hist-row__more { position: absolute; right: 4px; top: 2px; visibility: hidden; }
@@ -189,6 +197,9 @@ code { font-family: var(--font-mono); font-size: .9em; } /* 기본 monospace는 
 .tab--approval { background: var(--st-approval-bg); animation: blink 1.5s step-end infinite; }
 .tab--disconnected .tab__name { font-style: italic; }
 .tab__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 읽지 않음(리드 차례 끝을 아직 안 봄): 굵은 이름 + 이름 뒤 강조색 점. 상태 점과 별개 */
+.tab--unread .tab__name { font-weight: 700; color: var(--text); }
+.tab__unread { width: 8px; height: 8px; flex: none; margin-left: 6px; border-radius: 50%; background: var(--accent); }
 .tab-new { width: 28px; height: 28px; margin: 4px; border: 0; border-radius: 6px; background: none; font-size: 16px; }
 .tab-new:hover:not(:disabled) { background: var(--bg-hover); }
 .tab-new:disabled { color: var(--placeholder); cursor: default; }
@@ -199,6 +210,8 @@ code { font-family: var(--font-mono); font-size: .9em; } /* 기본 monospace는 
 .new-menu--tab-right { left: auto; right: 4px; }
 .tabbar__spacer { flex: 1; }
 .warn-badge { align-self: center; flex: 0 1 auto; min-width: 0; max-width: 240px; height: 20px; line-height: 20px; border-radius: 10px; padding: 0 8px; margin-right: 8px; background: var(--st-approval-bg); color: var(--text); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.unread-badge { align-self: center; flex: 0 1 auto; min-width: 0; max-width: 160px; height: 20px; line-height: 20px; border: 0; border-radius: 10px; padding: 0 8px; margin-right: 8px; background: var(--accent-subtle); color: var(--accent-on-subtle); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.unread-badge:hover { text-decoration: underline; }
 @keyframes blink { 50% { background: transparent; } }
 @media (prefers-reduced-motion: reduce) { .tab--approval { animation: none; } }
 
@@ -389,6 +402,8 @@ button.sessions__item:hover { background: var(--bg-hover); }
 .ico { display: inline-block; flex: none; width: 16px; height: 16px; background-color: var(--icon); mask-size: contain; mask-repeat: no-repeat; mask-position: center; }
 .ico--rename { mask-image: url(../img/editname.png); }
 .ico--archive { mask-image: url(../img/keeping.png); }
+/* 복사(히스토리 메뉴): 이미지 파일이 없어 인라인 SVG(CSP img-src data: 허용) */
+.ico--copy { mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linejoin='round'%3E%3Crect x='9' y='9' width='11' height='11' rx='2'/%3E%3Cpath d='M5 15V6a2 2 0 0 1 2-2h8'/%3E%3C/svg%3E"); }
 .ico--delete { mask-image: url(../img/delete.png); background-color: var(--danger-soft); }
 /* 히스토리 "세션 끊기…"(파일명 오타는 원본 그대로) */
 .ico--sessioncut { mask-image: url(../img/sesstioncut.png); }
@@ -520,6 +535,8 @@ button:disabled .ico { background-color: var(--placeholder); }
 .about__meta { margin: 8px 0 0; font-size: 12px; color: var(--text-2); }
 .about__close-error { margin-top: 8px; max-width: 420px; }
 .about .btn-secondary { display: inline-flex; align-items: center; }
+/* 앱 정보 표 안 [로그 폴더 열기]: 표 행 높이에 맞춤(대화상자 버튼 줄 여백 없음) */
+.about .about__logs { margin-top: 0; height: 26px; }
 /* 긴 번역(ml·ta)에서 버튼을 줄여 말줄임하지 않고 줄바꿈한다. 위 간격을 줄에 두어 두 번째 줄 버튼에 16이 또 붙지 않게 하고, flex-end라 닫기는 마지막 줄 오른쪽 끝에 남는다 */
 .about > .modal__actions { flex-wrap: wrap; row-gap: 8px; margin-top: 16px; }
 .about > .modal__actions > button { flex: 0 0 auto; margin-top: 0; white-space: nowrap; text-overflow: clip; }

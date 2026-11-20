@@ -15,16 +15,18 @@ export interface HookRecord {
   toolName?: string;
 }
 
-/** 칸별 승인 대기 상태. */
+/** 칸별 승인 대기 상태·마지막 차례 종료 시각. */
 export interface HookState {
   waiting: Record<string, number>;
+  /** 칸별 마지막 Stop·StopFailure 시각(차례 끝 알림·읽지 않음 표시 기준, 지우지 않음). */
+  done: Record<string, number>;
   hints: Record<string, PaneHint>;
   sidToPane: Record<string, string>;
 }
 
 /** 빈 상태. */
 export function emptyHookState(): HookState {
-  return { waiting: {}, hints: {}, sidToPane: {} };
+  return { waiting: {}, done: {}, hints: {}, sidToPane: {} };
 }
 
 // 승인 대기를 끝내는 이벤트(도구가 실행됐거나 차례가 끝남)
@@ -57,6 +59,7 @@ export function applyHookRecord(st: HookState, rec: HookRecord, leadPaneId: stri
   } else if (CLEARING.has(rec.event) || (rec.event === 'Notification' && rec.notificationType === 'idle_prompt')) {
     delete st.waiting[pane];
   }
+  if (rec.event === 'Stop' || rec.event === 'StopFailure') st.done[pane] = Math.max(st.done[pane] ?? 0, rec.t);
   return pane;
 }
 

@@ -90,6 +90,7 @@ export function toHistoryDtos(items: HistoryItem[], showSdk: boolean, overlay: H
         sessionId: i.sessionId, title: i.title, cwd: groupCwd, folderKey: folderKeyOf(groupCwd, i.dir), folderName: folderNameOf(groupCwd, i.dir),
         mtimeMs: i.mtimeMs, createdMs: i.createdMs, kind: i.kind as HistoryItemDto['kind'], mates: mates.get(i.sessionId) ?? 0,
         key: i.key, customTitle: overlay.overrides[i.key] ?? null, archived: archived.has(i.key),
+        gitBranch: i.gitBranch, model: i.model, preview: i.preview,
       };
     });
 }

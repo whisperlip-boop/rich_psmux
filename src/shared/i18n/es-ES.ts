@@ -61,4 +61,11 @@ export const esES: Dict = {
   'update.closeFailed': 'No se han podido cerrar las sesiones. La actualización no se ha iniciado.',
   'update.stopNote': 'Se detendrá el paso en curso y no se ejecutarán los pasos restantes. Las sesiones que ya se han cerrado no se volverán a abrir.',
   'update.openedRelease': 'Se ha abierto la página de la versión en el navegador.',
+  'settings.notifyHint': 'Solo aparecen cuando Rich psmux no es la ventana activa y no emiten sonido. Para desactivarlas en una sola pestaña, haz clic con el botón derecho en ella.',
+  'notify.done': 'Ha terminado su turno. Ya puedes escribir el siguiente mensaje.',
+  'tab.unread': 'Ha terminado mientras no estabas',
+  'tab.unreadTip': 'Pestañas en las que un agente ha terminado mientras no estabas. Haz clic para ir a la primera.',
+  'settings.keepAwake': 'Evitar que el ordenador entre en suspensión',
+  'settings.keepAwakeHint': 'La pantalla puede apagarse igualmente. Si cierras la tapa o eliges Suspender, el ordenador se suspenderá de todos modos.',
+  'sidebar.contentHint': 'Pulsa Enter para buscar dentro de las conversaciones',
 };

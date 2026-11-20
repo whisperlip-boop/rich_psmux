@@ -19,7 +19,8 @@ export const TAIL_BACK_MAX_BYTES = 2 * 1024 * 1024;
 export const APPEND_MAX_BYTES = 8 * 1024 * 1024;
 // v2: 이어 읽기 위치 정렬 여부(aligned) 추가, 제목 후보 필드를 앞부분만 보관
 // 3: 첫 레코드 시각(firstAt) 추가(정렬 "생성 날짜"용). 이전 캐시는 버리고 한 번 다시 읽는다
-const CACHE_VERSION = 3;
+// 4: git 브랜치·모델(gitBranch·model) 추가(사이드바 검색용). 이전 캐시는 버리고 한 번 다시 읽는다
+const CACHE_VERSION = 4;
 const WATCH_DEBOUNCE_MS = 400;
 const PERIODIC_MS = 30000;
 /** 인덱스 캐시 저장 주기(바뀐 것이 있을 때만). 종료 시에도 저장. */
@@ -67,6 +68,10 @@ export interface HistoryItem {
   mtimeMs: number;
   /** 첫 레코드 시각(없으면 null → 생성 날짜 정렬은 수정 시각으로 대체). */
   createdMs: number | null;
+  /** 검색용: 마지막 git 브랜치·모델, 첫 사람 입력 앞부분(없으면 null). */
+  gitBranch: string | null;
+  model: string | null;
+  preview: string | null;
 }
 
 /** 파일 읽기 함수(테스트에서 바꿔 끼움). claudeHome.readProjectRange와 같은 형태. */
@@ -173,6 +178,7 @@ export function toItem(e: IndexEntry): HistoryItem | null {
   return {
     sessionId, dir: e.dir, file: e.file, key: keyOf(e.dir, e.file), title: titleOf(e.facts), cwd: e.facts.cwd ?? null, kind: kindOf(e.facts),
     teamName: e.facts.teamName ?? null, mtimeMs: e.mtimeMs, createdMs: e.facts.firstAt ?? null,
+    gitBranch: e.facts.gitBranch ?? null, model: e.facts.model ?? null, preview: e.facts.firstUser ?? null,
   };
 }
 
@@ -188,7 +194,7 @@ export function parseCache(raw: unknown): IndexEntry[] {
     if (typeof e.dir !== 'string' || typeof e.file !== 'string' || typeof e.size !== 'number' || typeof e.mtimeMs !== 'number' ||
         typeof e.offset !== 'number' || !f || typeof f !== 'object' || typeof f.lines !== 'number') continue;
     const facts = emptyFacts();
-    for (const k of ['cwd', 'entrypoint', 'agentSetting', 'teamName', 'firstUser', 'aiTitle', 'customTitle', 'summary', 'lastPrompt'] as const) {
+    for (const k of ['cwd', 'entrypoint', 'agentSetting', 'teamName', 'firstUser', 'aiTitle', 'customTitle', 'summary', 'lastPrompt', 'gitBranch', 'model'] as const) {
       if (typeof f[k] === 'string') facts[k] = f[k] as string;
     }
     if (typeof f.firstAt === 'number' && Number.isFinite(f.firstAt)) facts.firstAt = f.firstAt;

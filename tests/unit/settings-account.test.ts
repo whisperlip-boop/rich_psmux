@@ -55,6 +55,9 @@ describe('settings validation', () => {
     expect((await check({ ...valid, showInputBar: false })).values?.showInputBar).toBe(false);
     const { showInputBar: _omit, ...noBar } = valid;
     expect((await check(noBar)).errors.showInputBar).toBeDefined(); // 빠지면 거부(대화상자는 항상 보냄)
+    // 알림·잠자기 막기: 형식이 틀리면 거부, 맞으면 그대로
+    expect(Object.keys((await check({ ...valid, notifications: 1, keepAwake: 'always' })).errors).sort()).toEqual(['keepAwake', 'notifications']);
+    expect((await check({ ...valid, notifications: false, keepAwake: 'agent' })).values).toMatchObject({ notifications: false, keepAwake: 'agent' });
     // 빈 값은 기본값으로
     const blank = (await check({ ...valid, leadCommand: '   ', fontFamily: '', fontSize: Number.NaN })).values;
     expect(blank).toMatchObject({ leadCommand: DEFAULT_SETTINGS.leadCommand, fontFamily: DEFAULT_SETTINGS.fontFamily, fontSize: DEFAULT_SETTINGS.fontSize });

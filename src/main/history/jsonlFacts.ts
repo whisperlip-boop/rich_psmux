@@ -25,6 +25,9 @@ export interface FileFacts {
   lastPrompt?: string;
   /** 첫 레코드 시각(epoch ms, timestamp 필드). 정렬 "생성 날짜" 기준. */
   firstAt?: number;
+  /** 마지막으로 본 git 브랜치·assistant 모델(검색용, 앞 TITLE_MAX자). 읽은 범위(앞부분·뒷부분·이어 읽기) 안의 값만. */
+  gitBranch?: string;
+  model?: string;
   /** 넣은 줄 수·해석 실패 줄 수. */
   lines: number;
   bad: number;
@@ -134,6 +137,7 @@ export function applyLine(f: FileFacts, line: SplitLine): void {
   if (f.cwd === undefined) f.cwd = nonEmpty(r.cwd);
   if (f.entrypoint === undefined) f.entrypoint = nonEmpty(r.entrypoint);
   f.teamName ??= nonEmpty(r.teamName);
+  f.gitBranch = titleField(r.gitBranch) ?? f.gitBranch;
   if (f.firstAt === undefined && typeof r.timestamp === 'string') {
     const t = Date.parse(r.timestamp);
     if (Number.isFinite(t)) f.firstAt = t;
@@ -144,6 +148,12 @@ export function applyLine(f: FileFacts, line: SplitLine): void {
     case 'summary': f.summary = titleField(r.summary) ?? f.summary; break;
     case 'last-prompt': f.lastPrompt = titleField(r.lastPrompt) ?? f.lastPrompt; break;
     case 'agent-setting': f.agentSetting ??= nonEmpty(r.agentSetting); break;
+    case 'assistant': {
+      const m = r.message && typeof r.message === 'object' ? titleField((r.message as Record<string, unknown>).model) : undefined;
+      // <synthetic>은 앱이 만든 안내 메시지(실제 모델 아님)
+      if (m && m !== '<synthetic>') f.model = m;
+      break;
+    }
     case 'user': {
       const t = userText(r);
       if (t !== null) applyUserText(f, t);
