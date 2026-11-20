@@ -51,7 +51,17 @@ describe('winget list 해석', () => {
     expect(parseWingetList(text, WINGET_NO_APPLICATIONS_FOUND | 0, PSMUX).status).toBe('notInstalled'); // -1978335212
   });
 
-  it('fail-safe: 원본 없음·msstore·Unknown·"< 7.0"·잘린 Id·행 여럿·낮은 Available·다른 종료 코드·실행 실패는 모두 확인 실패', () => {
+  it('같은 Id 행 여럿(PowerShell 정식·LTS 나란히 설치, 한국어 실측): 설치 버전이 가장 높은 행으로 판단', () => {
+    const ko = `${SPIN}이름           장치 ID              버전     원본\r\n----------------------------------------------------\r\n`
+      + 'PowerShell     Microsoft.PowerShell 7.7.0.0  winget\r\nPowerShell LTS Microsoft.PowerShell 7.6.10.0 winget\r\n';
+    expect(parseWingetList(ko, 0, PWSH)).toEqual({ installed: '7.7.0.0', latest: '7.7.0.0', status: 'latest' });
+    // 가장 높은 행에 사용 가능 버전이 있으면 업데이트 가능(행 순서와 무관)
+    const avail = 'Name Id Version Available Source\r\n----\r\n'
+      + 'PowerShell LTS Microsoft.PowerShell 7.6.10.0 winget\r\nPowerShell Microsoft.PowerShell 7.7.0.0 7.7.1.0 winget\r\n';
+    expect(parseWingetList(avail, 0, PWSH)).toEqual({ installed: '7.7.0.0', latest: '7.7.1.0', status: 'available' });
+  });
+
+  it('fail-safe: 원본 없음·msstore·Unknown·"< 7.0"·잘린 Id·해석 불가 행이 섞인 여러 행·낮은 Available·다른 종료 코드·실행 실패는 모두 확인 실패', () => {
     const hdr = 'Name Id Version Available Source\r\n----\r\n';
     const cases: [string, number | null][] = [
       [`${hdr}psmux marlocarlo.psmux 3.4.0\r\n`, 0], // 원본 없음(winget 밖에서 설치) → 새 버전 유무를 모름
@@ -59,7 +69,8 @@ describe('winget list 해석', () => {
       [`${hdr}psmux marlocarlo.psmux Unknown winget\r\n`, 0],
       [`${hdr}PowerShell Microsoft.PowerShell < 7.0 winget\r\n`, 0],
       [`${hdr}psmux marlocarlo.ps… 3.4.0 winget\r\n`, 0],
-      [`${hdr}psmux marlocarlo.psmux 3.4.0 winget\r\npsmux marlocarlo.psmux 3.3.0 winget\r\n`, 0],
+      [`${hdr}psmux marlocarlo.psmux 3.4.0 winget\r\npsmux marlocarlo.psmux 3.3.0 msstore\r\n`, 0],
+      [`${hdr}PowerShell Microsoft.PowerShell 7.7.0.0 winget\r\nPowerShell LTS Microsoft.PowerShell Unknown winget\r\n`, 0],
       [`${hdr}psmux marlocarlo.psmux 3.4.0 3.4.0 winget\r\n`, 0],
       [`${hdr}psmux marlocarlo.psmux 3.4.0 3.3.9 winget\r\n`, 0],
       [`${hdr}psmux marlocarlo.psmux 3.4.0 winget\r\n`, 0x8a15002b],

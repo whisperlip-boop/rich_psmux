@@ -101,11 +101,13 @@ const escapeRe = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 /**
  * `winget list --id <id> --exact` 결과 해석. 표 머리글·안내 문장은 언어마다 다르므로 읽지 않는다.
- * Id가 정확히 들어 있는 행 하나만 찾아 Id 뒤 토큰을 [설치 버전, (사용 가능 버전), 원본]으로 본다.
+ * Id가 정확히 들어 있는 행을 찾아 Id 뒤 토큰을 [설치 버전, (사용 가능 버전), 원본]으로 본다.
  * - 종료 코드 0 + 행 [버전, 'winget'] → 최신(원본 winget이 더 새 버전을 모름)
  * - 종료 코드 0 + 행 [버전, 더 높은 버전, 'winget'] → 업데이트 가능
+ * - 같은 Id 행 여럿(예: PowerShell 정식·LTS 나란히 설치) → 각 행을 위 규칙으로 해석해 설치 버전이 가장 높은 행으로 판단.
+ *   한 행이라도 해석할 수 없으면 확인 실패
  * - 종료 코드 NO_APPLICATIONS_FOUND → 미설치
- * - 그 밖(원본 없음·msstore·Unknown·"< 1.0"·잘린 Id·행 여럿·다른 종료 코드) → 확인 실패
+ * - 그 밖(행 없음·원본 없음·msstore·Unknown·"< 1.0"·잘린 Id·다른 종료 코드) → 확인 실패
  *
  * Args:
  *   out: stdout(진행 표시의 \r 포함 가능).
@@ -118,8 +120,17 @@ export function parseWingetList(out: string, code: number | null, id: string): C
   if (code !== 0) return failed('unexpected');
   const idRe = new RegExp(`(?:^|\\s)${escapeRe(id)}\\s+(.+)$`, 'i');
   const rows = out.split(/\r\n|\r|\n/).map((l) => idRe.exec(l.trimEnd())).filter((m): m is RegExpExecArray => m !== null);
-  if (rows.length !== 1) return failed('unexpected');
-  const tokens = rows[0][1].trim().split(/\s+/);
+  if (rows.length === 0) return failed('unexpected');
+  const results = rows.map((m) => parseWingetRow(m[1]));
+  const bad = results.find((r) => r.status === 'failed');
+  if (bad) return bad;
+  // 해석된 행의 installed는 normalizeVersion을 거쳤으므로 비교는 null이 아니다
+  return results.reduce((best, r) => ((compareVersions(r.installed!, best.installed!) ?? 0) > 0 ? r : best));
+}
+
+/** winget list의 Id 행 하나(Id 뒤 토큰) 해석. 규칙은 parseWingetList 참고. */
+function parseWingetRow(rest: string): CheckResult {
+  const tokens = rest.trim().split(/\s+/);
   const installed = normalizeVersion(tokens[0]);
   if (installed === null) return failed('unexpected');
   if (tokens.length === 2 && tokens[1].toLowerCase() === 'winget') return { installed, latest: installed, status: 'latest' };

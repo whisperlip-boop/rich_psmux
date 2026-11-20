@@ -14,7 +14,7 @@ import { findLeadSessionId, findTeamConfig, readTeamConfig, scanTranscriptTeam, 
 import { ControlClient, type CommandResult } from '../controlMode/client';
 import { assertSafeToken, inputToCommands, isTypeableLine, literalCommands, splitSubmit, tokensToCommands, xtermDataToTokens } from '../controlMode/quote';
 import { errMsg, log } from '../logger';
-import { applyHookRecord, emptyHookState, parseHookLine, type HookState } from '../teams/hookState';
+import { applyHookRecord, emptyHookState, parseHookLine, type HookRecord, type HookState } from '../teams/hookState';
 import { fallbackLabel, leadNameFromCommand, resolveLabels, teamNameFor, type PaneLabel, type TeamConfig } from '../teams/paneMapper';
 import { hasSession, psmuxCli } from './cli';
 import { cleanEnv, probeDir, unreachableMsg } from './env';
@@ -112,6 +112,8 @@ const MAX_PANE_OP_ATTEMPTS = 3;
 /** dead 칸 정리 실패 시 재시도 간격(매 2초 무한 반복 방지). */
 const DEAD_RETRY_MS = 30000;
 const HOOK_POLL_MS = 700;
+/** hook 기록을 한 번에 이보다 많이 읽으면(복원 때 파일 전체 재생) 기록마다 남기지 않고 요약 한 줄만 로그에 남긴다. */
+const HOOK_LOG_PER_RECORD_MAX = 20;
 /** 칸이 생긴 뒤 이 시간 안에 죽으면 경고 로그(팀원 실행 실패가 앱 로그에 보이게, 정리 동작은 그대로). */
 const QUICK_DEATH_MS = 15000;
 
@@ -1012,18 +1014,22 @@ export class TabSession extends EventEmitter {
     } finally {
       if (fd !== null) closeSync(fd);
     }
+    const recs = text.split('\n').map(parseHookLine).filter((r): r is HookRecord => r !== null);
+    // 로그 기록은 동기라 복원 때 수천 건을 재생하면 메인 프로세스가 멈춘다 → 큰 묶음은 요약 한 줄만
+    const perRecordLog = recs.length <= HOOK_LOG_PER_RECORD_MAX;
     let touched = false;
-    for (const line of text.split('\n')) {
-      const rec = parseHookLine(line);
-      if (!rec) continue;
+    let leadStarted = false;
+    for (const rec of recs) {
       const pane = applyHookRecord(this.hook, rec, this.leadPaneId, this.leadName);
       if (pane) touched = true;
-      // 리드의 새 대화 시작(/clear·재개 등) → sessionId가 바뀌었을 수 있어 바로 다시 확인
-      if (rec.event === 'SessionStart' && pane !== null && pane === this.leadPaneId) {
-        this.lastTeamPoll = 0;
-        void this.pollTeam();
-      }
-      log('info', `[${this.session}] hook ${rec.event}${rec.notificationType ? `/${rec.notificationType}` : ''} pane=${pane ?? '?'} (env pane=${rec.pane ?? '-'})`);
+      if (rec.event === 'SessionStart' && pane !== null && pane === this.leadPaneId) leadStarted = true;
+      if (perRecordLog) log('info', `[${this.session}] hook ${rec.event}${rec.notificationType ? `/${rec.notificationType}` : ''} pane=${pane ?? '?'} (env pane=${rec.pane ?? '-'})`);
+    }
+    if (!perRecordLog) log('info', `[${this.session}] hook ${recs.length} records replayed`);
+    // 리드의 새 대화 시작(/clear·재개 등) → sessionId가 바뀌었을 수 있어 바로 다시 확인(묶음당 한 번)
+    if (leadStarted) {
+      this.lastTeamPoll = 0;
+      void this.pollTeam();
     }
     if (touched) {
       this.relabel();
