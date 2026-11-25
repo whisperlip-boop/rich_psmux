@@ -523,4 +523,13 @@ export const zhCN: Dict = {
   'sidebar.contentFound': { other: '在 {n} 个对话的内容中找到' },
   'sidebar.contentNone': '对话内容中没有匹配项',
   'sidebar.contentFailed': '无法搜索对话内容',
+  'action.restartLead': '重新启动负责人',
+  'card.find': '查找',
+  'card.findMatchCase': '区分大小写',
+  'card.findPrev': '上一个匹配项',
+  'card.findNext': '下一个匹配项',
+  'card.findNone': '无结果',
+  'card.leadExited': 'Claude Code 已退出',
+  'card.restartLead': '重新启动',
+  'card.resumeLead': '继续对话',
 };

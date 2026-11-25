@@ -528,4 +528,13 @@ export const ta: Dict = {
   'sidebar.contentFound': { one: '{n} உரையாடலில் கண்டறியப்பட்டது', other: '{n} உரையாடல்களில் கண்டறியப்பட்டது' },
   'sidebar.contentNone': 'உரையாடல்களுக்குள் பொருத்தங்கள் இல்லை',
   'sidebar.contentFailed': 'உரையாடல்களுக்குள் தேட முடியவில்லை',
+  'action.restartLead': 'தலைவரை மீண்டும் தொடங்க',
+  'card.find': 'கண்டுபிடி',
+  'card.findMatchCase': 'பெரிய/சிறிய எழுத்து வேறுபாடு',
+  'card.findPrev': 'முந்தைய பொருத்தம்',
+  'card.findNext': 'அடுத்த பொருத்தம்',
+  'card.findNone': 'முடிவுகள் இல்லை',
+  'card.leadExited': 'Claude Code முடிவடைந்தது',
+  'card.restartLead': 'மீண்டும் தொடங்கு',
+  'card.resumeLead': 'தொடர்',
 };

@@ -552,4 +552,13 @@ export const fil: Dict = {
   'sidebar.contentFound': { one: 'Nakita sa loob ng {n} usapan', other: 'Nakita sa loob ng {n} usapan' },
   'sidebar.contentNone': 'Walang tugma sa loob ng mga usapan',
   'sidebar.contentFailed': 'Hindi makapaghanap sa loob ng mga usapan',
+  'action.restartLead': 'i-restart ang lider',
+  'card.find': 'Hanapin',
+  'card.findMatchCase': 'Itugma ang malaki at maliit na titik',
+  'card.findPrev': 'Nakaraang resulta',
+  'card.findNext': 'Susunod na resulta',
+  'card.findNone': 'Walang resulta',
+  'card.leadExited': 'Nag-exit na ang Claude Code',
+  'card.restartLead': 'I-restart',
+  'card.resumeLead': 'Ituloy',
 };

@@ -43,6 +43,7 @@ const api: CtdApi = {
   requestResync: (tabId, pane) => ipcRenderer.send('pane:resync', tabId, pane),
   paneInfo: (tabId, pane) => ipcRenderer.invoke('pane:info', tabId, pane),
   requestStop: (tabId, pane, name) => ipcRenderer.invoke('pane:stop', tabId, pane, name),
+  restartLead: (tabId, resume) => ipcRenderer.invoke('lead:restart', tabId, resume),
   reconnect: (tabId) => ipcRenderer.send('tab:reconnect', tabId),
   onTabState: (cb) => on('tab:state', cb),
   onTabClosed: (cb) => on('tab:closed', cb),

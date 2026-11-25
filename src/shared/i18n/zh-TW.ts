@@ -523,4 +523,13 @@ export const zhTW: Dict = {
   'sidebar.contentFound': { other: '在 {n} 個對話的內容中找到' },
   'sidebar.contentNone': '對話內容中沒有相符的結果',
   'sidebar.contentFailed': '無法搜尋對話內容',
+  'action.restartLead': '重新啟動領導者',
+  'card.find': '尋找',
+  'card.findMatchCase': '大小寫須相符',
+  'card.findPrev': '上一個相符項目',
+  'card.findNext': '下一個相符項目',
+  'card.findNone': '沒有結果',
+  'card.leadExited': 'Claude Code 已結束',
+  'card.restartLead': '重新啟動',
+  'card.resumeLead': '繼續對話',
 };

@@ -520,4 +520,13 @@ export const id: Dict = {
   'sidebar.contentFound': { other: 'Ditemukan di {n} percakapan' },
   'sidebar.contentNone': 'Tidak ada yang cocok di isi percakapan',
   'sidebar.contentFailed': 'Tidak dapat mencari di isi percakapan',
+  'action.restartLead': 'memulai ulang pemimpin',
+  'card.find': 'Cari',
+  'card.findMatchCase': 'Cocokkan huruf besar/kecil',
+  'card.findPrev': 'Hasil sebelumnya',
+  'card.findNext': 'Hasil berikutnya',
+  'card.findNone': 'Tidak ada hasil',
+  'card.leadExited': 'Claude Code telah berhenti',
+  'card.restartLead': 'Mulai ulang',
+  'card.resumeLead': 'Lanjutkan',
 };

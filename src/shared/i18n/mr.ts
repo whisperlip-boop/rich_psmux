@@ -526,4 +526,13 @@ export const mr: Dict = {
   'sidebar.contentFound': { one: '{n} संभाषणाच्या मजकुरात सापडले', other: '{n} संभाषणांच्या मजकुरात सापडले' },
   'sidebar.contentNone': 'संभाषणांच्या मजकुरात काहीही सापडले नाही',
   'sidebar.contentFailed': 'संभाषणांच्या मजकुरात शोधता आले नाही',
+  'action.restartLead': 'लीडर पुन्हा सुरू करण्यात',
+  'card.find': 'शोधा',
+  'card.findMatchCase': 'मोठ्या/लहान अक्षरांमध्ये फरक करा',
+  'card.findPrev': 'मागील परिणाम',
+  'card.findNext': 'पुढील परिणाम',
+  'card.findNone': 'कोणतेही परिणाम नाहीत',
+  'card.leadExited': 'Claude Code बंद झाले आहे',
+  'card.restartLead': 'पुन्हा सुरू करा',
+  'card.resumeLead': 'सुरू ठेवा',
 };

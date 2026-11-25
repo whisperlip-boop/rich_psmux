@@ -9,7 +9,7 @@ import { inputHeight } from '../composer';
 import { t } from '../i18n';
 import { safeIpc } from '../ipc';
 import { SPLIT_END_EVENT } from '../layout';
-import { attachTerminal, FONT_EVENT, getTerminal } from '../terminals';
+import { attachTerminal, FONT_EVENT, getTerminal, SEARCH_DECORATIONS } from '../terminals';
 import { StatusDot, statusLabel } from './StatusDot';
 
 interface CardProps {
@@ -33,10 +33,14 @@ interface CardProps {
   showInputBar: boolean;
   /** ⋮ "폴더 추가…": 리드 카드 입력창에 /add-dir. 리드 카드가 없으면 null(비활성). */
   onAddDir: (() => void) | null;
+  /** 다시 시작 칩: 리드 카드이고 리드 프로그램이 끝났을 때만(팀원 카드는 항상 null). resume=true면 -r로 이어서. */
+  onRestartLead: ((resume: boolean) => void) | null;
 }
 
 /** 크기 변경이 끝난 뒤 cols·rows 계산까지 기다리는 시간. */
 const RESIZE_DEBOUNCE_MS = 150;
+/** 검색 애드온이 세는 일치 수 상한(highlightLimit 기본값). 이 수에 닿으면 "+"를 붙인다. */
+const FIND_LIMIT = 1000;
 
 /** 팀원 카드. */
 export function Card(props: CardProps) {
@@ -59,6 +63,12 @@ export function Card(props: CardProps) {
   noInputRef.current = noInput;
   const propsRef = useRef(props);
   propsRef.current = props;
+  // 스크롤백 검색 막대(Ctrl+Shift+F). 막대에 포커스가 있을 때만 키를 가로챈다
+  const findRef = useRef<HTMLInputElement>(null);
+  const [findOpen, setFindOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [matchCase, setMatchCase] = useState(false);
+  const [found, setFound] = useState<{ index: number; count: number } | null>(null);
 
   /** 입력창 커서(선택) 위치에 글을 넣고 그 뒤로 커서를 옮긴다(전송은 사용자가). */
   const insertSnippet = (snippet: string): void => {
@@ -204,6 +214,54 @@ export function Card(props: CardProps) {
     return () => ro.disconnect();
   }, [showInputBar]);
 
+  /** 검색: 'type'은 입력 중(현재 일치에 머무름), 'next'·'prev'는 다음·이전 일치로 이동하며 스크롤한다. */
+  const runFind = (dir: 'type' | 'next' | 'prev', q = query, cs = matchCase): void => {
+    const s = getTerminal(tabId, paneId)?.search;
+    if (!s) return;
+    if (!q) {
+      s.clearDecorations();
+      setFound(null);
+      return;
+    }
+    const opts = { caseSensitive: cs, incremental: dir === 'type', decorations: SEARCH_DECORATIONS };
+    const hit = dir === 'prev' ? s.findPrevious(q, opts) : s.findNext(q, opts);
+    if (!hit) setFound({ index: -1, count: 0 });
+  };
+  const openFind = (): void => {
+    if (!findRef.current) setFindOpen(true);
+    findRef.current?.focus();
+    findRef.current?.select();
+  };
+  /** 막대를 닫고 강조를 지운 뒤(아래 효과 정리) 맨 아래로 돌아가 터미널에 포커스. */
+  const closeFind = (): void => {
+    setFindOpen(false);
+    setFound(null);
+    const term = getTerminal(tabId, paneId)?.term;
+    // 애드온이 현재 일치를 선택해 둔다: 남기면 다음 Ctrl+C가 C-c 대신 그 글을 복사한다
+    term?.clearSelection();
+    term?.scrollToBottom();
+    term?.focus();
+  };
+  useEffect(() => {
+    if (!findOpen) return;
+    const s = getTerminal(tabId, paneId)?.search;
+    const sub = s?.onDidChangeResults((r) => setFound({ index: r.resultIndex, count: r.resultCount }));
+    findRef.current?.focus();
+    findRef.current?.select();
+    if (query) runFind('type');
+    return () => {
+      sub?.dispose();
+      s?.clearDecorations();
+    };
+  }, [findOpen, tabId, paneId]);
+  const onFindKeyDown = (e: KeyboardEvent): void => {
+    if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return;
+    e.preventDefault();
+    runFind(e.shiftKey ? 'prev' : 'next');
+  };
+  const findCount = !found ? '' : found.count === 0 ? t('card.findNone')
+    : `${found.index >= 0 ? `${found.index + 1}/` : ''}${found.count}${found.count >= FIND_LIMIT ? '+' : ''}`;
+
   const empty = !text.trim();
   const send = async (): Promise<void> => {
     if (empty || sending || noInput) return; // 빈 입력 무시(빈 Enter가 프롬프트 제안을 전송할 수 있음)
@@ -239,12 +297,18 @@ export function Card(props: CardProps) {
   // 포커스를 다시 정하므로(빈 곳은 포커스 해제) 그 뒤에 맞춘다. 버튼(배너 ×·다시 연결)은 그 버튼의 동작을 따른다
   const activate = (e: PointerEvent): void => {
     props.onActivate();
-    if (showInputBar || (e.target as Element | null)?.closest('button')) return;
+    if (showInputBar || (e.target as Element | null)?.closest('button, .card__find')) return;
     window.setTimeout(() => getTerminal(tabId, paneId)?.term.focus(), 0);
   };
 
   return (
-    <section class={`card${active ? ' is-active' : ''}${pane.waiting ? ' card--waiting' : ''}${showInputBar ? '' : ' card--bare'}${props.locked ? ' card--locked' : ''}${props.dropTarget ? ' is-drop-target' : ''}`} data-pane={paneId} onPointerDown={activate} aria-label={cardName}>
+    <section class={`card${active ? ' is-active' : ''}${pane.waiting ? ' card--waiting' : ''}${showInputBar ? '' : ' card--bare'}${props.locked ? ' card--locked' : ''}${props.dropTarget ? ' is-drop-target' : ''}`} data-pane={paneId} onPointerDown={activate} aria-label={cardName}
+      onKeyDown={(e) => {
+        if (e.ctrlKey && e.shiftKey && !e.altKey && e.key.toLowerCase() === 'f') {
+          e.preventDefault();
+          openFind();
+        }
+      }}>
       {props.banner && (
         <div class="card__banner" role="note">
           <span class="card__banner-icon" aria-hidden="true">ℹ</span>
@@ -252,8 +316,30 @@ export function Card(props: CardProps) {
           <button class="icon-btn icon-btn--24" title={t('common.close')} aria-label={t('common.close')} onClick={props.onDismissBanner}>×</button>
         </div>
       )}
+      {props.onRestartLead && (
+        <div class="card__banner" role="status">
+          <span class="card__banner-icon" aria-hidden="true">ℹ</span>
+          <span class="card__banner-text">{t('card.leadExited')}</span>
+          <button class="btn-secondary card__banner-btn" onClick={() => props.onRestartLead?.(false)}>{t('card.restartLead')}</button>
+          <button class="btn-secondary card__banner-btn" onClick={() => props.onRestartLead?.(true)}>{t('card.resumeLead')}</button>
+        </div>
+      )}
       <div class="card__body" onMouseDown={() => getTerminal(tabId, paneId)?.term.focus()}>
         <div class="card__term" ref={bodyRef} />
+        {findOpen && (
+          // 막대 클릭이 위 onMouseDown(터미널 포커스)으로 가지 않게 막는다. Esc는 입력창·버튼 어디서든 닫기
+          <div class="search card__find" role="search" onMouseDown={(e) => e.stopPropagation()}
+            onKeyDown={(e) => { if (e.key === 'Escape' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); closeFind(); } }}>
+            <input ref={findRef} type="text" value={query} placeholder={t('card.find')} aria-label={t('card.find')} onKeyDown={onFindKeyDown}
+              onInput={(e) => { const q = (e.target as HTMLInputElement).value; setQuery(q); runFind('type', q); }} />
+            <span class="card__find-count" aria-live="polite">{findCount}</span>
+            <button class="icon-btn icon-btn--24 card__find-case" title={t('card.findMatchCase')} aria-label={t('card.findMatchCase')} aria-pressed={matchCase}
+              onClick={() => { setMatchCase(!matchCase); runFind('type', query, !matchCase); }}>Aa</button>
+            <button class="icon-btn icon-btn--24" title={t('card.findPrev')} aria-label={t('card.findPrev')} disabled={!query} onClick={() => runFind('prev')}><Icon d="M18 15l-6-6-6 6" /></button>
+            <button class="icon-btn icon-btn--24" title={t('card.findNext')} aria-label={t('card.findNext')} disabled={!query} onClick={() => runFind('next')}><Icon d="M6 9l6 6 6-6" /></button>
+            <button class="icon-btn icon-btn--24" title={t('common.close')} aria-label={t('common.close')} onClick={closeFind}>×</button>
+          </div>
+        )}
         {disconnected && (
           <div class="overlay" role="status">
             <span class="overlay__icon" aria-hidden="true">✕</span>

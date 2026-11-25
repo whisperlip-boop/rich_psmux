@@ -528,4 +528,13 @@ export const nl: Dict = {
   'sidebar.contentFound': { one: 'Gevonden in {n} gesprek', other: 'Gevonden in {n} gesprekken' },
   'sidebar.contentNone': 'Geen resultaten in gesprekken',
   'sidebar.contentFailed': 'Kan niet zoeken in gesprekken',
+  'action.restartLead': 'het opnieuw starten van de leider',
+  'card.find': 'Zoeken',
+  'card.findMatchCase': 'Hoofdlettergevoelig',
+  'card.findPrev': 'Vorig resultaat',
+  'card.findNext': 'Volgend resultaat',
+  'card.findNone': 'Geen resultaten',
+  'card.leadExited': 'Claude Code is afgesloten',
+  'card.restartLead': 'Opnieuw starten',
+  'card.resumeLead': 'Hervatten',
 };

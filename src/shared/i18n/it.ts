@@ -553,4 +553,13 @@ export const it: Dict = {
   'sidebar.contentFound': { one: 'Risultati in {n} conversazione', many: 'Risultati in {n} di conversazioni', other: 'Risultati in {n} conversazioni' },
   'sidebar.contentNone': 'Nessun risultato nel testo delle conversazioni',
   'sidebar.contentFailed': 'Impossibile cercare nel testo delle conversazioni',
+  'action.restartLead': 'riavviare il leader',
+  'card.find': 'Trova',
+  'card.findMatchCase': 'Maiuscole/minuscole',
+  'card.findPrev': 'Risultato precedente',
+  'card.findNext': 'Risultato successivo',
+  'card.findNone': 'Nessun risultato',
+  'card.leadExited': 'Claude Code si è chiuso',
+  'card.restartLead': 'Riavvia',
+  'card.resumeLead': 'Riprendi',
 };

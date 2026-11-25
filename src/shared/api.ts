@@ -49,6 +49,8 @@ export interface TabStateDto {
   resumeSessionId: string | null;
   /** 리드 칸 종료(세션은 살아 있음). */
   leadGone: boolean;
+  /** 리드 칸은 살아 있고 리드 프로그램(Claude Code)만 끝나 셸로 돌아옴(리드 카드 다시 시작 칩). */
+  leadExited: boolean;
   /** 종료 처리 중. */
   terminating: boolean;
   createdAt: number;
@@ -414,6 +416,8 @@ export interface CtdApi {
   requestResync(tabId: string, pane: string): void;
   paneInfo(tabId: string, pane: string): Promise<Record<string, string | number | null> | null>;
   requestStop(tabId: string, pane: string, name: string): Promise<boolean>;
+  /** 끝난 리드를 같은 칸·폴더에서 다시 실행(resume=true면 -r). 리드가 끝난 상태가 아니면 false. */
+  restartLead(tabId: string, resume: boolean): Promise<boolean>;
   reconnect(tabId: string): void;
   onTabState(cb: (s: TabStateDto) => void): Unsub;
   onTabClosed(cb: (tabId: string) => void): Unsub;

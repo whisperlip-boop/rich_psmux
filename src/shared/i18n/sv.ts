@@ -522,4 +522,13 @@ export const sv: Dict = {
   'sidebar.contentFound': { one: 'Hittades i {n} konversation', other: 'Hittades i {n} konversationer' },
   'sidebar.contentNone': 'Inga träffar i konversationernas innehåll',
   'sidebar.contentFailed': 'Det gick inte att söka i konversationernas innehåll',
+  'action.restartLead': 'starta om ledaren',
+  'card.find': 'Sök',
+  'card.findMatchCase': 'Matcha gemener/versaler',
+  'card.findPrev': 'Föregående träff',
+  'card.findNext': 'Nästa träff',
+  'card.findNone': 'Inga träffar',
+  'card.leadExited': 'Claude Code har avslutats',
+  'card.restartLead': 'Starta om',
+  'card.resumeLead': 'Återuppta',
 };

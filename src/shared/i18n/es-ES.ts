@@ -68,4 +68,5 @@ export const esES: Dict = {
   'settings.keepAwake': 'Evitar que el ordenador entre en suspensión',
   'settings.keepAwakeHint': 'La pantalla puede apagarse igualmente. Si cierras la tapa o eliges Suspender, el ordenador se suspenderá de todos modos.',
   'sidebar.contentHint': 'Pulsa Enter para buscar dentro de las conversaciones',
+  'card.leadExited': 'Claude Code se ha cerrado',
 };

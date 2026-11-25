@@ -528,4 +528,13 @@ export const da: Dict = {
   'sidebar.contentFound': { one: 'Fundet i {n} samtale', other: 'Fundet i {n} samtaler' },
   'sidebar.contentNone': 'Ingen resultater i samtalernes indhold',
   'sidebar.contentFailed': 'Kunne ikke søge i samtalernes indhold',
+  'action.restartLead': 'genstarte lederen',
+  'card.find': 'Søg',
+  'card.findMatchCase': 'Forskel på store og små bogstaver',
+  'card.findPrev': 'Forrige resultat',
+  'card.findNext': 'Næste resultat',
+  'card.findNone': 'Ingen resultater',
+  'card.leadExited': 'Claude Code er afsluttet',
+  'card.restartLead': 'Genstart',
+  'card.resumeLead': 'Genoptag',
 };

@@ -527,4 +527,13 @@ export const bn: Dict = {
   'sidebar.contentFound': { one: '{n} কথোপকথনের ভেতরে পাওয়া গেছে', other: '{n} কথোপকথনের ভেতরে পাওয়া গেছে' },
   'sidebar.contentNone': 'কথোপকথনের ভেতরে কিছু পাওয়া যায়নি',
   'sidebar.contentFailed': 'কথোপকথনের ভেতরে খোঁজা যায়নি',
+  'action.restartLead': 'লিডার আবার চালু করা',
+  'card.find': 'খুঁজুন',
+  'card.findMatchCase': 'বড়/ছোট হাতের অক্ষর মেলান',
+  'card.findPrev': 'আগের মিল',
+  'card.findNext': 'পরের মিল',
+  'card.findNone': 'কোনো ফলাফল নেই',
+  'card.leadExited': 'Claude Code বন্ধ হয়ে গেছে',
+  'card.restartLead': 'আবার চালু করুন',
+  'card.resumeLead': 'চালিয়ে যান',
 };

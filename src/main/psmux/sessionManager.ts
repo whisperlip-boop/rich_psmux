@@ -10,6 +10,7 @@ import { isPlainLeadCommand, pwshQuote } from '../../shared/agents';
 import { msg, resolveMsg, tr, type Msg } from '../../shared/i18n';
 import { SESSION_ID_RE } from '../../shared/ids';
 import { appendLeadId, readSessionMeta, removeSessionFiles, sessionFiles, writeSessionMeta } from '../appData';
+import { isShellCommand } from '../auth';
 import { findLeadSessionId, findTeamConfig, readTeamConfig, scanTranscriptTeam, type TranscriptTeam } from '../claudeHome';
 import { ControlClient, type CommandResult } from '../controlMode/client';
 import { assertSafeToken, inputToCommands, isTypeableLine, literalCommands, splitSubmit, tokensToCommands, xtermDataToTokens } from '../controlMode/quote';
@@ -63,6 +64,8 @@ export interface TabState {
   resumeSessionId: string | null;
   /** 리드 칸이 종료됨(세션은 살아 있음). 연결 끊김과 구분해 표시. */
   leadGone: boolean;
+  /** 리드 칸은 살아 있고 리드 프로그램(Claude Code)만 끝나 셸로 돌아옴. 리드 카드의 다시 시작 칩 기준. */
+  leadExited: boolean;
   /** 종료 요청 처리 중. */
   terminating: boolean;
   createdAt: number;
@@ -86,7 +89,7 @@ export interface SessionOptions {
   attachName?: string;
   /** 새 세션에서 이어갈 대화 ID(리드 명령 뒤에 -r <id>). */
   resumeSessionId?: string;
-  /** 새 세션의 셸 실행 파일(설정의 pwsh 경로). 없으면 psmux 기본 셸. 세션 default-shell로 지정한다(applyShell). 리드 명령은 pwsh 문법으로 입력된다. */
+  /** 셸 실행 파일(설정의 pwsh 경로). 새 세션이면 세션 default-shell로 지정한다(applyShell, 없으면 psmux 기본 셸). 기존 세션에 붙을 때는 리드 종료 판정(셸인지)에만 쓴다. 리드 명령은 pwsh 문법으로 입력된다. */
   shell?: string | null;
   /** 탭 용도. 'login'이면 리드 명령이 claude auth login(hook·statusLine 없음). 기본 'conversation'. */
   purpose?: SessionPurpose;
@@ -195,6 +198,12 @@ export class TabSession extends EventEmitter {
   private readonly resumeSessionId: string | null;
   private createdAt = Date.now();
   private leadGone = false;
+  /**
+   * 리드 칸에서 셸이 아닌 프로그램을 본 적이 있는지(그 뒤 셸이면 leadExited). 기존 세션에 붙을 때는 리드를 이미 실행한 것으로 본다.
+   * 로그인 감시와 달리 시간 유예는 두지 않는다: 늦게 뜨는 Claude에 칩이 떠 리드가 두 번 실행되지 않게(첫 폴링 전에 죽으면 칩 없음).
+   */
+  private leadSawProgram: boolean;
+  private leadExited = false;
   private terminating = false;
   private loginFailed = false;
   private readonly purpose: SessionPurpose;
@@ -225,6 +234,7 @@ export class TabSession extends EventEmitter {
       }
     }
     this.resumeSessionId = resume;
+    this.leadSawProgram = !!opts.attachName;
     this.purpose = opts.purpose ?? 'conversation';
     const files = sessionFiles(opts.dataDir, this.session);
     this.cacheFile = files.labels;
@@ -257,7 +267,7 @@ export class TabSession extends EventEmitter {
       tabId: this.tabId, session: this.session, folder: this.opts.folder, status: this.status,
       leadPaneId: this.leadPaneId, plain: this.plain, teamName: this.teamName, panes, error: this.error ? resolveMsg(this.error) : undefined,
       hooksEnabled: this.opts.hookCommand !== null,
-      leadSessionId: this.leadSessionId, resumeSessionId: this.resumeSessionId, leadGone: this.leadGone,
+      leadSessionId: this.leadSessionId, resumeSessionId: this.resumeSessionId, leadGone: this.leadGone, leadExited: this.leadExited,
       terminating: this.terminating, createdAt: this.createdAt, purpose: this.purpose, loginFailed: this.loginFailed,
     };
   }
@@ -384,16 +394,79 @@ export class TabSession extends EventEmitter {
   }
 
   private async launchLead(): Promise<void> {
-    let cmd = this.opts.leadCommand;
-    // 대화 ID는 생성자에서 형식 검증됨(명령 주입 방지)
-    if (this.resumeSessionId) cmd += ` -r ${this.resumeSessionId}`;
+    this.leadSawProgram = false;
     const statusLine = this.opts.statusLineCommand ?? null;
+    await this.runCommands(inputToCommands(this.leadPaneId!, this.leadLine(this.resumeSessionId, statusLine)));
+    log('info', `[${this.session}] lead launched on ${this.leadPaneId} (hooks=${this.opts.hookCommand !== null}, statusline=${statusLine !== null})`);
+  }
+
+  /**
+   * 리드 명령 줄(-r·--settings 포함). --settings 파일도 이때 다시 쓴다.
+   *
+   * Args:
+   *   resume: 이어갈 대화 ID(형식 검증된 값만). null이면 새 대화, 'pick'이면 ID 없이 -r(Claude Code 대화 선택 화면).
+   *   statusLine: 사용량 statusLine 명령(없으면 null).
+   */
+  private leadLine(resume: string | null, statusLine: string | null): string {
+    let cmd = this.opts.leadCommand;
+    // 대화 ID는 생성자·restartLead에서 형식 검증됨(명령 주입 방지)
+    if (resume) cmd += resume === 'pick' ? ' -r' : ` -r ${resume}`;
     if (this.opts.hookCommand || statusLine) {
       this.writeLeadSettings(statusLine);
       cmd += ` --settings ${pwshQuote(this.hookSettingsFile)}`;
     }
-    await this.runCommands(inputToCommands(this.leadPaneId!, cmd));
-    log('info', `[${this.session}] lead launched on ${this.leadPaneId} (hooks=${this.opts.hookCommand !== null}, statusline=${statusLine !== null})`);
+    return cmd;
+  }
+
+  /**
+   * 다시 시작 칩: 끝난 리드를 같은 칸·같은 폴더에서 다시 실행한다(사용자가 눌렀을 때만, 자동 재시작 없음).
+   *
+   * Args:
+   *   resume: true면 마지막 리드 대화를 -r로 이어간다(ID를 모르면 -r만: 대화 선택 화면).
+   *   statusLine: 사용량 statusLine 명령(누를 때 호출부가 구함: 기존 세션에 붙은 탭은 옵션에 없음). 없으면 null.
+   *
+   * Returns:
+   *   명령을 입력했으면 true. 리드가 끝난 상태가 아니거나(이미 다시 시작함 등) 누른 시점에 칸이 셸이 아니면 false(칩만 내림).
+   */
+  async restartLead(resume: boolean, statusLine: string | null): Promise<boolean> {
+    const lead = this.leadPaneId;
+    if (!this.leadExited || this.terminating || this.leadGone || !lead || !this.panes.has(lead)) return false;
+    const last = this.leadSessionId ?? this.resumeSessionId;
+    const id = !resume ? null : last && SESSION_ID_RE.test(last) ? last : 'pick';
+    // 칩을 바로 내려 두 번 눌러도 한 번만 실행되게 한다(입력 중 폴링이 지난 감시 상태로 칩을 되살리지 않게 감시도 새로)
+    this.leadExited = false;
+    this.leadSawProgram = false;
+    this.emitState();
+    // 폴링 값은 최대 2초 늦다: 그 사이 칸에서 프로그램(직접 실행한 claude 등)이 떴으면 그 입력으로 들어가지 않게 지금 다시 확인
+    const r = await this.cmd(`display-message -p -t ${lead} '#{pane_current_command}'`);
+    const now = r.ok ? (r.lines[0] ?? '').trim() : '';
+    if (!isShellCommand(now, this.opts.shell ?? null)) {
+      log('info', `[${this.session}] lead restart skipped: pane ${lead} runs ${now || 'unknown'}`);
+      // 칩은 내린 채 둔다. 확인만 실패했고 칸이 여전히 셸이면 다음 폴링에서 칩이 다시 뜬다
+      this.leadSawProgram = true;
+      return false;
+    }
+    // 사용자가 셸에서 다른 폴더로 옮겼어도 탭 폴더에서 시작한다. 폴더로 못 가면(삭제·끊긴 네트워크) -ErrorAction Stop이 같은 줄의 리드 명령을 막는다
+    const line = `Set-Location -LiteralPath ${pwshQuote(this.opts.folder)} -ErrorAction Stop; ${this.leadLine(id, statusLine)}`;
+    const ok = await this.runCommands(inputToCommands(lead, line));
+    // 입력하지 못했으면 칸은 그대로 셸이다: 다음 폴링에서 칩이 다시 뜨게 한다(시간 유예가 없어 그대로 두면 칩이 영영 안 뜸)
+    if (!ok) this.leadSawProgram = true;
+    const how = id === null ? 'new conversation' : id === 'pick' ? 'resume picker' : 'resume';
+    log(ok ? 'info' : 'warn', `[${this.session}] lead restart by user (${how}, statusline=${statusLine !== null}) ${ok ? 'typed' : 'failed to type'}`);
+    return ok;
+  }
+
+  /** 리드 칸이 살아 있는 채 리드 프로그램만 끝나 셸로 돌아왔는지 갱신한다(프로그램을 본 뒤 셸이면 종료). */
+  private trackLeadExit(): void {
+    const cmd = this.leadPaneId ? (this.panes.get(this.leadPaneId)?.command ?? '') : '';
+    if (!cmd.trim()) return;
+    const shell = isShellCommand(cmd, this.opts.shell ?? null);
+    if (!shell) this.leadSawProgram = true;
+    const exited = shell && this.leadSawProgram && this.purpose !== 'login';
+    if (exited === this.leadExited) return;
+    this.leadExited = exited;
+    log('info', `[${this.session}] lead program ${exited ? 'exited' : 'running'} on ${this.leadPaneId} (${cmd})`);
+    this.emitState();
   }
 
   /** 리드 --settings 파일: hook(승인 대기 감지)과 statusLine(사용량) 중 있는 것만 넣는다. */
@@ -689,6 +762,7 @@ export class TabSession extends EventEmitter {
     }
     const diff = diffPanes(this.panes, list);
     this.panes = new Map(list.filter((p) => !p.dead).map((p) => [p.paneId, p]));
+    this.trackLeadExit();
     for (const id of diff.removed) {
       this.out.drop(id);
       this.desired.delete(id);

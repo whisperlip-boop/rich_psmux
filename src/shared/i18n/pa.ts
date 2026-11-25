@@ -531,4 +531,13 @@ export const pa: Dict = {
   'sidebar.contentFound': { one: '{n} ਗੱਲਬਾਤ ਦੀ ਸਮੱਗਰੀ ਵਿੱਚ ਮਿਲਿਆ', other: '{n} ਗੱਲਬਾਤਾਂ ਦੀ ਸਮੱਗਰੀ ਵਿੱਚ ਮਿਲਿਆ' },
   'sidebar.contentNone': 'ਗੱਲਬਾਤਾਂ ਦੀ ਸਮੱਗਰੀ ਵਿੱਚ ਕੁਝ ਨਹੀਂ ਮਿਲਿਆ',
   'sidebar.contentFailed': 'ਗੱਲਬਾਤਾਂ ਦੀ ਸਮੱਗਰੀ ਵਿੱਚ ਖੋਜ ਨਹੀਂ ਕੀਤੀ ਜਾ ਸਕੀ',
+  'action.restartLead': 'ਲੀਡਰ ਨੂੰ ਮੁੜ ਸ਼ੁਰੂ ਕਰਨ',
+  'card.find': 'ਲੱਭੋ',
+  'card.findMatchCase': 'ਵੱਡੇ/ਛੋਟੇ ਅੱਖਰਾਂ ਦਾ ਫ਼ਰਕ ਰੱਖੋ',
+  'card.findPrev': 'ਪਿਛਲਾ ਨਤੀਜਾ',
+  'card.findNext': 'ਅਗਲਾ ਨਤੀਜਾ',
+  'card.findNone': 'ਕੋਈ ਨਤੀਜਾ ਨਹੀਂ',
+  'card.leadExited': 'Claude Code ਬੰਦ ਹੋ ਗਿਆ ਹੈ',
+  'card.restartLead': 'ਮੁੜ ਸ਼ੁਰੂ ਕਰੋ',
+  'card.resumeLead': 'ਜਾਰੀ ਰੱਖੋ',
 };

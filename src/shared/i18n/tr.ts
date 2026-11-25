@@ -528,4 +528,13 @@ export const tr: Dict = {
   'sidebar.contentFound': { one: '{n} sohbetin içeriğinde bulundu', other: '{n} sohbetin içeriğinde bulundu' },
   'sidebar.contentNone': 'Sohbet içeriklerinde sonuç bulunamadı',
   'sidebar.contentFailed': 'Sohbet içerikleri aranamadı',
+  'action.restartLead': 'Lideri yeniden başlatma',
+  'card.find': 'Bul',
+  'card.findMatchCase': 'Büyük/küçük harf eşleştir',
+  'card.findPrev': 'Önceki eşleşme',
+  'card.findNext': 'Sonraki eşleşme',
+  'card.findNone': 'Sonuç yok',
+  'card.leadExited': 'Claude Code kapandı',
+  'card.restartLead': 'Yeniden başlat',
+  'card.resumeLead': 'Devam et',
 };

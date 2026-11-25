@@ -519,4 +519,13 @@ export const ja: Dict = {
   'sidebar.contentFound': { other: '{n}件の会話で見つかりました' },
   'sidebar.contentNone': '内容が一致する会話はありません',
   'sidebar.contentFailed': '会話の内容を検索できませんでした',
+  'action.restartLead': 'リードの再起動',
+  'card.find': '検索',
+  'card.findMatchCase': '大文字と小文字を区別する',
+  'card.findPrev': '前の一致項目',
+  'card.findNext': '次の一致項目',
+  'card.findNone': '結果はありません',
+  'card.leadExited': 'Claude Codeが終了しました',
+  'card.restartLead': '再起動',
+  'card.resumeLead': '再開',
 };

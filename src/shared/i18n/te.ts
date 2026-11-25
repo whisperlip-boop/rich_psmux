@@ -528,4 +528,13 @@ export const te: Dict = {
   'sidebar.contentFound': { one: '{n} సంభాషణలో కనుగొనబడింది', other: '{n} సంభాషణలలో కనుగొనబడింది' },
   'sidebar.contentNone': 'సంభాషణల లోపల సరిపోలికలు లేవు',
   'sidebar.contentFailed': 'సంభాషణల లోపల శోధించడం సాధ్యం కాలేదు',
+  'action.restartLead': 'లీడర్‌ను పునఃప్రారంభించడం',
+  'card.find': 'కనుగొను',
+  'card.findMatchCase': 'పెద్ద/చిన్న అక్షరాల తేడా',
+  'card.findPrev': 'మునుపటి సరిపోలిక',
+  'card.findNext': 'తదుపరి సరిపోలిక',
+  'card.findNone': 'ఫలితాలు లేవు',
+  'card.leadExited': 'Claude Code ముగిసింది',
+  'card.restartLead': 'పునఃప్రారంభించు',
+  'card.resumeLead': 'కొనసాగించు',
 };

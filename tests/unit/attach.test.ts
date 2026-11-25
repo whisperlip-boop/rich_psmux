@@ -184,7 +184,7 @@ describe('add-dir availability, clipboard image order, safeIpc', () => {
   const tab = (o: Partial<TabStateDto>): TabStateDto => ({
     tabId: 't', session: 's', folder: 'D:\\x', status: 'connected', leadPaneId: '%0', teamName: null,
     panes: [{ paneId: '%0' } as TabStateDto['panes'][number]],
-    plain: false, hooksEnabled: true, leadSessionId: null, resumeSessionId: null, leadGone: false, terminating: false, createdAt: 0, purpose: 'conversation', loginFailed: false, ...o,
+    plain: false, hooksEnabled: true, leadSessionId: null, resumeSessionId: null, leadGone: false, leadExited: false, terminating: false, createdAt: 0, purpose: 'conversation', loginFailed: false, ...o,
   });
   it('add-dir is only offered while the tab accepts input and the lead pane is alive', () => {
     expect(addDirLeadPane(tab({}))).toBe('%0');

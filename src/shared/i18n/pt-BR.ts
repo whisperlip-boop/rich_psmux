@@ -544,4 +544,13 @@ export const ptBR: Dict = {
   'sidebar.contentFound': { one: 'Resultados em {n} conversa', many: 'Resultados em {n} de conversas', other: 'Resultados em {n} conversas' },
   'sidebar.contentNone': 'Nenhum resultado dentro das conversas',
   'sidebar.contentFailed': 'Não foi possível pesquisar dentro das conversas',
+  'action.restartLead': 'reiniciar o líder',
+  'card.find': 'Localizar',
+  'card.findMatchCase': 'Diferenciar maiúsculas de minúsculas',
+  'card.findPrev': 'Resultado anterior',
+  'card.findNext': 'Próximo resultado',
+  'card.findNone': 'Nenhum resultado',
+  'card.leadExited': 'O Claude Code foi encerrado',
+  'card.restartLead': 'Reiniciar',
+  'card.resumeLead': 'Retomar',
 };

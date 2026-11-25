@@ -521,4 +521,13 @@ export const vi: Dict = {
   'sidebar.contentFound': { other: 'Tìm thấy trong {n} cuộc trò chuyện' },
   'sidebar.contentNone': 'Không tìm thấy trong nội dung cuộc trò chuyện',
   'sidebar.contentFailed': 'Không thể tìm trong nội dung cuộc trò chuyện',
+  'action.restartLead': 'khởi động lại trưởng nhóm',
+  'card.find': 'Tìm',
+  'card.findMatchCase': 'Phân biệt chữ hoa/thường',
+  'card.findPrev': 'Kết quả trước',
+  'card.findNext': 'Kết quả tiếp theo',
+  'card.findNone': 'Không có kết quả',
+  'card.leadExited': 'Claude Code đã thoát',
+  'card.restartLead': 'Khởi động lại',
+  'card.resumeLead': 'Tiếp tục',
 };

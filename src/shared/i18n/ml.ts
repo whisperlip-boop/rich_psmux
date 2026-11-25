@@ -525,4 +525,13 @@ export const ml: Dict = {
   'sidebar.contentFound': { one: '{n} സംഭാഷണത്തിനുള്ളിൽ കണ്ടെത്തി', other: '{n} സംഭാഷണങ്ങൾക്കുള്ളിൽ കണ്ടെത്തി' },
   'sidebar.contentNone': 'സംഭാഷണങ്ങൾക്കുള്ളിൽ ഒന്നും കണ്ടെത്തിയില്ല',
   'sidebar.contentFailed': 'സംഭാഷണങ്ങൾക്കുള്ളിൽ തിരയാനായില്ല',
+  'action.restartLead': 'ലീഡറെ പുനരാരംഭിക്കാൻ',
+  'card.find': 'കണ്ടെത്തുക',
+  'card.findMatchCase': 'വലിയക്ഷര/ചെറിയക്ഷര വ്യത്യാസം',
+  'card.findPrev': 'മുമ്പത്തെ ഫലം',
+  'card.findNext': 'അടുത്ത ഫലം',
+  'card.findNone': 'ഫലങ്ങളൊന്നുമില്ല',
+  'card.leadExited': 'Claude Code അവസാനിച്ചു',
+  'card.restartLead': 'പുനരാരംഭിക്കുക',
+  'card.resumeLead': 'തുടരുക',
 };

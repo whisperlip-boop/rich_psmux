@@ -526,4 +526,13 @@ export const kn: Dict = {
   'sidebar.contentFound': { one: '{n} ಸಂಭಾಷಣೆಯಲ್ಲಿ ಕಂಡುಬಂದಿದೆ', other: '{n} ಸಂಭಾಷಣೆಗಳಲ್ಲಿ ಕಂಡುಬಂದಿದೆ' },
   'sidebar.contentNone': 'ಸಂಭಾಷಣೆಗಳ ಒಳಗೆ ಯಾವುದೇ ಹೊಂದಾಣಿಕೆಗಳಿಲ್ಲ',
   'sidebar.contentFailed': 'ಸಂಭಾಷಣೆಗಳ ಒಳಗೆ ಹುಡುಕಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ',
+  'action.restartLead': 'ನಾಯಕನನ್ನು ಮರುಪ್ರಾರಂಭಿಸಲು',
+  'card.find': 'ಹುಡುಕು',
+  'card.findMatchCase': 'ದೊಡ್ಡ/ಸಣ್ಣ ಅಕ್ಷರ ವ್ಯತ್ಯಾಸ',
+  'card.findPrev': 'ಹಿಂದಿನ ಹೊಂದಾಣಿಕೆ',
+  'card.findNext': 'ಮುಂದಿನ ಹೊಂದಾಣಿಕೆ',
+  'card.findNone': 'ಯಾವುದೇ ಫಲಿತಾಂಶಗಳಿಲ್ಲ',
+  'card.leadExited': 'Claude Code ನಿರ್ಗಮಿಸಿದೆ',
+  'card.restartLead': 'ಮರುಪ್ರಾರಂಭಿಸು',
+  'card.resumeLead': 'ಮುಂದುವರಿಸು',
 };

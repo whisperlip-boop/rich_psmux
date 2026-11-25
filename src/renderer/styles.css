@@ -320,6 +320,7 @@ code { font-family: var(--font-mono); font-size: .9em; } /* 기본 monospace는 
 .card__banner { height: 32px; flex: none; display: flex; align-items: center; gap: 8px; margin: 8px 8px 0; padding: 0 4px 0 8px; border-left: 3px solid var(--accent); border-radius: 0 4px 4px 0; background: var(--accent-subtle); font-size: 13px; }
 .card__banner-icon { color: var(--accent-on-subtle); font-size: 16px; line-height: 1; }
 .card__banner-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card__banner-btn { flex: none; height: 24px; padding: 0 8px; font-size: 12px; }
 .menu { position: relative; }
 .menu__list { position: absolute; right: 0; top: 32px; z-index: 20; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); display: flex; flex-direction: column; min-width: 200px; padding: 4px; }
 /* ⋮는 카드 툴바(맨 아래)에 있으므로 메뉴는 위로 연다 */
@@ -329,6 +330,12 @@ code { font-family: var(--font-mono); font-size: .9em; } /* 기본 monospace는 
 .menu__list button:disabled { color: var(--placeholder); }
 .card__body { position: relative; flex: 1; min-height: 0; margin: 8px 8px 0; padding: 8px; border-radius: 6px; background: var(--term-bg); }
 .card__term { width: 100%; height: 100%; overflow: hidden; }
+/* 스크롤백 검색 막대: 터미널 오른쪽 위에 겹쳐 띄운다(.search 입력 상자 재사용). 세로 스크롤바(8)는 가리지 않는다 */
+.card__find { position: absolute; top: 8px; right: 20px; z-index: 5; width: min(360px, calc(100% - 28px)); gap: 2px; padding-right: 4px; box-shadow: var(--shadow); }
+.card__find input { padding-left: 8px; }
+.card__find-count { flex: none; padding: 0 4px; font-size: 12px; color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.card__find-case { font-size: 12px; font-weight: 600; }
+.card__find-case[aria-pressed="true"] { background: var(--accent-subtle); color: var(--accent-on-subtle); }
 .xterm-host { width: 100%; height: 100%; }
 .xterm .xterm-scrollable-element > .scrollbar.vertical { width: 8px !important; }
 .xterm .xterm-scrollable-element > .scrollbar.vertical > .slider { width: 8px !important; border-radius: 4px; }

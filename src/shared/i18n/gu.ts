@@ -534,4 +534,13 @@ export const gu: Dict = {
   'sidebar.contentFound': { one: '{n} વાતચીતની સામગ્રીમાં મળ્યું', other: '{n} વાતચીતોની સામગ્રીમાં મળ્યું' },
   'sidebar.contentNone': 'વાતચીતની સામગ્રીમાં કંઈ મળ્યું નહીં',
   'sidebar.contentFailed': 'વાતચીતની સામગ્રીમાં શોધી શક્યાં નહીં',
+  'action.restartLead': 'લીડર ફરી શરૂ કરી',
+  'card.find': 'શોધો',
+  'card.findMatchCase': 'મોટા/નાના અક્ષરોનો ભેદ રાખો',
+  'card.findPrev': 'પાછલું પરિણામ',
+  'card.findNext': 'આગલું પરિણામ',
+  'card.findNone': 'કોઈ પરિણામ નથી',
+  'card.leadExited': 'Claude Code બંધ થયું છે',
+  'card.restartLead': 'ફરી શરૂ કરો',
+  'card.resumeLead': 'ચાલુ રાખો',
 };

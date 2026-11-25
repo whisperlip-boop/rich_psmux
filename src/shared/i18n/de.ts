@@ -531,4 +531,13 @@ export const de: Dict = {
   'sidebar.contentFound': { one: 'In {n} Unterhaltung gefunden', other: 'In {n} Unterhaltungen gefunden' },
   'sidebar.contentNone': 'Keine Treffer in Unterhaltungen',
   'sidebar.contentFailed': 'Die Unterhaltungen konnten nicht durchsucht werden',
+  'action.restartLead': 'Neustarten des Leads',
+  'card.find': 'Suchen',
+  'card.findMatchCase': 'Groß-/Kleinschreibung beachten',
+  'card.findPrev': 'Vorheriges Ergebnis',
+  'card.findNext': 'Nächstes Ergebnis',
+  'card.findNone': 'Keine Ergebnisse',
+  'card.leadExited': 'Claude Code wurde beendet',
+  'card.restartLead': 'Neu starten',
+  'card.resumeLead': 'Fortsetzen',
 };

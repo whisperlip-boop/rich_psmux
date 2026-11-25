@@ -525,4 +525,13 @@ export const hi: Dict = {
   'sidebar.contentFound': { one: '{n} बातचीत की सामग्री में मिला', other: '{n} बातचीत की सामग्री में मिला' },
   'sidebar.contentNone': 'बातचीत की सामग्री में कुछ नहीं मिला',
   'sidebar.contentFailed': 'बातचीत की सामग्री में खोजा नहीं जा सका',
+  'action.restartLead': 'लीडर को पुनः प्रारंभ करने',
+  'card.find': 'ढूँढें',
+  'card.findMatchCase': 'बड़े/छोटे अक्षरों में अंतर करें',
+  'card.findPrev': 'पिछला परिणाम',
+  'card.findNext': 'अगला परिणाम',
+  'card.findNone': 'कोई परिणाम नहीं',
+  'card.leadExited': 'Claude Code बंद हो गया है',
+  'card.restartLead': 'पुनः प्रारंभ करें',
+  'card.resumeLead': 'जारी रखें',
 };

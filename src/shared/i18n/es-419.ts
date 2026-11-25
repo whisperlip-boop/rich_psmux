@@ -544,4 +544,13 @@ export const es419: Dict = {
   'sidebar.contentFound': { one: 'Coincidencias en {n} conversación', many: 'Coincidencias en {n} de conversaciones', other: 'Coincidencias en {n} conversaciones' },
   'sidebar.contentNone': 'No hay coincidencias dentro de las conversaciones',
   'sidebar.contentFailed': 'No se pudo buscar dentro de las conversaciones',
+  'action.restartLead': 'reiniciar al líder',
+  'card.find': 'Buscar',
+  'card.findMatchCase': 'Coincidir mayúsculas y minúsculas',
+  'card.findPrev': 'Coincidencia anterior',
+  'card.findNext': 'Coincidencia siguiente',
+  'card.findNone': 'No hay resultados',
+  'card.leadExited': 'Claude Code se cerró',
+  'card.restartLead': 'Reiniciar',
+  'card.resumeLead': 'Reanudar',
 };

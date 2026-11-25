@@ -96,7 +96,7 @@ const pane = (id: string, o: Partial<{ working: boolean; waiting: boolean; waiti
 });
 const tab = (o: Partial<TabStateDto>): TabStateDto => ({
   tabId: 't', session: 'ctd-t-000001', folder: 'D:\\x', status: 'connected', leadPaneId: '%0', teamName: null, panes: [pane('%0')],
-  plain: false, hooksEnabled: true, leadSessionId: null, resumeSessionId: null, leadGone: false, terminating: false, createdAt: 0, purpose: 'conversation', loginFailed: false, ...o,
+  plain: false, hooksEnabled: true, leadSessionId: null, resumeSessionId: null, leadGone: false, leadExited: false, terminating: false, createdAt: 0, purpose: 'conversation', loginFailed: false, ...o,
 });
 
 describe('tab status aggregation', () => {

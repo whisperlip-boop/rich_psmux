@@ -7,6 +7,7 @@ import { useRef } from 'preact/hooks';
 
 import type { TabStateDto } from '../../shared/api';
 import { t } from '../i18n';
+import { safeIpc } from '../ipc';
 import {
   DEFAULT_MAIN_RATIO, MAX_MAIN_RATIO, MIN_MAIN_RATIO, SPLIT_END_EVENT, getMainRatio, isMainLayout, ratioFromKey,
   ratioFromPointer, splitLead, tiledGrid, withMainRatio, type MainLayoutId, type TabUi,
@@ -122,6 +123,8 @@ export function CardGrid({ tab, slots, ui, onUi, onInfo, banner, onDismissBanner
       <Card key={id} tabId={tab.tabId} pane={p} active={activePane === id} disconnected={disconnected} locked={tab.terminating}
         banner={id === main ? banner : null} onDismissBanner={onDismissBanner}
         dropTarget={dropPane === id} onError={onError} showInputBar={showInputBar} onAddDir={onAddDir}
+        onRestartLead={id === tab.leadPaneId && tab.leadExited && !tab.terminating && !disconnected
+          ? (resume) => void safeIpc(() => window.ctd.restartLead(tab.tabId, resume), false, onError, t('action.restartLead')) : null}
         onActivate={() => { if (ui.activePane !== id) onUi({ ...ui, activePane: id }); }}
         onInfo={onInfo} onReconnect={() => window.ctd.reconnect(tab.tabId)} />
     );

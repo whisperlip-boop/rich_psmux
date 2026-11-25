@@ -1,6 +1,7 @@
 // 칸별 xterm.js 인스턴스 관리. 카드(Preact) 재렌더와 무관하게 유지하고, main에서 오는 출력은 여기서 바로 기록한다.
 
 import { FitAddon } from '@xterm/addon-fit';
+import { SearchAddon, type ISearchOptions } from '@xterm/addon-search';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
 import { Terminal, type ITheme } from '@xterm/xterm';
 
@@ -20,6 +21,8 @@ export interface PaneTerm {
   fit: FitAddon;
   host: HTMLDivElement;
   lastSent: { cols: number; rows: number } | null;
+  /** 스크롤백 검색(칸 터미널만, 업데이트 카드에는 없음). */
+  search?: SearchAddon;
 }
 
 // term.* 토큰: 터미널 영역만 검정(#0C0C0C). ANSI 16색은 지정하지 않아 xterm 기본값 그대로(출력 색 보정 금지)
@@ -29,6 +32,12 @@ const TERM_THEME: ITheme = {
   scrollbarSliderBackground: 'rgba(255, 255, 255, 0.3)',
   scrollbarSliderHoverBackground: 'rgba(255, 255, 255, 0.5)',
   scrollbarSliderActiveBackground: 'rgba(255, 255, 255, 0.5)',
+};
+
+/** 검색 일치 강조. 터미널 배경은 테마와 무관하게 #0C0C0C라 어두운 배경 기준 색 하나면 된다(애드온은 #RRGGBB만 받음). */
+export const SEARCH_DECORATIONS: ISearchOptions['decorations'] = {
+  matchBackground: '#5C4A00', matchBorder: '#B58900', matchOverviewRuler: '#B58900',
+  activeMatchBackground: '#B36200', activeMatchBorder: '#FFB000', activeMatchColorOverviewRuler: '#FFB000',
 };
 
 /**
@@ -42,6 +51,8 @@ export function isAppShortcut(e: KeyboardEvent): boolean {
   // Ctrl+Shift+B 사이드바 접기·펼치기(Ctrl+B는 Claude Code 백그라운드 실행·tmux 접두사와 겹쳐 쓰지 않음)
   if (e.ctrlKey && e.shiftKey && !e.altKey && (k === 't' || k === 'w' || k === 'b')) return true;
   if (e.ctrlKey && e.shiftKey && !e.altKey && layoutFromCode(e.code) !== null) return true; // 레이아웃 1~5
+  // Ctrl+Shift+F 스크롤백 검색: 창 처리기가 아니라 카드(Card onKeyDown)가 버블링으로 받는다
+  if (e.ctrlKey && e.shiftKey && !e.altKey && k === 'f') return true;
   return false;
 }
 
@@ -129,6 +140,8 @@ export function attachTerminal(tabId: string, pane: string, container: HTMLEleme
     term.loadAddon(fit);
     term.loadAddon(new Unicode11Addon());
     term.unicode.activeVersion = '11';
+    const search = new SearchAddon();
+    term.loadAddon(search);
     swallowQueries(term);
     term.open(host);
     term.onData((data) => {
@@ -146,7 +159,7 @@ export function attachTerminal(tabId: string, pane: string, container: HTMLEleme
       }
       return true;
     });
-    pt = { term, fit, host, lastSent: null };
+    pt = { term, fit, host, lastSent: null, search };
     terms.set(k, pt);
     const buf = pending.get(k);
     if (buf) {

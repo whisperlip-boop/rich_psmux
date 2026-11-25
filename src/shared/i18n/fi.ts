@@ -533,4 +533,13 @@ export const fi: Dict = {
   'sidebar.contentFound': { one: 'Löytyi {n} keskustelusta', other: 'Löytyi {n} keskustelusta' },
   'sidebar.contentNone': 'Keskustelujen sisällöstä ei löytynyt osumia',
   'sidebar.contentFailed': 'Keskustelujen sisällön haku epäonnistui',
+  'action.restartLead': 'Johtajan uudelleenkäynnistäminen',
+  'card.find': 'Etsi',
+  'card.findMatchCase': 'Sama kirjainkoko',
+  'card.findPrev': 'Edellinen osuma',
+  'card.findNext': 'Seuraava osuma',
+  'card.findNone': 'Ei osumia',
+  'card.leadExited': 'Claude Code on sulkeutunut',
+  'card.restartLead': 'Käynnistä uudelleen',
+  'card.resumeLead': 'Jatka',
 };

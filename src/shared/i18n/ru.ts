@@ -596,4 +596,13 @@ export const ru: Dict = {
   'sidebar.contentFound': { one: 'Найдено в {n} беседе', few: 'Найдено в {n} беседах', many: 'Найдено в {n} беседах', other: 'Найдено в {n} беседы' },
   'sidebar.contentNone': 'В тексте бесед ничего не найдено',
   'sidebar.contentFailed': 'Не удалось выполнить поиск в тексте бесед',
+  'action.restartLead': 'перезапустить лидера',
+  'card.find': 'Найти',
+  'card.findMatchCase': 'Учитывать регистр',
+  'card.findPrev': 'Предыдущее совпадение',
+  'card.findNext': 'Следующее совпадение',
+  'card.findNone': 'Нет результатов',
+  'card.leadExited': 'Работа Claude Code завершена',
+  'card.restartLead': 'Начать заново',
+  'card.resumeLead': 'Продолжить',
 };

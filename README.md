@@ -266,7 +266,7 @@ Open-source software this app uses or works with:
 |---|---|---|
 | [psmux](https://github.com/psmux/psmux) | MIT | Installed separately (not bundled) |
 | [Electron](https://www.electronjs.org/) | MIT | Bundled in the installer (`LICENSE.electron.txt`, `LICENSES.chromium.html`) |
-| [xterm.js](https://xtermjs.org/) (`@xterm/xterm`, `addon-fit`, `addon-unicode11`) | MIT | Included in the renderer bundle |
+| [xterm.js](https://xtermjs.org/) (`@xterm/xterm`, `addon-fit`, `addon-search`, `addon-unicode11`) | MIT | Included in the renderer bundle |
 | [Preact](https://preactjs.com/) | MIT | Included in the renderer bundle |
 | [electron-builder](https://www.electron.build/) | MIT | Build tool (not included in the installer) |
 | [NSIS](https://nsis.sourceforge.io/) | zlib/libpng | Generates the installer/uninstaller |

@@ -194,7 +194,7 @@ function nodeScriptCommand(name: string, what: string, node: string | null): str
  * 리드에 붙일 hook(승인 대기 감지)·statusLine(사용량) 명령. PATH의 node는 한 번만 찾는다(where.exe 1회).
  *
  * Args:
- *   withStatusLine: statusLine도 만들지(재연결은 리드를 다시 실행하지 않으므로 불필요).
+ *   withStatusLine: statusLine도 만들지(재연결은 리드를 다시 실행하지 않으므로 불필요. 다시 시작 칩은 누를 때 따로 구한다).
  */
 async function leadScriptCommands(withStatusLine: boolean): Promise<{ hook: string | null; statusLine: string | null }> {
   const useHooks = settings.get().useHooks;
@@ -347,7 +347,8 @@ async function attachSessionOnce(name: string, restore?: RestorePaths): Promise<
   // 메타의 용도도 넘긴다: 로그인 세션에 다시 붙으면 로그인 탭으로 표시·감시
   const purpose = meta.purpose ?? 'conversation';
   const hook = purpose === 'login' ? null : restore ? restore.hook : (await leadScriptCommands(false)).hook;
-  const t = new TabSession({ psmux, folder: meta.folder, leadCommand: meta.leadCommand, dataDir, hookCommand: hook, attachName: name, purpose, listed: !!restore });
+  // shell: 붙는 세션에는 적용하지 않고 리드 종료 판정(다시 시작 칩)에만 쓴다
+  const t = new TabSession({ psmux, folder: meta.folder, leadCommand: meta.leadCommand, dataDir, hookCommand: hook, attachName: name, purpose, listed: !!restore, shell: settings.get().pwshPath || null });
   log('info', `[${name}] attaching (lead ${meta.leadPaneId ?? '?'}, resume ${meta.resumeSessionId?.slice(0, 8) ?? '-'})`);
   const r = await startTab(t, `attach ${name}`);
   if (r.ok && purpose === 'login') watchLogin(t);
@@ -1695,6 +1696,13 @@ function registerIpc(): void {
   ipcMain.handle('pane:info', (_e, tabId: unknown, pane: unknown) => {
     const t = tabOf(tabId);
     return t && isPane(pane) ? t.paneInfo(pane) : null;
+  });
+  ipcMain.handle('lead:restart', async (_e, tabId: unknown, resume: unknown) => {
+    const t = tabOf(tabId);
+    if (!t || typeof resume !== 'boolean') return false;
+    // 기존 세션에 붙은 탭은 statusLine 명령을 갖고 있지 않으므로 새 탭과 같은 방식으로 누를 때 구한다
+    const statusLine = AUTO.leadCommand ? null : (await leadScriptCommands(true)).statusLine;
+    return t.restartLead(resume, statusLine);
   });
   ipcMain.handle('pane:stop', async (e: IpcMainInvokeEvent, tabId: unknown, pane: unknown, name: unknown) => {
     const t = tabOf(tabId);

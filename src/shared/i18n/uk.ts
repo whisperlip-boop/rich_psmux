@@ -594,4 +594,13 @@ export const uk: Dict = {
   'sidebar.contentFound': { one: 'Знайдено в {n} розмові', few: 'Знайдено в {n} розмовах', many: 'Знайдено в {n} розмовах', other: 'Знайдено в {n} розмови' },
   'sidebar.contentNone': 'У тексті розмов нічого не знайдено',
   'sidebar.contentFailed': 'Не вдалося виконати пошук у тексті розмов',
+  'action.restartLead': 'перезапустити лідера',
+  'card.find': 'Знайти',
+  'card.findMatchCase': 'Враховувати регістр',
+  'card.findPrev': 'Попередній збіг',
+  'card.findNext': 'Наступний збіг',
+  'card.findNone': 'Немає результатів',
+  'card.leadExited': 'Роботу Claude Code завершено',
+  'card.restartLead': 'Почати заново',
+  'card.resumeLead': 'Продовжити',
 };
